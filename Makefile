@@ -1,6 +1,6 @@
-RP_PATH = /Volumes/RP2350/
+RP_PATH = /Volumes/RP2350
 
-build: main.c
+build: src/main.c
 	cmake -B build
 	cmake --build build
 

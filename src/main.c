@@ -48,7 +48,7 @@ int main() {
 
     // Claim the next state machine and start led2 flashing
     pio_sm_claim(pio[0], sm[0] + 1);
-    blink_pin_forever(pio[0], sm[0] + 1, offset[0], PICO_DEFAULT_LED_PIN + 1, 3);
+    blink_pin_forever(pio[0], sm[0] + 1, offset[0], PICO_DEFAULT_LED_PIN - 1, 3);
 
     if (PIO_BLINK_LED3_GPIO >= 32) {
         // Find a free pio and state machine and add the program
