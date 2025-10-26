@@ -37,13 +37,13 @@ pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 
-add_executable(stereoBoy_RP2350_FW main.c )
+add_executable(stereoBoy_RP2350_FW ${CMAKE_CURRENT_LIST_DIR}/src/main.c )
 
 pico_set_program_name(stereoBoy_RP2350_FW "stereoBoy_RP2350_FW")
 pico_set_program_version(stereoBoy_RP2350_FW "0.1")
 
 # Generate PIO header
-pico_generate_pio_header(stereoBoy_RP2350_FW ${CMAKE_CURRENT_LIST_DIR}/blink.pio)
+pico_generate_pio_header(stereoBoy_RP2350_FW ${CMAKE_CURRENT_LIST_DIR}/src/blink.pio)
 
 # Modify the below lines to enable/disable output over UART/USB
 pico_enable_stdio_uart(stereoBoy_RP2350_FW 0)
