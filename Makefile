@@ -1,6 +1,8 @@
 RP_PATH = /Volumes/RP2350
 
-build: src/main.c
+.PHONY: build clean
+
+build: 
 	cmake -B build
 	cmake --build build
 
