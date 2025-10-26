@@ -1,4 +1,4 @@
-# Install script for directory: /home/iamericmin/.pico-sdk/sdk/2.2.0/src/rp2350/hardware_structs
+# Install script for directory: /Users/andrew/Documents/GitHub/StereoBoy/pico-sdk/src/rp2350/hardware_structs
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -34,12 +34,12 @@ endif()
 
 # Set path to fallback-tool for dependency-resolution.
 if(NOT DEFINED CMAKE_OBJDUMP)
-  set(CMAKE_OBJDUMP "/home/iamericmin/.pico-sdk/toolchain/14_2_Rel1/bin/arm-none-eabi-objdump")
+  set(CMAKE_OBJDUMP "/Applications/ARM/bin/arm-none-eabi-objdump")
 endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
 if(CMAKE_INSTALL_LOCAL_ONLY)
-  file(WRITE "/home/iamericmin/Desktop/stereoBoy_RP2350_FW/build/pico-sdk/src/rp2350/hardware_structs/install_local_manifest.txt"
+  file(WRITE "/Users/andrew/Documents/GitHub/StereoBoy/build/pico-sdk/src/rp2350/hardware_structs/install_local_manifest.txt"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")
 endif()
