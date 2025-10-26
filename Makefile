@@ -1,13 +1,32 @@
 RP_PATH = /Volumes/RP2350
+PICO_PROG = build/stereoBoy_RP2350_FW.uf2
 
-.PHONY: build clean
+findos:
+	@-ifeq (Windows_NT, $(env:os))
+	@-OS = Windows
+	@-endif
+	@-ifeq ($(uname), Darwin)
+	@-OS = Mac
+	@-endif
 
-build: 
+build: $(PICO_PROG)
 	cmake -B build
 	cmake --build build
 
-clean:
-	rm -rf build/
+clean: findos
+	echo $(OS)
+	ifeq ($(OS), Windows)
+		rm -r -Force build/
+	endif
+	ifeq ($(OS), Mac)
+		rm -rf build/
+	endif
 
-flash: build/stereoBoy_RP2350_FW.uf2
-	cp build/stereoBoy_RP2350_FW.uf2 $(RP_PATH)/. 
+flash:
+	cp $(PICO_PROG) $(RP_PATH)/. 
+
+
+.PHONY: clean flash
+
+.IGNORE: clear
+
