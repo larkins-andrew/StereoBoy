@@ -64,7 +64,7 @@ report:
 	@python report.py "$(MESSAGE)"
 #TODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODO
 	@powershell rm difference.txt
-	@powershell deactivate
+# @powershell deactivate
 
 .PHONY: clean flash
 .IGNORE: clear
