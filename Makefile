@@ -12,6 +12,7 @@ ifeq ($(OS),Windows_NT)
     GENERATOR := "MinGW Makefiles"
     RP_PATH := D:/
     COPY := @powershell -Command Copy-Item
+	REMOVE_FILE := powershell rm
 	ifeq ($(VENV_PATH), none)
 		PYTHON_EXE = python
 	else
@@ -29,11 +30,11 @@ else
     CLEAN_COMMAND := rm -rf build/
     GENERATOR := "Unix Makefiles"
     COPY := cp
+	REMOVE_FILE := rm
 	ifeq ($(VENV_PATH), none)
-		ACTIVATE = python
+		PYTHON_EXE = python
 	else
-#TODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODO
-		ACTIVATE = $(VENV_PATH)/Scripts/python
+		PYTHON_EXE = $(VENV_PATH)/bin/python
 	endif
 endif
 
@@ -61,9 +62,7 @@ report:
 	@git commit -m $(MESSAGE)
 	@git diff HEAD~1 HEAD > difference.txt
 	@$(PYTHON_EXE) report.py "$(MESSAGE)"
-#TODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODO
-	@powershell rm difference.txt
-# @powershell deactivate
+	@$(REMOVE_FILE) difference.txt
 
 .PHONY: clean flash
 .IGNORE: clear
