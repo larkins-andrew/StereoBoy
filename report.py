@@ -11,7 +11,7 @@ def connect():
 #    GEMINI_API_KEY environment variable.
     try:
         with open("env_variables","r") as file:
-            API_KEY=file.readline()
+            API_KEY=file.readline().strip()
         client = genai.Client(api_key=API_KEY)
     except Exception:
         # Fallback: If environment variable isn't set, 
@@ -21,6 +21,7 @@ def connect():
         exit()
 
     MODEL_NAME = "gemini-2.5-flash"
+    print(MODEL_NAME,client)
     return (MODEL_NAME, client)
 
 # 3. Define the prompt (your "command")
@@ -39,12 +40,10 @@ def generate_report(commit_message):
     user_prompt+="and the commit message that was used:"
     user_prompt+=commit_message
     user_prompt+="Do not acknowledge the input, only write a report, explaining what was tried, and what was the goal of whoever changed the code."
-
     response = client.generate_content(
         model=MODEL_NAME,
         contents=user_prompt
     )
-
     filename = "report_"+datetime.now()+".txt"
     with open(filename, "w") as file:
         file.write(response.text)
