@@ -13,9 +13,9 @@ ifeq ($(OS),Windows_NT)
     RP_PATH := D:/
     COPY := @powershell -Command Copy-Item
 	ifeq ($(VENV_PATH), none)
-		ACTIVATE = echo "no venv, running directly..."
+		PYTHON_EXE = python
 	else
-		ACTIVATE = @powershell $(VENV_PATH)/Scripts/activate
+		PYTHON_EXE = $(VENV_PATH)/Scripts/python
 	endif
 else
     UNAME_S := $(shell uname -s)
@@ -30,10 +30,10 @@ else
     GENERATOR := "Unix Makefiles"
     COPY := cp
 	ifeq ($(VENV_PATH), none)
-		ACTIVATE = echo "no venv, running directly..."
+		ACTIVATE = python
 	else
 #TODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODO
-		ACTIVATE = @powershell $(VENV_PATH)/Scripts/activate
+		ACTIVATE = $(VENV_PATH)/Scripts/python
 	endif
 endif
 
@@ -60,8 +60,7 @@ report:
 	@git add $(GIT_FILES)
 	@git commit -m $(MESSAGE)
 	@git diff HEAD~1 HEAD > difference.txt
-	$(ACTIVATE)
-	@python report.py "$(MESSAGE)"
+	@$(PYTHON_EXE) report.py "$(MESSAGE)"
 #TODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODO
 	@powershell rm difference.txt
 # @powershell deactivate
