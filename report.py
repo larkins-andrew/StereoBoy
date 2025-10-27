@@ -40,7 +40,7 @@ def generate_report(commit_message):
     user_prompt+="and the commit message that was used:"
     user_prompt+=commit_message
     user_prompt+="Do not acknowledge the input, only write a report, explaining what was tried, and what was the goal of whoever changed the code."
-    response = client.generate_content(
+    response = client.models.generate_content(
         model=MODEL_NAME,
         contents=user_prompt
     )
