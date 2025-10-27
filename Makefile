@@ -1,7 +1,16 @@
 PICO_PROG = build/stereoBoy_RP2350_FW.uf2
 FILE_NAME = stereoBoy_RP2350_FW.uf2
+GIT_FILES ?= .
+MESSAGE ?= "no commit message"
+VENV_PATH ?= none
 
-# --- OS Detection ---
+
+ifeq ($(VENV_PATH), none)
+	ACTIVATE = echo "no venv, running directly..."
+else
+	ACTIVATE = @powershell $(VENV_PATH)/Scripts/activate
+endif
+
 ifeq ($(OS),Windows_NT)
     OS_NAME := Windows
     CLEAN_COMMAND := rmdir /S /Q build
@@ -39,6 +48,15 @@ ifeq ($(OS_NAME),Windows)
 else
 	@$(COPY) "$(PICO_PROG)" "$(RP_PATH)$(FILE_NAME)"
 endif
+
+report:
+	@echo "Running report script..."
+	@git add $(GIT_FILES)
+	@git commit -m $(MESSAGE)
+	@git diff HEAD~1 HEAD > difference.txt
+	$(ACTIVATE)
+	@python report.py "$(MESSAGE)"
+	@rm difference.txt
 
 .PHONY: clean flash
 .IGNORE: clear
