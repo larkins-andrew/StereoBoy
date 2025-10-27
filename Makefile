@@ -56,7 +56,7 @@ report:
 	@git diff HEAD~1 HEAD > difference.txt
 	$(ACTIVATE)
 	@python report.py "$(MESSAGE)"
-	@rm difference.txt
+	@powershell rm difference.txt
 
 .PHONY: clean flash
 .IGNORE: clear
