@@ -26,7 +26,7 @@ def connect():
 
 def generate_report(commit_message):
     MODEL_NAME,client = connect()
-    with open("difference.txt", "r") as file:
+    with open("difference.txt", "r", encoding='utf-8') as file:
         diffs = file.read()
     changed_files = get_diff_files(diffs)
     user_prompt = "Try to determine the thought process of the person based on the differences:"
