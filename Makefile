@@ -5,11 +5,6 @@ MESSAGE ?= "no commit message"
 VENV_PATH ?= none
 
 
-ifeq ($(VENV_PATH), none)
-	ACTIVATE = echo "no venv, running directly..."
-else
-	ACTIVATE = @powershell $(VENV_PATH)/Scripts/activate
-endif
 
 ifeq ($(OS),Windows_NT)
     OS_NAME := Windows
@@ -17,6 +12,11 @@ ifeq ($(OS),Windows_NT)
     GENERATOR := "MinGW Makefiles"
     RP_PATH := D:/
     COPY := @powershell -Command Copy-Item
+	ifeq ($(VENV_PATH), none)
+		ACTIVATE = echo "no venv, running directly..."
+	else
+		ACTIVATE = @powershell $(VENV_PATH)/Scripts/activate
+	endif
 else
     UNAME_S := $(shell uname -s)
     ifeq ($(UNAME_S),Darwin)
@@ -29,6 +29,12 @@ else
     CLEAN_COMMAND := rm -rf build/
     GENERATOR := "Unix Makefiles"
     COPY := cp
+	ifeq ($(VENV_PATH), none)
+		ACTIVATE = echo "no venv, running directly..."
+	else
+#TODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODO
+		ACTIVATE = @powershell $(VENV_PATH)/Scripts/activate
+	endif
 endif
 
 # --- Targets ---
@@ -56,7 +62,9 @@ report:
 	@git diff HEAD~1 HEAD > difference.txt
 	$(ACTIVATE)
 	@python report.py "$(MESSAGE)"
+#TODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODOTODO
 	@powershell rm difference.txt
+	@powershell deactivate
 
 .PHONY: clean flash
 .IGNORE: clear
