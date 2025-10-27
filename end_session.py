@@ -1,6 +1,6 @@
+from datetime import datetime
 import sys
 from google import genai
-import re
 
 
 
@@ -24,29 +24,20 @@ def connect():
 
 def generate_report(commit_message, session_number):
     MODEL_NAME,client = connect()
-    with open("difference.txt", "r", encoding='utf-8') as file:
-        diffs = file.read()
-    output_length = 15*len(diffs) #we could use this to make the output proportional to how much was changed?
-    changed_files = get_diff_files(diffs)
-    user_prompt = "Try to determine the thought process of the person based on the differences:"
-    user_prompt+=diffs
-    user_prompt+="as well as the files that were changed:"
-    for filename in changed_files:
-        user_prompt+=filename+":"
-        with open(filename, "r") as file:
-            user_prompt+=file.read()
-    user_prompt+="and the commit message that was used:"
+    output_length = 20*len(commit_message) #we could use this to make the output proportional to how much was changed?
+    user_prompt+="Use the commit message that was provided:"
     user_prompt+=commit_message
     user_prompt+="and the current progress of the session:"
     with open("reports/report_"+str(session_number)+".txt","r") as file:
         current_report = file.read()
     user_prompt+=current_report
-    user_prompt+="Do not acknowledge the input, only write the continuation to the current session, explaining what was tried, according to the diff, and what was the goal of whoever changed the files. Keep your answer short. Write the answer in the first person, that is, use the word I a lot. The goal is to indicate what I have done and what I was thinking when doing so."
-    user_prompt+="The rubric is the following:"
+    user_prompt+="Do not acknowledge the input, only write a report. Keep your answer short. Write the answer in the first person, that is, use the word I a lot. The goal is to indicate what I have done, and what the goal of the next session is."
+    user_prompt+="The rubric of the entire session is the following:"
     user_prompt+="""
     Level of Detail Described: First, did you provide enough detail in each entry for others (such as a typical ECE senior level student) to fully understand exactly what project work you performed?
     Does each session answer the six questions: What did you work on? How does this work build upon your team's previous related work? How did you do that work (tools, programs, test rigs, etc.)? What was the result and what did you learn from this work? How does your work relate to your team's project progress? What are the next steps? Do NOT include irrelevant information, puffery language, or other “fluff.”
     """
+    user_prompt+="In this response, only generate the conclusion of the session. That is, connect the work done in this session and the commit message to determine what the next session's goal will be."
     response = client.models.generate_content(
         model=MODEL_NAME,
         contents=user_prompt
@@ -56,27 +47,19 @@ def generate_report(commit_message, session_number):
         file.write(response.text)
 
 
-def get_diff_files(diffs):
-    FILE_REGEX = r"^\s*diff --git a\/([^\s]+)"
-    matches = re.findall(FILE_REGEX, diffs, re.MULTILINE)
-    return(matches)
 
 
-def check_session():
-    with open("reports/session_number", "r") as file:
-        last_line = file.readlines()[-1]
-    if ("end" in last_line):
-        return None
-    else:
-        return ((last_line.split()[0]))
-        
 
-
-if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        message = sys.argv[1]
-        session_number = check_session()
-        if session_number==None:
-            print("Please start a session.")
-        else:
-            generate_report(message, session_number)
+with open("reports/session_number", "r") as file:
+    last_line = file.readlines()[-1]
+if ("end" not in last_line):
+    last_session = int(last_line.split()[0])
+    with open("reports/session_number","a") as file:
+        file.write(" end")
+    with open("reports/report_"+str(last_session)+".txt","a") as file:
+        file.write("Ending Journaling Session at:"+ str(datetime.now())+"\n")
+        print("Ending Journaling Session at:"+ str(datetime.now()))
+    generate_report(sys.argv[1],last_session)
+else:
+    print("You cannot end a session you have not started.")
+    

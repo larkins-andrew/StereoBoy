@@ -3,8 +3,10 @@ FILE_NAME = stereoBoy_RP2350_FW.uf2
 GIT_FILES ?= .
 MESSAGE ?= "There was no given commit message"
 VENV_PATH ?= none
-
-
+REPORTS_DIR := reports
+SESSION_FILE := session_number
+REPORT_PREFIX := report_
+ACTIVE_SESSION := active_session
 
 ifeq ($(OS),Windows_NT)
     OS_NAME := Windows
@@ -56,13 +58,29 @@ else
 	@$(COPY) "$(PICO_PROG)" "$(RP_PATH)$(FILE_NAME)"
 endif
 
+
+
+
+
+
+#REPORT STUFF NOT ESSENTIAL, DON"T GET JUMBLED UP HERE
+
+
+start_session:
+	@$(PYTHON_EXE) start_session.py "$(MESSAGE)"
+	
 report:
 	@echo "Running report script..."
+	@echo $(MESSAGE)
 	@git add $(GIT_FILES)
-	@git commit -m $(MESSAGE)
+	@git commit -m "$(MESSAGE)"
 	@git diff HEAD~1 HEAD > difference.txt
 	@$(PYTHON_EXE) report.py "$(MESSAGE)"
 	@$(REMOVE_FILE) difference.txt
 
-.PHONY: clean flash
+
+end_session:
+	@$(PYTHON_EXE) end_session.py "$(MESSAGE)"
+
+.PHONY: clean flash start_session report end_session
 .IGNORE: clear
