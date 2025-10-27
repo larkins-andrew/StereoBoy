@@ -28,6 +28,7 @@ def generate_report(commit_message):
     MODEL_NAME,client = connect()
     with open("difference.txt", "r", encoding='utf-8') as file:
         diffs = file.read()
+    output_length = 15*len(diffs) #we could use this to make the output proportional to how much was changed?
     changed_files = get_diff_files(diffs)
     user_prompt = "Try to determine the thought process of the person based on the differences:"
     user_prompt+=diffs
