@@ -58,11 +58,6 @@ else
 	@$(COPY) "$(PICO_PROG)" "$(RP_PATH)$(FILE_NAME)"
 endif
 
-
-
-
-
-
 #REPORT STUFF NOT ESSENTIAL, DON"T GET JUMBLED UP HERE
 
 
@@ -77,7 +72,6 @@ report:
 	@git diff HEAD~1 HEAD > difference.txt
 	@$(PYTHON_EXE) report.py "$(MESSAGE)"
 	@$(REMOVE_FILE) difference.txt
-
 
 end_session:
 	@$(PYTHON_EXE) end_session.py "$(MESSAGE)"
