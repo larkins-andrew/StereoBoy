@@ -25,7 +25,7 @@ def connect():
 def generate_report(commit_message, session_number):
     MODEL_NAME,client = connect()
     output_length = 20*len(commit_message) #we could use this to make the output proportional to how much was changed?
-    user_prompt+="Use the commit message that was provided:"
+    user_prompt="Use the commit message that was provided:"
     user_prompt+=commit_message
     user_prompt+="and the current progress of the session:"
     with open("reports/report_"+str(session_number)+".txt","r") as file:
@@ -45,9 +45,6 @@ def generate_report(commit_message, session_number):
     filename = "reports/report_"+str(session_number)+".txt"
     with open(filename, "a") as file:
         file.write(response.text)
-
-
-
 
 
 with open("reports/session_number", "r") as file:
