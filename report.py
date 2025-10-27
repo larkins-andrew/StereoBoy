@@ -44,7 +44,7 @@ def generate_report(commit_message):
         contents=user_prompt
     )
     now=datetime.now()
-    filename = "report_"+str(now.strftime("%Y-%m-%d%H:%M:%S"))+".txt"
+    filename = "reports/report_"+str(now.strftime("%Y-%m-%d_%H-%M-%S"))+".txt"
     with open(filename, "w") as file:
         file.write(response.text)
 
