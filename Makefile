@@ -1,7 +1,7 @@
 PICO_PROG = build/stereoBoy_RP2350_FW.uf2
 FILE_NAME = stereoBoy_RP2350_FW.uf2
 GIT_FILES ?= .
-MESSAGE ?= "no commit message"
+MESSAGE ?= "There was no given commit message"
 VENV_PATH ?= none
 
 

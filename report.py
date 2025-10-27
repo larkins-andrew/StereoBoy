@@ -38,7 +38,12 @@ def generate_report(commit_message):
             user_prompt+=file.read()
     user_prompt+="and the commit message that was used:"
     user_prompt+=commit_message
-    user_prompt+="Do not acknowledge the input, only write a report, explaining what was tried, and what was the goal of whoever changed the code."
+    user_prompt+="Do not acknowledge the input, only write a report, explaining what was tried, and what was the goal of whoever changed the code. Keep your answer short. Write the answer in the first person, that is, use the word I a lot. The goal is to indicate what I have done and what I was thinking when doing so."
+    user_prompt+="The rubric is the following:"
+    user_prompt+="""
+    Level of Detail Described: First, did you provide enough detail in each entry for others (such as a typical ECE senior level student) to fully understand exactly what project work you performed?
+    Does each journal entry answer the six questions: What did you work on? How does this work build upon your team’s previous related work? How did you do that work (tools, programs, test rigs, etc.)? What was the result and what did you learn from this work? How does your work relate to your team's project progress? What are the next steps? Do NOT include irrelevant information, puffery language, or other “fluff.”
+    """
     response = client.models.generate_content(
         model=MODEL_NAME,
         contents=user_prompt
