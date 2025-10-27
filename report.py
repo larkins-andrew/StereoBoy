@@ -24,7 +24,6 @@ def connect():
     print(MODEL_NAME,client)
     return (MODEL_NAME, client)
 
-# 3. Define the prompt (your "command")
 def generate_report(commit_message):
     MODEL_NAME,client = connect()
     with open("difference.txt", "r") as file:
@@ -44,7 +43,7 @@ def generate_report(commit_message):
         model=MODEL_NAME,
         contents=user_prompt
     )
-    filename = "report_"+datetime.now()+".txt"
+    filename = "report_"+str(datetime.now())+".txt"
     with open(filename, "w") as file:
         file.write(response.text)
 
