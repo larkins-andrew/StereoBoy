@@ -10,7 +10,9 @@ def connect():
 # 1. The client automatically picks up the API key from the 
 #    GEMINI_API_KEY environment variable.
     try:
-        client = genai.Client()
+        with open("env_variables","r") as file:
+            API_KEY=file.readline()
+        client = genai.Client(api_key=API_KEY)
     except Exception:
         # Fallback: If environment variable isn't set, 
         # you can pass the key directly (less secure):
@@ -42,7 +44,7 @@ def generate_report(commit_message):
         model=MODEL_NAME,
         contents=user_prompt
     )
-    
+
     filename = "report_"+datetime.now()+".txt"
     with open(filename, "w") as file:
         file.write(response.text)
