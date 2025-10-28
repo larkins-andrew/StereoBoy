@@ -1,7 +1,7 @@
 PICO_PROG = build/stereoBoy_RP2350_FW.uf2
 FILE_NAME = stereoBoy_RP2350_FW.uf2
 GIT_FILES ?= .
-MESSAGE ?= "There was no given commit message"
+MESSAGE ?= There was no given commit message
 VENV_PATH ?= none
 REPORTS_DIR := reports
 SESSION_FILE := session_number
@@ -10,7 +10,7 @@ ACTIVE_SESSION := active_session
 
 ifeq ($(OS),Windows_NT)
     OS_NAME := Windows
-    CLEAN_COMMAND := cmd /c if exist build rmdir /s /q build
+    CLEAN_COMMAND := cmake --build build --target clean
     GENERATOR := "MinGW Makefiles"
     RP_PATH := D:/
     COPY := @powershell -Command Copy-Item
@@ -66,7 +66,7 @@ start_session:
 	
 report:
 	@echo "Running report script..."
-	@echo $(MESSAGE)
+	@echo "$(MESSAGE)"
 	@git add $(GIT_FILES)
 	@git commit -m "$(MESSAGE)"
 	@git diff HEAD~1 HEAD > difference.txt
