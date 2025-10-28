@@ -29,7 +29,7 @@ else
         OS_NAME := Linux
         RP_PATH := /media/RP2350/
     endif
-    CLEAN_COMMAND := rm -rf build/
+    CLEAN_COMMAND := cmake --build build --target clean
     GENERATOR := "Unix Makefiles"
     COPY := cp
 	REMOVE_FILE := rm
