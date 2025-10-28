@@ -76,5 +76,16 @@ report:
 end_session:
 	@$(PYTHON_EXE) end_session.py "$(MESSAGE)"
 
+help:
+	@echo "Supported Commands"
+	@echo " PI Build Commands"
+	@echo "  build"
+	@echo "  clean"
+	@echo "  flash"
+	@echo " Report Germination"
+	@echo "  start_session"
+	@echo "  report"
+	@echo "  end_session"
+
 .PHONY: clean flash start_session report end_session
 .IGNORE: clear
