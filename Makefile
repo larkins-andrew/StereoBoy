@@ -10,7 +10,7 @@ ACTIVE_SESSION := active_session
 
 ifeq ($(OS),Windows_NT)
     OS_NAME := Windows
-    CLEAN_COMMAND := rmdir /S /Q build
+    CLEAN_COMMAND := cmd /c if exist build rmdir /s /q build
     GENERATOR := "MinGW Makefiles"
     RP_PATH := D:/
     COPY := @powershell -Command Copy-Item
