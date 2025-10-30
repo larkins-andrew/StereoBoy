@@ -28,7 +28,7 @@ def generate_report(commit_message, session_number):
     with open("reports/report_"+str(session_number-1)+".txt","r") as file:
         prev_report = file.read()
     user_prompt+=prev_report
-    user_prompt+="and use the commit message that was provided:"
+    user_prompt+="and use the message that was provided:"
     user_prompt+=commit_message
     user_prompt+="Do not acknowledge the input, only write a report. Keep your answer short. Write the answer in the first person, that is, use the word I a lot. The goal is to indicate what I will be doing."
     user_prompt+="The rubric of the entire session is the following:"

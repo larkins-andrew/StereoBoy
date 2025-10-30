@@ -35,7 +35,7 @@ def generate_report(commit_message, session_number):
         user_prompt+=filename+":"
         with open(filename, "r") as file:
             user_prompt+=file.read()
-    user_prompt+="and the commit message that was used:"
+    user_prompt+="and the message that was used:"
     user_prompt+=commit_message
     user_prompt+="and the current progress of the session:"
     with open("reports/report_"+str(session_number)+".txt","r") as file:
@@ -46,7 +46,13 @@ def generate_report(commit_message, session_number):
     user_prompt+="""
     Level of Detail Described: First, did you provide enough detail in each entry for others (such as a typical ECE senior level student) to fully understand exactly what project work you performed?
     Does each session answer the six questions: What did you work on? How does this work build upon your team's previous related work? How did you do that work (tools, programs, test rigs, etc.)? What was the result and what did you learn from this work? How does your work relate to your team's project progress? What are the next steps? Do NOT include irrelevant information, puffery language, or other “fluff.”
+    Note that this is not a full session. This is just a subsection of the session. You are only writing a continutation to what is already in the document. Also, there is no need to conclude/connect with next steps, that is to be handled later. What I need you to focus on is making sure to detail why I made this change, and what it fixes (or tries to).
+    I am also providing a previous report of mine, of which you must imitate the writing style, that is, what you write should resemble it as much as possible, while keeping in mind that what you are writing is only a small subsection of the whole report.
     """
+    with open("reports/report_sample.txt","r") as file:
+        report_sample = file.read()
+    user_prompt+=report_sample
+
     response = client.models.generate_content(
         model=MODEL_NAME,
         contents=user_prompt
