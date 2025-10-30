@@ -53,10 +53,10 @@ if ("end" not in last_line):
     last_session = int(last_line.split()[0])
     with open("reports/session_number","a") as file:
         file.write(" end")
+    generate_report(sys.argv[1],last_session)
     with open("reports/report_"+str(last_session)+".txt","a") as file:
         file.write("Ending Journaling Session at:"+ str(datetime.now())+"\n")
         print("Ending Journaling Session at:"+ str(datetime.now()))
-    generate_report(sys.argv[1],last_session)
 else:
     print("You cannot end a session you have not started.")
     
