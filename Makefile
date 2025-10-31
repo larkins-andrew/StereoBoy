@@ -43,7 +43,7 @@ endif
 # --- Targets ---
 build: $(PICO_PROG)
 
-$(PICO_PROG):
+$(PICO_PROG): src/blink.pio src/main.c
 	cmake -B build -G $(GENERATOR) -DPICO_SDK_PATH=./pico-sdk -DPICO_BOARD=pico2
 	cmake --build build
 
