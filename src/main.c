@@ -10,7 +10,7 @@
 #include "pico/stdlib.h"
 #include "hardware/pio.h"
 #include "hardware/gpio.h"
-#include "hardware/interp.h"
+#include "hardware/interp.h" //When running make build, this does not work, with an error that says fatal error: hardware/interp.h: No such file or directory
 
 #include "st7789_lcd.pio.h"
 #include "raspberry_256x256_rgb565.h"
