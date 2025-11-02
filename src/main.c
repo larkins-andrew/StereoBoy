@@ -12,7 +12,7 @@
 #include "hardware/gpio.h"
 #include "hardware/interp.h"
 
-#include "st7789_lcd.pio.h"
+#include "main.pio.h"
 #include "raspberry_256x256_rgb565.h"
 
 // Tested with the parts that have the height of 240 and 320
