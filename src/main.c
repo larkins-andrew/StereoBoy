@@ -247,7 +247,7 @@ int main() {
 
     
     lcd_draw_rect(pio, sm, 0, 0, 240, 240, BLACK);
-    lcd_draw_rect(pio, sm, 20, 20, 40, 100, GREEN);
+    lcd_draw_rect(pio, sm, 0, 0, 24, 24, GREEN);
     lcd_draw_rect(pio, sm, 60, 60, 100, 50, RED);
     lcd_draw_pixel(pio, sm, 0, 0, MAGENTA);
    
