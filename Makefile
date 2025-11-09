@@ -50,7 +50,7 @@ $(PICO_PROG): src/main.pio src/main.c
 clean:
 	@$(CLEAN_COMMAND)
 
-flash:
+flash: build
 	@echo Flashing to $(OS_NAME) drive...
 ifeq ($(OS_NAME),Windows)
 	$(COPY) "$(PICO_PROG)" "$(RP_PATH)$(FILE_NAME)"
