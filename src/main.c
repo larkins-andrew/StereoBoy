@@ -28,6 +28,21 @@
 #define PIN_RESET 4
 #define PIN_BL 5
 
+// Define some 16-bit RGB565 colors
+#define BLACK   0x0000
+#define RED     0xF800
+#define GREEN   0x07E0
+#define BLUE    0x001F
+#define WHITE   0xFFFF
+#define YELLOW  0xFFE0
+#define CYAN    0x07FF
+#define MAGENTA 0xF81F
+
+// Define ST7789 commands
+#define ST7789_CMD_CASET 0x2A
+#define ST7789_CMD_RASET 0x2B
+#define ST7789_CMD_RAMWR 0x2C
+
 #define SERIAL_CLK_DIV 1.f
 
 #ifndef M_PI
@@ -78,11 +93,89 @@ static inline void lcd_init(PIO pio, uint sm, const uint8_t *init_seq) {
     }
 }
 
+
+// Tells controller done sending command data, start writing the pixels
 static inline void st7789_start_pixels(PIO pio, uint sm) {
     uint8_t cmd = 0x2c; // RAMWR
     lcd_write_cmd(pio, sm, &cmd, 1);
     lcd_set_dc_cs(1, 0);
 }
+
+
+// Helper to send a 16-bit color to the PIO
+static inline void st7789_lcd_put16(PIO pio, uint sm, uint16_t color) {
+    st7789_lcd_put(pio, sm, color >> 8);
+    st7789_lcd_put(pio, sm, color & 0xFF);
+}
+
+/**
+ * Defines a drawing window based on starting (x,y) location and width of rectangle. This allows the micro to stream pixel 
+ * packets one after another to the LCD without having to give it specific locations
+ * 
+ * 
+ * @param pio
+ * @param sm
+ * @param x Starting X location
+ * @param y Starting y location
+ * @param w Width of window
+ * @param h height of window
+ * 
+ */
+static inline void lcd_set_window(PIO pio, uint sm, uint16_t x, uint16_t y, uint16_t w, uint16_t h) {
+    uint16_t x_end = x + w - 1;
+    uint16_t y_end = y + h - 1;
+
+    // CASET (Column Address Set)
+    uint8_t caset_cmd[] = {
+        ST7789_CMD_CASET,
+        (uint8_t)(x >> 8),
+        (uint8_t)(x & 0xFF),
+        (uint8_t)(x_end >> 8),
+        (uint8_t)(x_end & 0xFF)
+    };
+    lcd_write_cmd(pio, sm, caset_cmd, sizeof(caset_cmd));
+
+    // RASET (Row Address Set)
+    uint8_t raset_cmd[] = {
+        ST7789_CMD_RASET,
+        (uint8_t)(y >> 8),
+        (uint8_t)(y & 0xFF),
+        (uint8_t)(y_end >> 8),
+        (uint8_t)(y_end & 0xFF)
+    };
+    lcd_write_cmd(pio, sm, raset_cmd, sizeof(raset_cmd));
+}
+
+/**
+ * Draws a rectangle starting (x,y) location and width of rectangle.
+ * 
+ * @param pio
+ * @param sm
+ * @param x starting x location 
+ * @param y starting y location
+ * @param w width of rectangle
+ * @param h height of rectangle
+ * @param color 16-bit RGB565 colors i.e. 0xF81F
+ * 
+ */
+void lcd_draw_rect(PIO pio, uint sm, uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t color) {
+    // set the window
+    lcd_set_window(pio, sm, x, y, w, h);
+
+    //start pixel write
+    st7789_start_pixels(pio, sm);
+
+    //stream pixels one after the other
+    uint32_t num_pixels = (uint32_t)w * h;
+    for (uint32_t i = 0; i < num_pixels; ++i) {
+        st7789_lcd_put16(pio, sm, color);
+    }
+
+    //End command
+    st7789_lcd_wait_idle(pio, sm);
+    lcd_set_dc_cs(1, 1); // Deselect CS
+}
+
 
 int main() {
     stdio_init_all();
@@ -106,48 +199,13 @@ int main() {
     lcd_init(pio, sm, st7789_init_seq);
     gpio_put(PIN_BL, 1);
 
-    // Other SDKs: static image on screen, lame, boring
-    // Raspberry Pi Pico SDK: spinning image on screen, bold, exciting
+    
+    lcd_draw_rect(pio, sm, 0, 0, 240, 240, BLACK);
+    lcd_draw_rect(pio, sm, 20, 20, 1, 100, GREEN);
+    lcd_draw_rect(pio, sm, 60, 60, 100, 1, RED);
 
-    // Lane 0 will be u coords (bits 8:1 of addr offset), lane 1 will be v
-    // coords (bits 16:9 of addr offset), and we'll represent coords with
-    // 16.16 fixed point. ACCUM0,1 will contain current coord, BASE0/1 will
-    // contain increment vector, and BASE2 will contain image base pointer
-#define UNIT_LSB 16
-    interp_config lane0_cfg = interp_default_config();
-    interp_config_set_shift(&lane0_cfg, UNIT_LSB - 1); // -1 because 2 bytes per pixel
-    interp_config_set_mask(&lane0_cfg, 1, 1 + (LOG_IMAGE_SIZE - 1));
-    interp_config_set_add_raw(&lane0_cfg, true); // Add full accumulator to base with each POP
-    interp_config lane1_cfg = interp_default_config();
-    interp_config_set_shift(&lane1_cfg, UNIT_LSB - (1 + LOG_IMAGE_SIZE));
-    interp_config_set_mask(&lane1_cfg, 1 + LOG_IMAGE_SIZE, 1 + (2 * LOG_IMAGE_SIZE - 1));
-    interp_config_set_add_raw(&lane1_cfg, true);
-
-    interp_set_config(interp0, 0, &lane0_cfg);
-    interp_set_config(interp0, 1, &lane1_cfg);
-    interp0->base[2] = (uint32_t) raspberry_256x256;
-
-    float theta = 0.f;
-    float theta_max = 2.f * (float) M_PI;
+    
     while (1) {
-        theta += 0.02f;
-        if (theta > theta_max)
-            theta -= theta_max;
-        int32_t rotate[4] = {
-                (int32_t) (cosf(theta) * (1 << UNIT_LSB)), (int32_t) (-sinf(theta) * (1 << UNIT_LSB)),
-                (int32_t) (sinf(theta) * (1 << UNIT_LSB)), (int32_t) (cosf(theta) * (1 << UNIT_LSB))
-        };
-        interp0->base[0] = rotate[0];
-        interp0->base[1] = rotate[2];
-        st7789_start_pixels(pio, sm);
-        for (int y = 0; y < SCREEN_HEIGHT; ++y) {
-            interp0->accum[0] = rotate[1] * y;
-            interp0->accum[1] = rotate[3] * y;
-            for (int x = 0; x < SCREEN_WIDTH; ++x) {
-                uint16_t colour = *(uint16_t *) (interp0->pop[2]);
-                st7789_lcd_put(pio, sm, colour >> 8);
-                st7789_lcd_put(pio, sm, colour & 0xff);
-            }
-        }
+        
     }
 }
