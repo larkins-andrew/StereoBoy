@@ -53,21 +53,16 @@ pico_enable_stdio_usb(stereoBoy_RP2350_FW 1)
 target_link_libraries(stereoBoy_RP2350_FW
         pico_stdlib
         hardware_pio
-        hardware_interp)
+        hardware_interp
+        hardware_spi
+        hardware_i2c
+        hardware_dma
+        hardware_watchdog)
 
 # Add the standard include files to the build
 target_include_directories(stereoBoy_RP2350_FW PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}
 )
-
-# Add any user requested libraries
-target_link_libraries(stereoBoy_RP2350_FW 
-        hardware_spi
-        hardware_i2c
-        hardware_dma
-        hardware_pio
-        hardware_watchdog
-        )
 
 pico_add_extra_outputs(stereoBoy_RP2350_FW)
 
