@@ -40,4 +40,4 @@ if __name__ == '__main__':
     print(pixel_tupels[1])
     with open('output.txt', 'w+') as f:
         for s in pixel_tupels[1]:
-            f.write(f"{s}, ")
+            f.write(f"{s},\n")
