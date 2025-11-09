@@ -11,7 +11,7 @@ ACTIVE_SESSION := active_session
 ifeq ($(OS),Windows_NT)
     OS_NAME := Windows
     CLEAN_COMMAND := cmake --build build --target clean
-    GENERATOR := "MinGW Makefiles"
+    GENERATOR := -G "MinGW Makefiles"
     RP_PATH := D:/
     COPY := @powershell -Command Copy-Item
 	REMOVE_FILE := powershell rm
@@ -25,12 +25,13 @@ else
     ifeq ($(UNAME_S),Darwin)
         OS_NAME := Mac
         RP_PATH := /Volumes/RP2350/
+    	GENERATOR := -G "Unix Makefiles"
     else
         OS_NAME := Linux
         RP_PATH := /media/RP2350/
+		GENERATOR := 
     endif
     CLEAN_COMMAND := cmake --build build --target clean
-    GENERATOR := "Unix Makefiles"
     COPY := cp
 	REMOVE_FILE := rm
 	ifeq ($(VENV_PATH), none)
@@ -44,7 +45,7 @@ endif
 build: $(PICO_PROG)
 
 $(PICO_PROG): src/main.pio src/main.c
-	cmake -B build -G $(GENERATOR) -DPICO_SDK_PATH=./pico-sdk -DPICO_BOARD=pico2
+	cmake -B build $(GENERATOR) -DPICO_SDK_PATH=./pico-sdk -DPICO_BOARD=pico2
 	cmake --build build
 
 clean:
