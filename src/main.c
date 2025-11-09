@@ -102,7 +102,7 @@ static inline void st7789_start_pixels(PIO pio, uint sm) {
 }
 
 
-// Helper to send a 16-bit color to the PIO
+// Helper to send a 16-bit color to the PIO since lcd expect colors as 2 8-bit chunks
 static inline void st7789_lcd_put16(PIO pio, uint sm, uint16_t color) {
     st7789_lcd_put(pio, sm, color >> 8);
     st7789_lcd_put(pio, sm, color & 0xFF);
@@ -176,6 +176,52 @@ void lcd_draw_rect(PIO pio, uint sm, uint16_t x, uint16_t y, uint16_t w, uint16_
     lcd_set_dc_cs(1, 1); // Deselect CS
 }
 
+/**
+ * Draws a pixel at location (x,y).
+ * 
+ * @param pio
+ * @param sm
+ * @param x x location 
+ * @param y  y location
+ * @param color 16-bit RGB565 colors i.e. 0xF81F
+ * 
+ */
+void lcd_draw_pixel(PIO pio, uint sm, uint16_t x, uint16_t y, uint16_t color){
+    lcd_draw_rect(pio, sm, x, y, 1, 1, color);
+}
+
+/**
+    * Draws a string
+    * 
+    * @param pio
+    * @param sm
+    * @param x x starting locaiton
+    * @param y  y starting location
+    * @param squareSize size of square string is in
+    * @param string array of 16-bit color values
+    * 
+*/
+void lcd_draw_string(PIO pio, uint sm, uint16_t x, uint16_t y, uint16_t squareSize, uint16_t* string){
+    // set the window
+    lcd_set_window(pio, sm, x, y, squareSize, squareSize);
+
+    //start pixel write
+    st7789_start_pixels(pio, sm);
+
+    //stream pixels one after the other
+    uint32_t num_pixels = (uint32_t)squareSize * squareSize;
+    for (uint32_t i = 0; i < num_pixels; ++i) {
+        st7789_lcd_put16(pio, sm, string[i]);
+    }
+
+    //End command
+    st7789_lcd_wait_idle(pio, sm);
+    lcd_set_dc_cs(1, 1); // Deselect CS
+}
+
+
+//given a string with
+
 
 int main() {
     stdio_init_all();
@@ -201,10 +247,10 @@ int main() {
 
     
     lcd_draw_rect(pio, sm, 0, 0, 240, 240, BLACK);
-    lcd_draw_rect(pio, sm, 20, 20, 1, 100, GREEN);
-    lcd_draw_rect(pio, sm, 60, 60, 100, 1, RED);
-
-    
+    lcd_draw_rect(pio, sm, 20, 20, 40, 100, GREEN);
+    lcd_draw_rect(pio, sm, 60, 60, 100, 50, RED);
+    lcd_draw_pixel(pio, sm, 0, 0, MAGENTA);
+   
     while (1) {
         
     }
