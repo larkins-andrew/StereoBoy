@@ -37,7 +37,7 @@
 #ifndef DRIVER_VS1053B_BASIC_H
 #define DRIVER_VS1053B_BASIC_H
 
-#include "driver_vs1053b_interface.h"
+#include "driverInterface.h"
 
 #ifdef __cplusplus
 extern "C"{
