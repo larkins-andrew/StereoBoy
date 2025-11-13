@@ -15,6 +15,8 @@
 #include "main.pio.h"
 #include "raspberry_256x256_rgb565.h"
 
+#include "font_13_24.hh"
+
 // Tested with the parts that have the height of 240 and 320
 #define SCREEN_WIDTH 240
 #define SCREEN_HEIGHT 240
@@ -193,30 +195,60 @@ void lcd_draw_pixel(PIO pio, uint sm, uint16_t x, uint16_t y, uint16_t color){
 /**
     * Draws a string
     * 
-    * @param pio
-    * @param sm
+    * @param pio 
+    * @param sm ????
     * @param x x starting locaiton
     * @param y  y starting location
     * @param squareSize size of square string is in
     * @param string array of 16-bit color values
     * 
 */
-void lcd_draw_string(PIO pio, uint sm, uint16_t x, uint16_t y, uint16_t squareSize, uint16_t* string){
+void lcd_draw_char(PIO pio, uint sm, uint16_t x, uint16_t y, uint16_t fontSizeX, uint16_t fontSizeY, const uint16_t* string){
     // set the window
-    lcd_set_window(pio, sm, x, y, squareSize, squareSize);
+    lcd_set_window(pio, sm, x, y, fontSizeX, fontSizeY);
 
     //start pixel write
     st7789_start_pixels(pio, sm);
 
     //stream pixels one after the other
-    uint32_t num_pixels = (uint32_t)squareSize * squareSize;
+    uint32_t num_pixels = (uint32_t)fontSizeX * fontSizeY;
     for (uint32_t i = 0; i < num_pixels; ++i) {
         st7789_lcd_put16(pio, sm, string[i]);
     }
+    // for (int i = 0; text[i] != '\0'; i++) {
+    //     lcd_draw_char(start_x, y, text[i], color);
+    //     start_x += 6;
+    // }
 
     //End command
     st7789_lcd_wait_idle(pio, sm);
     lcd_set_dc_cs(1, 1); // Deselect CS
+}
+
+const struct Font* find_font_char(char c) {
+    for (int i = 0; font[i].letter != 0; i++) {
+        if (font[i].letter == c) return &font[i];
+    }
+    return NULL;
+}
+
+void lcd_draw_string(PIO pio, uint sm, uint16_t x, uint16_t y, uint16_t fontSizeX, uint16_t fontSizeY, const char *text){
+    
+    uint16_t start_x = x;
+    uint16_t start_y = y;
+
+    for (int i = 0; text[i] != '\0'; i++) {
+        if (text[i] == '\n') {
+            start_x = x;
+            start_y += fontSizeY;
+            continue;
+        }
+        const struct Font* f = find_font_char(text[i]);
+        if (!f) return;
+
+        lcd_draw_char(pio, sm, start_x, start_y, fontSizeX, fontSizeY, f->code);
+        start_x += fontSizeX;
+    }
 }
 
 
@@ -247,9 +279,10 @@ int main() {
 
     
     lcd_draw_rect(pio, sm, 0, 0, 240, 240, BLACK);
-    lcd_draw_rect(pio, sm, 0, 0, 24, 24, GREEN);
-    lcd_draw_rect(pio, sm, 60, 60, 100, 50, RED);
-    lcd_draw_pixel(pio, sm, 0, 0, MAGENTA);
+    // lcd_draw_rect(pio, sm, 0, 0, 24, 24, GREEN);
+    lcd_draw_string(pio, sm, 0, 0, 13, 24, " !\"#$%&'(\n)*+,-./012\n3456789:;<\n=>?@ABCDEF\nGHIJKLMNOP\nQRSTUVWXYZ\n[\\]^_`abcd\nefghijklmn\nopqrstuvwx\nyz{|}~");
+    // lcd_draw_rect(pio, sm, 60, 60, 100, 50, RED);
+    // lcd_draw_pixel(pio, sm, 0, 0, MAGENTA);
    
     while (1) {
         
