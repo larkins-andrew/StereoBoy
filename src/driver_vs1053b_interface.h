@@ -21,8 +21,8 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE. 
  *
- * @file      driver_vs1053b_interface_template.c
- * @brief     driver vs1053b interface template source file
+ * @file      driver_vs1053b_interface.h
+ * @brief     driver vs1053b interface header file
  * @version   1.0.0
  * @author    Shifeng Li
  * @date      2023-06-30
@@ -34,7 +34,21 @@
  * </table>
  */
 
-#include "driverInterface.h"
+#ifndef DRIVER_VS1053B_INTERFACE_H
+#define DRIVER_VS1053B_INTERFACE_H
+
+#include "driver_vs1053b.h"
+
+#ifdef __cplusplus
+extern "C"{
+#endif
+
+/**
+ * @defgroup vs1053b_interface_driver vs1053b interface driver function
+ * @brief    vs1053b interface driver modules
+ * @ingroup  vs1053b_driver
+ * @{
+ */
 
 /**
  * @brief  interface spi cmd bus init
@@ -43,10 +57,7 @@
  *         - 1 spi init failed
  * @note   none
  */
-uint8_t vs1053b_interface_spi_cmd_init(void)
-{
-    return 0;
-}
+uint8_t vs1053b_interface_spi_cmd_init(void);
 
 /**
  * @brief  interface spi cmd bus deinit
@@ -55,10 +66,7 @@ uint8_t vs1053b_interface_spi_cmd_init(void)
  *         - 1 spi deinit failed
  * @note   none
  */
-uint8_t vs1053b_interface_spi_cmd_deinit(void)
-{
-    return 0;
-}
+uint8_t vs1053b_interface_spi_cmd_deinit(void);
 
 /**
  * @brief      interface spi cmd bus read
@@ -70,10 +78,7 @@ uint8_t vs1053b_interface_spi_cmd_deinit(void)
  *             - 1 read failed
  * @note       none
  */
-uint8_t vs1053b_interface_spi_cmd_read_address16(uint16_t reg, uint8_t *buf, uint16_t len)
-{
-    return 0;
-}
+uint8_t vs1053b_interface_spi_cmd_read_address16(uint16_t reg, uint8_t *buf, uint16_t len);
 
 /**
  * @brief     interface spi cmd bus write
@@ -85,10 +90,7 @@ uint8_t vs1053b_interface_spi_cmd_read_address16(uint16_t reg, uint8_t *buf, uin
  *            - 1 write failed
  * @note      none
  */
-uint8_t vs1053b_interface_spi_cmd_write_address16(uint16_t reg, uint8_t *buf, uint16_t len)
-{
-    return 0;
-}
+uint8_t vs1053b_interface_spi_cmd_write_address16(uint16_t reg, uint8_t *buf, uint16_t len);
 
 /**
  * @brief  interface spi dat bus init
@@ -97,10 +99,7 @@ uint8_t vs1053b_interface_spi_cmd_write_address16(uint16_t reg, uint8_t *buf, ui
  *         - 1 spi init failed
  * @note   none
  */
-uint8_t vs1053b_interface_spi_dat_init(void)
-{
-    return 0;
-}
+uint8_t vs1053b_interface_spi_dat_init(void);
 
 /**
  * @brief  interface spi dat bus deinit
@@ -109,10 +108,7 @@ uint8_t vs1053b_interface_spi_dat_init(void)
  *         - 1 spi deinit failed
  * @note   none
  */
-uint8_t vs1053b_interface_spi_dat_deinit(void)
-{
-    return 0;
-}
+uint8_t vs1053b_interface_spi_dat_deinit(void);
 
 /**
  * @brief     interface spi dat bus write command
@@ -123,10 +119,7 @@ uint8_t vs1053b_interface_spi_dat_deinit(void)
  *            - 1 write failed
  * @note      none
  */
-uint8_t vs1053b_interface_spi_dat_write_cmd(uint8_t *buf, uint16_t len)
-{
-    return 0;
-}
+uint8_t vs1053b_interface_spi_dat_write_cmd(uint8_t *buf, uint16_t len);
 
 /**
  * @brief      interface audio init
@@ -138,10 +131,16 @@ uint8_t vs1053b_interface_spi_dat_write_cmd(uint8_t *buf, uint16_t len)
  *             - 1 audio init failed
  * @note       none
  */
-uint8_t vs1053b_interface_audio_init(uint8_t type, char *name, uint32_t *size)
-{
-    return 0;
-}
+uint8_t vs1053b_interface_audio_init(uint8_t type, char *name, uint32_t *size);
+
+/**
+ * @brief  interface audio deinit
+ * @return status code
+ *         - 0 success
+ *         - 1 audio deinit failed
+ * @note   none
+ */
+uint8_t vs1053b_interface_audio_deinit(void);
 
 /**
  * @brief      interface audio read
@@ -153,10 +152,7 @@ uint8_t vs1053b_interface_audio_init(uint8_t type, char *name, uint32_t *size)
  *             - 1 audio read failed
  * @note       none
  */
-uint8_t vs1053b_interface_audio_read(uint32_t addr, uint16_t size, uint8_t *buffer)
-{
-    return 0;
-}
+uint8_t vs1053b_interface_audio_read(uint32_t addr, uint16_t size, uint8_t *buffer);
 
 /**
  * @brief     interface audio write
@@ -168,22 +164,7 @@ uint8_t vs1053b_interface_audio_read(uint32_t addr, uint16_t size, uint8_t *buff
  *            - 1 audio write failed
  * @note      none
  */
-uint8_t vs1053b_interface_audio_write(uint32_t addr, uint16_t size, uint8_t *buffer)
-{
-    return 0;
-}
-
-/**
- * @brief  interface audio deinit
- * @return status code
- *         - 0 success
- *         - 1 audio deinit failed
- * @note   none
- */
-uint8_t vs1053b_interface_audio_deinit(void)
-{
-    return 0;
-}
+uint8_t vs1053b_interface_audio_write(uint32_t addr, uint16_t size, uint8_t *buffer);
 
 /**
  * @brief      interface timestamp read
@@ -194,10 +175,7 @@ uint8_t vs1053b_interface_audio_deinit(void)
  *             - 1 timestamp read failed
  * @note       none
  */
-void vs1053b_interface_timestamp_read(uint32_t *sec, uint32_t *us)
-{
-    
-}
+void vs1053b_interface_timestamp_read(uint32_t *sec, uint32_t *us);
 
 /**
  * @brief  interface reset gpio init
@@ -206,10 +184,7 @@ void vs1053b_interface_timestamp_read(uint32_t *sec, uint32_t *us)
  *         - 1 init failed
  * @note   none
  */
-uint8_t vs1053b_interface_reset_gpio_init(void)
-{
-    return 0;
-}
+uint8_t vs1053b_interface_reset_gpio_init(void);
 
 /**
  * @brief  interface reset gpio deinit
@@ -218,10 +193,7 @@ uint8_t vs1053b_interface_reset_gpio_init(void)
  *         - 1 deinit failed
  * @note   none
  */
-uint8_t vs1053b_interface_reset_gpio_deinit(void)
-{
-    return 0;
-}
+uint8_t vs1053b_interface_reset_gpio_deinit(void);
 
 /**
  * @brief     interface reset gpio write
@@ -231,10 +203,7 @@ uint8_t vs1053b_interface_reset_gpio_deinit(void)
  *            - 1 write failed
  * @note      none
  */
-uint8_t vs1053b_interface_reset_gpio_write(uint8_t data)
-{
-    return 0;
-}
+uint8_t vs1053b_interface_reset_gpio_write(uint8_t data);
 
 /**
  * @brief  interface dreq gpio init
@@ -243,10 +212,7 @@ uint8_t vs1053b_interface_reset_gpio_write(uint8_t data)
  *         - 1 init failed
  * @note   none
  */
-uint8_t vs1053b_interface_dreq_gpio_init(void)
-{
-    return 0;
-}
+uint8_t vs1053b_interface_dreq_gpio_init(void);
 
 /**
  * @brief  interface dreq gpio deinit
@@ -255,10 +221,7 @@ uint8_t vs1053b_interface_dreq_gpio_init(void)
  *         - 1 deinit failed
  * @note   none
  */
-uint8_t vs1053b_interface_dreq_gpio_deinit(void)
-{
-    return 0;
-}
+uint8_t vs1053b_interface_dreq_gpio_deinit(void);
 
 /**
  * @brief      interface dreq gpio read
@@ -268,30 +231,21 @@ uint8_t vs1053b_interface_dreq_gpio_deinit(void)
  *             - 1 read failed
  * @note       none
  */
-uint8_t vs1053b_interface_dreq_gpio_read(uint8_t *data)
-{
-    return 0;
-}
+uint8_t vs1053b_interface_dreq_gpio_read(uint8_t *data);
 
 /**
  * @brief     interface delay ms
  * @param[in] ms time
  * @note      none
  */
-void vs1053b_interface_delay_ms(uint32_t ms)
-{
-    
-}
+void vs1053b_interface_delay_ms(uint32_t ms);
 
 /**
  * @brief     interface print format data
  * @param[in] fmt format data
  * @note      none
  */
-void vs1053b_interface_debug_print(const char *const fmt, ...)
-{
-    
-}
+void vs1053b_interface_debug_print(const char *const fmt, ...);
 
 /**
  * @brief     interface receive callback
@@ -299,63 +253,14 @@ void vs1053b_interface_debug_print(const char *const fmt, ...)
  * @param[in] cur_pos current position
  * @note      none
  */
-void vs1053b_interface_receive_callback(uint8_t type, uint32_t cur_pos)
-{
-    switch (type)
-    {
-        case VS1053B_TYPE_PLAY_READ :
-        {
-            vs1053b_interface_debug_print("vs1053b: irq read data during playing with %d.\n", cur_pos);
-            
-            break;
-        }
-        case VS1053B_TYPE_PLAY_WRITE :
-        {
-            vs1053b_interface_debug_print("vs1053b: irq write data during playing with %d.\n", cur_pos);
-            
-            break;
-        }
-        case VS1053B_TYPE_PLAY_END :
-        {
-            vs1053b_interface_debug_print("vs1053b: irq play end with %d.\n", cur_pos);
-            
-            break;
-        }
-        case VS1053B_TYPE_RECORD_READ :
-        {
-            vs1053b_interface_debug_print("vs1053b: irq read data during recording with %d.\n", cur_pos);
-            
-            break;
-        }
-        case VS1053B_TYPE_RECORD_WRITE :
-        {
-            vs1053b_interface_debug_print("vs1053b: irq write data during recording with %d.\n", cur_pos);
-            
-            break;
-        }
-        case VS1053B_TYPE_RECORD_END :
-        {
-            vs1053b_interface_debug_print("vs1053b: irq record end with %d.\n", cur_pos);
-            
-            break;
-        }
-        case VS1053B_TYPE_RECORD_OVER :
-        {
-            vs1053b_interface_debug_print("vs1053b: irq record over buffer with %d.\n", cur_pos);
-            
-            break;
-        }
-        case VS1053B_TYPE_PERIOD :
-        {
-            vs1053b_interface_debug_print("vs1053b: irq period.\n");
-            
-            break;
-        }
-        default :
-        {
-            vs1053b_interface_debug_print("vs1053b: unknown type.\n");
-            
-            break;
-        }
-    }
+void vs1053b_interface_receive_callback(uint8_t type, uint32_t cur_pos);
+
+/**
+ * @}
+ */
+
+#ifdef __cplusplus
 }
+#endif
+
+#endif

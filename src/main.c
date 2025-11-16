@@ -14,10 +14,10 @@
 
 #include "main.pio.h"
 #include "raspberry_256x256_rgb565.h"
-#include "codec.h"
-#include "driverInterface.h"
+#include "driver_vs1053b_basic.h"
+#include "driver_vs1053b_interface.h"
 #include "font_13_24.hh"
-#include "source.h"
+#include "driver_vs1053b.h"
 
 // Tested with the parts that have the height of 240 and 320
 #define SCREEN_WIDTH 240
