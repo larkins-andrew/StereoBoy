@@ -38,6 +38,7 @@ pico_sdk_init()
 # Add executable. Default name is the project name, version 0.1
 
 add_executable(stereoBoy_RP2350_FW ${CMAKE_CURRENT_LIST_DIR}/src/main.c )
+target_include_directories(stereoBoy_RP2350_FW PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 pico_set_program_name(stereoBoy_RP2350_FW "stereoBoy_RP2350_FW")
 pico_set_program_version(stereoBoy_RP2350_FW "0.1")
