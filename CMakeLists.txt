@@ -36,8 +36,14 @@ project(stereoBoy_RP2350_FW C CXX ASM)
 pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
+# Any C file that needs to be compiled must be here
 
-add_executable(stereoBoy_RP2350_FW ${CMAKE_CURRENT_LIST_DIR}/src/main.c )
+add_executable(stereoBoy_RP2350_FW 
+${CMAKE_CURRENT_LIST_DIR}/src/main.c
+${CMAKE_CURRENT_LIST_DIR}/src/driver_vs1053b.c
+${CMAKE_CURRENT_LIST_DIR}/src/driver_vs1053b_interface.c
+${CMAKE_CURRENT_LIST_DIR}/src/driver_vs1053b_basic.c
+)
 target_include_directories(stereoBoy_RP2350_FW PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 pico_set_program_name(stereoBoy_RP2350_FW "stereoBoy_RP2350_FW")
