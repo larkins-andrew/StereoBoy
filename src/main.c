@@ -11,14 +11,15 @@
 #include "hardware/pio.h"
 #include "hardware/gpio.h"
 #include "hardware/interp.h"
+#include "hardware/spi.h"
+
 
 #include "main.pio.h"
 #include "raspberry_256x256_rgb565.h"
-#include "driver_vs1053b_basic.h"
-#include "driver_vs1053b_interface.h"
+#include "drivers/driver_vs1053b_basic.h"
+#include "drivers/driver_vs1053b_interface.h"
 #include "font_13_24.hh"
-#include "hardware/spi.h"
-#include "driver_vs1053b.h"
+#include "drivers/driver_vs1053b.h"
 
 // Tested with the parts that have the height of 240 and 320
 #define SCREEN_WIDTH 240
@@ -158,7 +159,7 @@ int main()
 {
     stdio_init_all();
 
-    PIO pio = pio1;
+    PIO pio = pio0;
     uint sm = 0;
     // uint offset = pio_add_program(pio, &st7789_lcd_program);
     // st7789_lcd_program_init(pio, sm, offset, PIN_DIN, PIN_CLK, SERIAL_CLK_DIV);
@@ -176,6 +177,11 @@ int main()
     gpio_put(PIN_RESET, 1);
     // lcd_init(pio, sm, st7789_init_seq);
     gpio_put(PIN_BL, 1);
+    spi_init(spi_default, 1000 * 1000);
+    gpio_set_function(PICO_DEFAULT_SPI_RX_PIN, GPIO_FUNC_SPI);
+    gpio_set_function(PICO_DEFAULT_SPI_SCK_PIN, GPIO_FUNC_SPI);
+    gpio_set_function(PICO_DEFAULT_SPI_TX_PIN, GPIO_FUNC_SPI);
+    gpio_set_function(PICO_DEFAULT_SPI_CSN_PIN, GPIO_FUNC_SPI);
 
     /* play init */
     res = vs1053b_basic_init(VS1053B_MODE_PLAY, VS1053B_RECORD_FORMAT_WAV, a_callback);

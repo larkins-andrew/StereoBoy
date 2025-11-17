@@ -40,9 +40,9 @@ pico_sdk_init()
 
 add_executable(stereoBoy_RP2350_FW 
 ${CMAKE_CURRENT_LIST_DIR}/src/main.c
-${CMAKE_CURRENT_LIST_DIR}/src/driver_vs1053b.c
-${CMAKE_CURRENT_LIST_DIR}/src/driver_vs1053b_interface.c
-${CMAKE_CURRENT_LIST_DIR}/src/driver_vs1053b_basic.c
+${CMAKE_CURRENT_LIST_DIR}/src/drivers/driver_vs1053b.c
+${CMAKE_CURRENT_LIST_DIR}/src/drivers/driver_vs1053b_interface.c
+${CMAKE_CURRENT_LIST_DIR}/src/drivers/driver_vs1053b_basic.c
 )
 target_include_directories(stereoBoy_RP2350_FW PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
