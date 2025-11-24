@@ -11,7 +11,7 @@
 
 // PCA9685 Config
 #define PCA_ADDR      0x40
-#define TARGET_CHANNEL 8
+#define TARGET_CHANNEL 8   // Ensure this matches your confirmed working pin
 
 // Registers
 #define MODE1         0x00
@@ -20,7 +20,7 @@
 #define MODE1_SLEEP   0x10
 #define MODE1_AI      0x20
 #define MODE1_RESTART 0x80
-#define MODE2_OUTDRV  0x04 // Totem Pole (Important for LEDs)
+#define MODE2_OUTDRV  0x04 // Totem Pole (Critical for your setup)
 
 // --- Bit Bang Delay ---
 #define DELAY_US      100 
@@ -33,7 +33,7 @@ void sda_low()  { gpio_set_dir(SDA_PIN, GPIO_OUT); gpio_put(SDA_PIN, 0); i2c_del
 
 void scl_high() {
     gpio_set_dir(SCL_PIN, GPIO_IN);
-    // Timeout for clock stretching to prevent infinite hang
+    // Timeout for clock stretching
     int timeout = 1000;
     while(gpio_get(SCL_PIN) == 0 && timeout > 0) { sleep_us(1); timeout--; } 
     i2c_delay();
@@ -67,33 +67,33 @@ void pca_write(uint8_t reg, uint8_t val) {
 
 void pca_init() {
     // 1. Set Output Drive to Totem Pole (Push-Pull)
-    // This allows the pin to supply voltage to the LED
     pca_write(MODE2, MODE2_OUTDRV);
 
     // 2. Wake Up
     pca_write(MODE1, 0x00);
     sleep_ms(10);
     
-    // 3. Enable Auto-Increment
+    // 3. Enable Auto-Increment (Crucial for writing 4 PWM bytes at once)
     pca_write(MODE1, MODE1_AI);
 }
 
-// Force the LED ON or OFF using the "Full ON/OFF" control bits
-// This ignores PWM timing registers entirely.
-void pca_set_binary(uint8_t channel, bool on) {
+// --- NEW FUNCTION: PWM Fading ---
+void pca_set_pwm(uint8_t channel, uint16_t on, uint16_t off) {
     i2c_start();
-    i2c_write_byte(PCA_ADDR << 1);
-    i2c_write_byte(LED0_ON_L + (4 * channel)); // Start at ON_L
     
-    if (on) {
-        // ON_H bit 4 (0x10) = Full ON
-        i2c_write_byte(0x00); i2c_write_byte(0x10); 
-        i2c_write_byte(0x00); i2c_write_byte(0x00);
-    } else {
-        // OFF_H bit 4 (0x10) = Full OFF
-        i2c_write_byte(0x00); i2c_write_byte(0x00); 
-        i2c_write_byte(0x00); i2c_write_byte(0x10);
-    }
+    // Write Address
+    i2c_write_byte(PCA_ADDR << 1);
+    
+    // Write Start Register (LEDn_ON_L)
+    // Because MODE1_AI is set, the chip will auto-move to the next registers
+    i2c_write_byte(LED0_ON_L + (4 * channel));
+    
+    // Send 4 Bytes: ON_L, ON_H, OFF_L, OFF_H
+    i2c_write_byte(on & 0xFF);
+    i2c_write_byte(on >> 8);
+    i2c_write_byte(off & 0xFF);
+    i2c_write_byte(off >> 8);
+    
     i2c_stop();
 }
 
@@ -109,7 +109,7 @@ int main() {
     gpio_pull_up(SDA_PIN);
     gpio_pull_up(SCL_PIN);
     
-    sleep_ms(2000); // Give you time to look at the board
+    sleep_ms(2000); 
 
     // --- CONNECTION TEST ---
     i2c_start();
@@ -117,29 +117,37 @@ int main() {
     i2c_stop();
     
     if (!ack) {
-        // FAILED: Frantic Blink on Pin 25
+        // FAILED: Frantic Blink
         while(true) {
             gpio_put(LED_HEARTBEAT, 1); sleep_ms(50);
             gpio_put(LED_HEARTBEAT, 0); sleep_ms(50);
         }
     }
 
-    // SUCCESS: Turn ON Pin 24
+    // SUCCESS
     gpio_put(LED_FOUND, 1);
-    
     pca_init();
 
-    // --- MAIN LOOP ---
+    // --- FADE LOOP ---
     while(true) {
-        // Turn External LED ON
-        pca_set_binary(TARGET_CHANNEL, true);
-        gpio_put(LED_HEARTBEAT, 1);
-        sleep_ms(1000);
+        
+        // FADE UP (Get Brighter)
+        gpio_put(LED_HEARTBEAT, 1); // Heartbeat ON
+        // We step by 32 because bit-banging is slow. 
+        // 0 -> 4096
+        for(int i=0; i<4096; i+=128) {
+            // ON=0, OFF=i means the LED is ON for 'i' ticks out of 4096
+            pca_set_pwm(TARGET_CHANNEL, 0, i); 
+        }
 
-        // Turn External LED OFF
-        pca_set_binary(TARGET_CHANNEL, false);
-        gpio_put(LED_HEARTBEAT, 0);
-        sleep_ms(1000);
+        // FADE DOWN (Get Dimmer)
+        gpio_put(LED_HEARTBEAT, 0); // Heartbeat OFF
+        // 4095 -> 0
+        for(int i=4095; i>=0; i-=128) {
+            pca_set_pwm(TARGET_CHANNEL, 0, i);
+        }
+        
+        sleep_ms(200); // Brief pause at darkness
     }
     
     return 0;
