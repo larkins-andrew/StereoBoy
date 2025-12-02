@@ -25,19 +25,31 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # # ====================================================================================
 set(PICO_BOARD pico2 CACHE STRING "Board type")
 
-# Pull in Raspberry Pi Pico SDK (must be before project)
+# Pull in Raspberry Pi Pico SDK
 set(PICO_SDK_PATH ${CMAKE_CURRENT_SOURCE_DIR}/pico-sdk)
-
 include(pico_sdk_import.cmake)
 
 project(stereoBoy_RP2350_FW C CXX ASM)
 
-# Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
 
-# Add executable. Default name is the project name, version 0.1
+# ============================
+# Source Files
+# ============================
 
-add_executable(stereoBoy_RP2350_FW ${CMAKE_CURRENT_LIST_DIR}/src/main.c )
+set(SOURCES
+    ${CMAKE_CURRENT_LIST_DIR}/src/main.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/diskio.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/ff.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/ffsystem.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/ffunicode.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/my_spi.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/sd_card_spi.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/sd_spi.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/st7789_lcd.c
+)
+
+add_executable(stereoBoy_RP2350_FW ${SOURCES})
 
 pico_set_program_name(stereoBoy_RP2350_FW "stereoBoy_RP2350_FW")
 pico_set_program_version(stereoBoy_RP2350_FW "0.1")
@@ -45,24 +57,25 @@ pico_set_program_version(stereoBoy_RP2350_FW "0.1")
 # Generate PIO header
 pico_generate_pio_header(stereoBoy_RP2350_FW ${CMAKE_CURRENT_LIST_DIR}/src/main.pio)
 
-# Modify the below lines to enable/disable output over UART/USB
+# stdio config
 pico_enable_stdio_uart(stereoBoy_RP2350_FW 0)
 pico_enable_stdio_usb(stereoBoy_RP2350_FW 1)
 
-# Add the standard library to the build
+# Link libraries
 target_link_libraries(stereoBoy_RP2350_FW
-        pico_stdlib
-        hardware_pio
-        hardware_interp
-        hardware_spi
-        hardware_i2c
-        hardware_dma
-        hardware_watchdog)
-
-# Add the standard include files to the build
-target_include_directories(stereoBoy_RP2350_FW PRIVATE
-        ${CMAKE_CURRENT_LIST_DIR}
+    pico_stdlib
+    hardware_pio
+    hardware_interp
+    hardware_spi
+    hardware_i2c
+    hardware_dma
+    hardware_watchdog
 )
 
-pico_add_extra_outputs(stereoBoy_RP2350_FW)
+# Include paths
+target_include_directories(stereoBoy_RP2350_FW PRIVATE
+    ${CMAKE_CURRENT_LIST_DIR}/src
+)
 
+# Extra outputs (UF2, bin, etc.)
+pico_add_extra_outputs(stereoBoy_RP2350_FW)
