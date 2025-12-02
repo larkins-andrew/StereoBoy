@@ -2,6 +2,7 @@
 #include "pico/binary_info.h"
 #include "hardware/spi.h"
 #include "ff.h"    // FatFS  
+#include "pico/stdio.h"
 
 // SPI pins
 #define PIN_MISO 28
