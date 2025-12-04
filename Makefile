@@ -12,7 +12,7 @@ ifeq ($(OS),Windows_NT)
     OS_NAME := Windows
     CLEAN_COMMAND := cmake --build build --target clean
     GENERATOR := -G "MinGW Makefiles"
-    RP_PATH := D:/
+    RP_PATH := E:/
     COPY := @powershell -Command Copy-Item
 	REMOVE_FILE := powershell rm
 	ifeq ($(VENV_PATH), none)
