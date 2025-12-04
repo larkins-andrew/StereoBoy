@@ -49,6 +49,7 @@ target_sources(stereoBoy_RP2350_FW INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/src/my_debug.c
     ${CMAKE_CURRENT_LIST_DIR}/src/my_rtc.c
     ${CMAKE_CURRENT_LIST_DIR}/src/util.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/hw_config.c
 )
 
 target_include_directories(stereoBoy_RP2350_FW INTERFACE

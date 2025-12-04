@@ -3,12 +3,15 @@
 #include "hardware/spi.h"
 #include "ff.h"    // FatFS  
 #include "pico/stdio.h"
+#include <string.h>
+
+
 
 // SPI pins
 #define PIN_MISO 28
 #define PIN_MOSI 27
-#define PIN_SCK  30
-#define PIN_CS   32
+#define PIN_SCK  26
+#define PIN_CS   29
 
 #define PIN_LED  25
 
@@ -32,19 +35,23 @@ int main() {
     gpio_put(PIN_LED, 0); // Ensure it's off initially
     
     // --- Init SPI ---
-    spi_init(spi1, 1000 * 1000);  // 1 MHz
-    gpio_set_function(PIN_MISO, GPIO_FUNC_SPI);
-    gpio_set_function(PIN_MOSI, GPIO_FUNC_SPI);
-    gpio_set_function(PIN_SCK, GPIO_FUNC_SPI); // Ensure this is wired to GP26
+    // spi_init(spi1, 1000 * 1000);  // 1 MHz
+    // gpio_set_function(PIN_MISO, GPIO_FUNC_SPI);
+    // gpio_set_function(PIN_MOSI, GPIO_FUNC_SPI);
+    // gpio_set_function(PIN_SCK, GPIO_FUNC_SPI); // Ensure this is wired to GP26
     
-    // --- CS pin ---
-    gpio_init(PIN_CS);
-    gpio_set_dir(PIN_CS, GPIO_OUT);
-    gpio_put(PIN_CS, 1);
-    
+    // // --- CS pin ---
+    // gpio_init(PIN_CS);
+    // gpio_set_dir(PIN_CS, GPIO_OUT);
+    // gpio_put(PIN_CS, 1);
+
+    gpio_put(PIN_LED, 1); // ON
+    sleep_ms(1000);       // Wait 1 second
+    gpio_put(PIN_LED, 0); // OFF
+
     // --- Mount filesystem ---
     FRESULT fr = f_mount(&fs, "", 1);
-    gpio_put(PIN_LED, 1);
+    gpio_put(PIN_LED, 0);
     if (fr != FR_OK) {
         error_blink(); // Fast blink if mount fails
         return 0;
