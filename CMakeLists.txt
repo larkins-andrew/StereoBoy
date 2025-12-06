@@ -49,6 +49,7 @@ pico_generate_pio_header(stereoBoy_RP2350_FW ${CMAKE_CURRENT_LIST_DIR}/src/main.
 pico_enable_stdio_uart(stereoBoy_RP2350_FW 0)
 pico_enable_stdio_usb(stereoBoy_RP2350_FW 1)
 
+
 # Add the standard library to the build
 target_link_libraries(stereoBoy_RP2350_FW
         pico_stdlib
