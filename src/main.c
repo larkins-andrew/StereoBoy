@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include "pico/stdlib.h"
 #include "hardware/i2c.h"
-#include "SB_PCA9685.h"
+#include "drivers/SB_PCA9685.h"
 
 // --- Hardware Config ---
 #define SDA_PIN 20
