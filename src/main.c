@@ -21,39 +21,23 @@
 #include "font_13_24.hh"
 #include "drivers/driver_vs1053b.h"
 
-// Tested with the parts that have the height of 240 and 320
-#define SCREEN_WIDTH 240
-#define SCREEN_HEIGHT 240
-#define IMAGE_SIZE 256
-#define LOG_IMAGE_SIZE 8
-
-#define PIN_DIN 0
-#define PIN_CLK 1
-#define PIN_CS 2
-#define PIN_DC 3
-#define PIN_RESET 4
-#define PIN_BL 5
-
-// Define some 16-bit RGB565 colors
-#define BLACK 0x0000
-#define RED 0xF800
-#define GREEN 0x07E0
-#define BLUE 0x001F
-#define WHITE 0xFFFF
-#define YELLOW 0xFFE0
-#define CYAN 0x07FF
-#define MAGENTA 0xF81F
-
-// Define ST7789 commands
-#define ST7789_CMD_CASET 0x2A
-#define ST7789_CMD_RASET 0x2B
-#define ST7789_CMD_RAMWR 0x2C
 
 #define SERIAL_CLK_DIV 1.f
 
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
+// Global flag to signal when the VS1053B initialization is done
+volatile int init_done = 0;
+
+// Simple dummy callback required by the library initialization
+static void dummy_callback(uint8_t type, uint32_t cur_pos) {
+    // We don't need this for the connection test
+}
+
+static void LEDBlink(uint LED){
+    gpio_put(LED, 1);
+    sleep_ms(500);
+    gpio_put(LED, 0);
+    sleep_ms(500);
+}
 
 uint8_t res;
 volatile uint8_t gs_flag = 0;
@@ -159,73 +143,52 @@ int main()
 {
     stdio_init_all();
 
-    PIO pio = pio0;
-    uint sm = 0;
-    // uint offset = pio_add_program(pio, &st7789_lcd_program);
-    // st7789_lcd_program_init(pio, sm, offset, PIN_DIN, PIN_CLK, SERIAL_CLK_DIV);
+    // 1. Init RP2350 System
+    stdio_init_all();
+    
+    // 2. Wait for you to open the Serial Monitor
+    sleep_ms(3000); 
+    printf("\n\n--- RP2350 VS1053B Connection Test ---\n");
 
-    gpio_init(PIN_CS);
-    gpio_init(PIN_DC);
-    gpio_init(PIN_RESET);
-    gpio_init(PIN_BL);
-    gpio_set_dir(PIN_CS, GPIO_OUT);
-    gpio_set_dir(PIN_DC, GPIO_OUT);
-    gpio_set_dir(PIN_RESET, GPIO_OUT);
-    gpio_set_dir(PIN_BL, GPIO_OUT);
+    // 3. Initialize the VS1053B using the Basic driver
+    // This will call your 'interface_init' and 'spi_init' functions automatically
+    printf("Initializing VS1053B...\n");
+    uint8_t res = vs1053b_basic_init(VS1053B_MODE_PLAY, VS1053B_RECORD_FORMAT_WAV, dummy_callback);
 
-    gpio_put(PIN_CS, 1);
-    gpio_put(PIN_RESET, 1);
-    // lcd_init(pio, sm, st7789_init_seq);
-    gpio_put(PIN_BL, 1);
-    spi_init(spi_default, 1000 * 1000);
-    gpio_set_function(PICO_DEFAULT_SPI_RX_PIN, GPIO_FUNC_SPI);
-    gpio_set_function(PICO_DEFAULT_SPI_SCK_PIN, GPIO_FUNC_SPI);
-    gpio_set_function(PICO_DEFAULT_SPI_TX_PIN, GPIO_FUNC_SPI);
-    gpio_set_function(PICO_DEFAULT_SPI_CSN_PIN, GPIO_FUNC_SPI);
-
-    /* play init */
-    res = vs1053b_basic_init(VS1053B_MODE_PLAY, VS1053B_RECORD_FORMAT_WAV, a_callback);
-    if (res != 0)
-    {
+    if (res != 0) {
+        printf("FAILED: vs1053b_basic_init returned error %d\n", res);
+        printf("Check your wiring, specifically RST and DREQ pins.\n");
         return 1;
     }
+    printf("Initialization Command Sent.\n");
 
-    /* set timeout */
-    res = vs1053b_basic_set_callback_period(5);
-    if (res != 0)
-    {
-        (void)vs1053b_basic_deinit();
-
-        return 1;
+    // 4. Verify Communication by reading a register
+    // We will read the MODE register or similar. 
+    // The library doesn't expose a raw 'read_register' in the basic header easily,
+    // so we will ask for the 'decode time' which forces an SPI read.
+    
+    uint16_t decode_time;
+    res = vs1053b_basic_get_decode_time(&decode_time);
+    //Success
+    if (res == 0) {
+        const uint LED2 = 24;
+        gpio_init(LED2);
+        gpio_set_dir(LED2, GPIO_OUT);
+       LEDBlink(LED2);
+    //Failure
+    } else {
+        const uint LED3 = 23;
+        gpio_init(LED3);
+        gpio_set_dir(LED3, GPIO_OUT);
+       LEDBlink(LED3);
     }
 
-    /* play audio */
-    res = vs1053b_basic_play("0:test.mp3");
-    if (res != 0)
-    {
-        (void)vs1053b_basic_deinit();
-
-        return 1;
-    }
-
-    /* clear flag */
-    gs_flag = 0;
-
-    /* play */
-    gs_mode = 1;
-
-    /* run the server and wait for the end */
-    while (gs_flag == 0)
-    {
-        (void)vs1053b_basic_service();
-    }
-
-    /* deinit */
-    (void)vs1053b_basic_deinit();
-
-    return 0;
-
-    while (1)
-    {
+    // 5. Blink LED to show life
+    const uint LED_PIN = 25; // Standard Pico LED (Check if Pico 2 uses 25)
+    gpio_init(LED_PIN);
+    gpio_set_dir(LED_PIN, GPIO_OUT);
+    
+    while (true) {
+        LEDBlink(LED_PIN);
     }
 }
