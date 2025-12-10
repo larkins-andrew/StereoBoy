@@ -45,9 +45,34 @@ void report_error(int error_code) {
 }
 
 int main() {
-    gpio_pull_up(28);
     stdio_init_all();
+    // gpio_pull_up(28);
+    // --- WIGGLE TEST START ---
+// Comment this block out once you confirm the scope works!
+// gpio_init(29); // CS
+// gpio_set_dir(29, GPIO_OUT);
+// gpio_init(27); // MOSI
+// gpio_set_dir(27, GPIO_OUT);
+// gpio_init(26); // SCK
+// gpio_set_dir(26, GPIO_OUT);
+
+// while (true) {
+//     // Toggle pins High/Low every 1ms (500Hz square wave)
+//     gpio_put(29, 1); 
+//     gpio_put(27, 1);
+//     gpio_put(26, 1);
+//     sleep_ms(1);
     
+//     gpio_put(29, 0); 
+//     gpio_put(27, 0);
+//     gpio_put(26, 0);
+//     sleep_ms(1);
+// }
+// --- WIGGLE TEST END ---
+
+
+
+
     // --- Init LED ---
     gpio_init(PIN_LED);
     gpio_set_dir(PIN_LED, GPIO_OUT);
