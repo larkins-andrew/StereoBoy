@@ -142,31 +142,16 @@ static void a_callback(uint8_t type, uint32_t cur_pos)
 int main()
 {
     stdio_init_all();
-
-    // 1. Init RP2350 System
-    stdio_init_all();
     
-    // 2. Wait for you to open the Serial Monitor
-    sleep_ms(3000); 
-    printf("\n\n--- RP2350 VS1053B Connection Test ---\n");
 
-    // 3. Initialize the VS1053B using the Basic driver
-    // This will call your 'interface_init' and 'spi_init' functions automatically
-    printf("Initializing VS1053B...\n");
+    //Initialize the VS1053B using the Basic driver
     uint8_t res = vs1053b_basic_init(VS1053B_MODE_PLAY, VS1053B_RECORD_FORMAT_WAV, dummy_callback);
-
+    //This would be a fail at initialization
     if (res != 0) {
-        printf("FAILED: vs1053b_basic_init returned error %d\n", res);
-        printf("Check your wiring, specifically RST and DREQ pins.\n");
         return 1;
     }
-    printf("Initialization Command Sent.\n");
-
-    // 4. Verify Communication by reading a register
-    // We will read the MODE register or similar. 
-    // The library doesn't expose a raw 'read_register' in the basic header easily,
-    // so we will ask for the 'decode time' which forces an SPI read.
     
+    // Verify Communication by reading a register
     uint16_t decode_time;
     res = vs1053b_basic_get_decode_time(&decode_time);
     //Success
@@ -174,13 +159,19 @@ int main()
         const uint LED2 = 24;
         gpio_init(LED2);
         gpio_set_dir(LED2, GPIO_OUT);
-       LEDBlink(LED2);
+        while(true){
+        LEDBlink(LED2);
+        }
+       
     //Failure
     } else {
         const uint LED3 = 23;
         gpio_init(LED3);
         gpio_set_dir(LED3, GPIO_OUT);
-       LEDBlink(LED3);
+        while(true){
+        LEDBlink(LED3);
+        }
+
     }
 
     // 5. Blink LED to show life
