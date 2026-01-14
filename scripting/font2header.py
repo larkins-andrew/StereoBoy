@@ -43,7 +43,7 @@ if __name__ == '__main__':
         f.write('#include "pico/stdlib.h"\n\n')
         f.write(f"struct Font {{\n")
         f.write(f"    char letter;\n")
-        f.write(f"    u_int16_t code[{grid_width}*{grid_height}];\n")
+        f.write(f"    uint16_t code[{grid_width}*{grid_height}];\n")
         f.write(f"}};\n")
         f.write(f"struct Font font[] = {{\n")
 

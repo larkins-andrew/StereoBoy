@@ -9,5 +9,3 @@ to flash usb
 
 `make report`
 to generate code on the progress you have made
-
-plz run cmake only in build folder

@@ -28,7 +28,11 @@ else
     	GENERATOR := -G "Unix Makefiles"
     else
         OS_NAME := Linux
-        RP_PATH := /media/RP2350/
+		ifeq ($(whoami), larkinsa)
+			RP_PATH := /media/larkinsa/RP2350/
+		else
+			RP_PATH := /media/RP2350/
+		endif
 		GENERATOR := 
     endif
     CLEAN_COMMAND := cmake --build build --target clean

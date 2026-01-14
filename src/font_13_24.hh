@@ -2,7 +2,7 @@
 
 struct Font {
     char letter;
-    u_int16_t code[13*24];
+    uint16_t code[13*24];
 };
 struct Font font[] = {
 {' ', {
