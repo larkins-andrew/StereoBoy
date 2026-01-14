@@ -1,0 +1,79 @@
+Working on the Mechanical and Economical constraints
+
+From prior work i had a general outline of Mechanical Constraints we would need:
+
+All primary components fit in a Gameboy pocket shell
+
+Can survive a fall from 2m 
+
+Vibration resistant
+
+Light enough to comfortably be worn on a belt clip
+
+Cartridge should fit in Gameboy pocket cartridge shell
+So, I decided I need to develop more on each of these:
+
+1. All primary components fit in a Gameboy pocket shell: Gameboy Dimensions
+
+​
+
+     1.1 LED bar strips should fit unde rthe cove, that means, their height should be less than the distnce between the PCB and the screen cover.
+    1.2 OLED screen must be thin enoug to fit under the screen cover as well. This means it has a max thickness constraint very similar to the one of the LEDs
+    1.3 OLED and LED bars should both fit in the screen area (4.8x4.4cm)(Technical specs Gameboy)
+    1.4 Buttons must have the same shape and positioning as those in the original GameBoy Poscket. Fortunately we have teh Schematics of the original, so we can just leave their footprints where they are. Gameboy PCB​
+
+     1.5 The potentionmeters need to be thin
+2. It should be able to survive a fall from arount 2m. This is a rough estiate of the maximum height it can viably be dropped from and stillebe expected to survive. We do not have th efunding to actually be crash testing it, but We can reasonably estimate how it will behave under impacts like those.
+3. Vibration Resistant: It will be on a belt, it will be shaken around for the shake to shuffle, and it might have some tumbles. We don't want it to fall apart under such light stress. This should generally be realtively easy to deal with, I think, as long as we do a decent job soldering.
+4. LIght enough to be comfortably worn on a belt clip: The original gameboy POcket was 125g(Technical specs Gameboy), so we want the weight of our device to be in the same range.
+5. Cartrisge PCB should fir in the gameboy cartridge. These are its dimensions: 65.5mm x 57mm x 7.5mm(cartridge dimensions), We will also be using teh same PCB form factor as the original gameboy cartridges. We will just remove all tehir circuitry. If we were ever to decide to go mayhem on them, we could potentially add other functionalities that would push the dimensions and circuitry of the PCbto a new extent, but that is not something we are discussing deeply at this stage.
+These were the only ones that were there from previous discussions. But, after reaading the previous works,from previous years, I cam up with a few more, which are:
+6. Materials - we will probably ise the same as the gameboy Pocket which is ABS Plastic. However, we might also try to prototype with 3d printed stuff.
+7. dust and water should not be too large of a problem, since we are not expectring users to be swimming with them, ans we also plan on sealing it teh same way as the orignals were.
+8. We need the connectors between the cartrisdges and the motherboard to be compatible.
+
+Economical Constraints:
+Previous work left me looking at the following things:
+
+All components should have their regulatory certifications
+
+Max $250 on PCBs (is this right? Thats a lot)
+
+New old stock exclusive:
+
+    Cartridge slot
+
+    Volume/contrast pots
+
+    Audio jack
+
+    Battery contacts
+
+    Power switch
+
+Available new:
+
+    GameBoy Pocket shells & buttons
+
+    Cartridge shells
+
+    Speaker
+
+So,my thoughts on this are the following. We need this section to set a target  price for the overall project, we also need to compare the production cost of a single device with the competition. 
+
+Before we try making this into an actual product, we don't need to look too deep into certifications. Ideally we are not working with anything that reallyrequires this either. The only case I can think of is if we were to integrate with WiFi or BLE, which might need some frequency precautions or certifications. Regardless, this does not really fall under economic constraints.
+
+The next point is important. We have a budget of 425 for prototyping and stuff. It is important that we know how expensive our PCBs will be. So, I decided to check prices on PCBWay:
+
+
+​
+This shows that we  need about 100 dollars for 5 motherboards, assuming, in an ideal case, that 5 PCBs will be enough to prototype and iterate.
+Additionally, we need to look at the cartridges. Let us assume we have 9 different cartridges in a 3x3 array.
+
+
+These came to a price of 177 dollars. This brings the total cost of our PBCs to 277 dollars.
+This might be a bit of an exageration, but it does not hurt to allocate about this much to them.
+On the other hand, we also need to buy some of the special components, such as the cartridge slot, the potentiomenters, the ausio jack, etc.These will have an additional cost of at least 50-60 dollars, roughly, wespecially considering tehy are old stock and no longer manufactured. The shell, buttons and speakers can be pretty simple though, and we could probably get all of them ffor like 30 dollars. These are rough prices, but help us get an estimate, and remind us that we do not really have too much leeway. There might be smaller costs if we don;t need to order 5 boards like PCBway is showing in their quote,,but we cannot be banking onless iterations. 
+regardless, the total costs are coming to around 360 dollars based solely onthe PCBs and some special components. There mightbe other components,like SD card holders, Sd cards, etc. that can raise our prices even higher. This is somethingwe will need to look into.
+
+When readingpthe feedback on a sample submission I also realized that I Need to go back and add Audio Codec inner workings to functional operations section.
