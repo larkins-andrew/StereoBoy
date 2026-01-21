@@ -7,7 +7,7 @@
 #include "pico/stdlib.h"
 #include "hardware/pio.h"
 #include "hardware/gpio.h"
-#include "hardware/interp.h"
+// #include "hardware/interp.h"
 
 #define SCREEN_WIDTH 240
 #define SCREEN_HEIGHT 240
@@ -16,7 +16,7 @@
 
 #define PIN_DIN 34
 #define PIN_CLK 35
-#define PIN_CS 6
+#define PIN_CS_DISPLAY 6
 #define PIN_DC 5
 #define PIN_RESET 4
 #define PIN_BL 7

@@ -41,7 +41,7 @@ inline uint16_t rgbto565(int RGB){
 
 inline void lcd_set_dc_cs(bool dc, bool cs) {
     sleep_us(1);
-    gpio_put_masked((1u << PIN_DC) | (1u << PIN_CS), !!dc << PIN_DC | !!cs << PIN_CS);
+    gpio_put_masked((1u << PIN_DC) | (1u << PIN_CS_DISPLAY), !!dc << PIN_DC | !!cs << PIN_CS_DISPLAY);
     sleep_us(1);
 }
 
@@ -282,16 +282,16 @@ void lcd_draw_string(uint16_t x, uint16_t y, const char *text, uint16_t color) {
 //     uint offset = pio_add_program(pio, &st7789_lcd_program);
 //     st7789_lcd_program_init(pio, sm, offset, PIN_DIN, PIN_CLK, SERIAL_CLK_DIV);
 
-//     gpio_init(PIN_CS);
+//     gpio_init(PIN_CS_DISPLAY);
 //     gpio_init(PIN_DC);
 //     gpio_init(PIN_RESET);
 //     gpio_init(PIN_BL);
-//     gpio_set_dir(PIN_CS, GPIO_OUT);
+//     gpio_set_dir(PIN_CS_DISPLAY, GPIO_OUT);
 //     gpio_set_dir(PIN_DC, GPIO_OUT);
 //     gpio_set_dir(PIN_RESET, GPIO_OUT);
 //     gpio_set_dir(PIN_BL, GPIO_OUT);
 
-//     gpio_put(PIN_CS, 1);
+//     gpio_put(PIN_CS_DISPLAY, 1);
 //     gpio_put(PIN_RESET, 1);
 //     lcd_init(pio, sm, st7789_init_seq);
 //     gpio_put(PIN_BL, 1);
