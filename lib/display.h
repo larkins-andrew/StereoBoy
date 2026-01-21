@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <math.h>
 
+#include "st7789_lcd.pio.h"
+
 #include "pico/stdlib.h"
 #include "hardware/pio.h"
 #include "hardware/gpio.h"
