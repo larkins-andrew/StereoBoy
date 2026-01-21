@@ -6,7 +6,7 @@
 
 #include "display.h"
 
-#include "font.h"
+// #include "font.h"
 
 #include "main.pio.h"
 // #include "raspberry_256x256_rgb565.h"
@@ -274,38 +274,36 @@ void lcd_draw_string(uint16_t x, uint16_t y, const char *text, uint16_t color) {
     }
 }
 
+// int main() {
+//     stdio_init_all();
 
+//     PIO pio = pio0;
+//     uint sm = 0;
+//     uint offset = pio_add_program(pio, &st7789_lcd_program);
+//     st7789_lcd_program_init(pio, sm, offset, PIN_DIN, PIN_CLK, SERIAL_CLK_DIV);
 
-int main() {
-    stdio_init_all();
+//     gpio_init(PIN_CS);
+//     gpio_init(PIN_DC);
+//     gpio_init(PIN_RESET);
+//     gpio_init(PIN_BL);
+//     gpio_set_dir(PIN_CS, GPIO_OUT);
+//     gpio_set_dir(PIN_DC, GPIO_OUT);
+//     gpio_set_dir(PIN_RESET, GPIO_OUT);
+//     gpio_set_dir(PIN_BL, GPIO_OUT);
 
-    PIO pio = pio0;
-    uint sm = 0;
-    uint offset = pio_add_program(pio, &st7789_lcd_program);
-    st7789_lcd_program_init(pio, sm, offset, PIN_DIN, PIN_CLK, SERIAL_CLK_DIV);
-
-    gpio_init(PIN_CS);
-    gpio_init(PIN_DC);
-    gpio_init(PIN_RESET);
-    gpio_init(PIN_BL);
-    gpio_set_dir(PIN_CS, GPIO_OUT);
-    gpio_set_dir(PIN_DC, GPIO_OUT);
-    gpio_set_dir(PIN_RESET, GPIO_OUT);
-    gpio_set_dir(PIN_BL, GPIO_OUT);
-
-    gpio_put(PIN_CS, 1);
-    gpio_put(PIN_RESET, 1);
-    lcd_init(pio, sm, st7789_init_seq);
-    gpio_put(PIN_BL, 1);
+//     gpio_put(PIN_CS, 1);
+//     gpio_put(PIN_RESET, 1);
+//     lcd_init(pio, sm, st7789_init_seq);
+//     gpio_put(PIN_BL, 1);
 
     
-    // lcd_draw_rect(pio, sm, 0, 0, 240, 240, WHITE);
-    // lcd_draw_rect(pio, sm, 0, 0, 60, 60, rgbto565(GRAY));
-    lcd_draw_circle(120,120, 16, GREEN);
-    lcd_draw_circle_fill(120, 180, 33, rgbto565(0xFF3399));
-    // lcd_draw_string(80, 80, "Shubham Was Here", BLUE);
-    // lcd_draw_char(10, 10, 'B', CYAN);
-    lcd_update(pio, sm);
-    lcd_draw_progress_bar(pio, sm, 200, 46);
+//     // lcd_draw_rect(pio, sm, 0, 0, 240, 240, WHITE);
+//     // lcd_draw_rect(pio, sm, 0, 0, 60, 60, rgbto565(GRAY));
+//     lcd_draw_circle(120,120, 16, GREEN);
+//     lcd_draw_circle_fill(120, 180, 33, rgbto565(0xFF3399));
+//     // lcd_draw_string(80, 80, "Shubham Was Here", BLUE);
+//     // lcd_draw_char(10, 10, 'B', CYAN);
+//     lcd_update(pio, sm);
+//     lcd_draw_progress_bar(pio, sm, 200, 46);
     
-}
+// }

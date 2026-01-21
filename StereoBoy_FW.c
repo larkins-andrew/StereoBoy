@@ -7,6 +7,7 @@
 #include "hw_config.h"
 #include "lib/vs1053.h"
 #include "lib/dac.h"
+#include "lib/display.h"
 
 #define MAX_FILENAME_LEN 256 // max filaname character length
 #define MAX_TRACKS 50 // max number of mp3 files in sd card
@@ -393,6 +394,31 @@ int main() {
 
     qsort(tracks, count, sizeof(track_info_t), compare_filenames);
 
+
+    ////////////////////////////DISPLAY/////////////////////////////
+    PIO pio = pio0;
+    uint sm = 0;
+    uint offset = pio_add_program(pio, &st7789_lcd_program);
+    st7789_lcd_program_init(pio, sm, offset, PIN_DIN, PIN_CLK, SERIAL_CLK_DIV);
+    gpio_init(PIN_CS);
+    gpio_init(PIN_DC);
+    gpio_init(PIN_RESET);
+    gpio_init(PIN_BL);
+    gpio_set_dir(PIN_CS, GPIO_OUT);
+    gpio_set_dir(PIN_DC, GPIO_OUT);
+    gpio_set_dir(PIN_RESET, GPIO_OUT);
+    gpio_set_dir(PIN_BL, GPIO_OUT);
+    
+    gpio_put(PIN_CS, 1);
+    gpio_put(PIN_RESET, 1);
+    lcd_init(pio, sm, st7789_init_seq);
+    gpio_put(PIN_BL, 1);
+    lcd_draw_circle(120,120, 16, GREEN);
+    lcd_draw_circle_fill(120, 180, 33, rgbto565(0xFF3399));
+    lcd_update(pio, sm);
+    lcd_draw_progress_bar(pio, sm, 200, 46);
+    
+    ///////////////////////////DISPLAY END///////////////////////////
     while (1) {
         // --- Print menu ---
         printf("\r\nAvailable tracks:\r\n");

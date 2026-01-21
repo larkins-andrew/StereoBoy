@@ -14,12 +14,12 @@
 #define IMAGE_SIZE 256
 #define LOG_IMAGE_SIZE 8
 
-#define PIN_DIN 0
-#define PIN_CLK 1
-#define PIN_CS 2
-#define PIN_DC 3
+#define PIN_DIN 34
+#define PIN_CLK 35
+#define PIN_CS 6
+#define PIN_DC 5
 #define PIN_RESET 4
-#define PIN_BL 5
+#define PIN_BL 7
 
 #define BLACK   0x0000
 #define RED     0xF800
