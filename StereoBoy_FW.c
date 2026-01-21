@@ -7,6 +7,7 @@
 #include "hw_config.h"
 #include "lib/vs1053.h"
 #include "lib/dac.h"
+#include "lib/buttons.h"
 
 #define MAX_FILENAME_LEN 256 // max filaname character length
 #define MAX_TRACKS 50 // max number of mp3 files in sd card
@@ -224,6 +225,9 @@ void jukebox(vs1053_t *player, const char *filename) {
     warping = false;
     stopped = 0;
 
+    //get button inputs
+    uint8_t pressed = buttons_get_just_pressed();
+
     // more warp effect stuff
     float transport = 1.0f; // desired speed
     float warp_start_transport = 1.0f; // start speed for warp
@@ -248,7 +252,20 @@ void jukebox(vs1053_t *player, const char *filename) {
     // This while loop continuously scans for key inputs while playing audio.
     // Warping is achieved by continuously sending audio bytes after pause point until warp duration is met.
     while (1) {
+        // Use the macros from buttons.h
+        pressed = buttons_get_just_pressed();
         int c = getchar_timeout_us(0); // nonblocking getchar
+
+        //assigns c based on button pressed, overrides keyboard
+        // if (pressed & BTN_SELECT) c = '';
+        // if (pressed & BTN_START)  c = '';
+        if (pressed & BTN_A)      c = 's';
+        if (pressed & BTN_B)      c = 'p';
+        if (pressed & BTN_U)      c = 'u';
+        if (pressed & BTN_D)      c = 'd';
+        if (pressed & BTN_L)      c = 'r';
+        if (pressed & BTN_R)      c = 'f';
+
         if (c != PICO_ERROR_TIMEOUT) {
             long pos = f_tell(&fil);
             // bool headphonesIn = dac_read(0, 0x43) & 0x20;
@@ -411,6 +428,11 @@ int main() {
 
     stdio_init_all();
 
+    buttons_init(10);
+
+    //set intial button var
+    uint8_t pressed = buttons_get_just_pressed();
+
     sleep_ms(3000);
 
     // set SPI0 for codec and SD card
@@ -500,28 +522,86 @@ int main() {
 
         char input[8];
         int choice = 0;
-
+        memset(input, 0, sizeof(input));
+        int idx = 0;
+        
         while (choice < 1 || choice > count) {
-            printf("\r\nSelect track (1-%d): ", count);
-
-            int idx = 0;
-            memset(input, 0, sizeof(input));
-
+            // Print initial prompt (uses \r to allow overwriting)
+            printf("\rSelect track (1-%d): %s   ", count, input);
+            
             while (1) {
-                int c = getchar(); // blocking read
-                if (c == '\r' || c == '\n') { // Enter pressed
-                    printf("\r\n");
-                    break;
+                int c = getchar_timeout_us(0); //non-blocking
+                uint8_t pressed = buttons_get_just_pressed();
+                bool input_changed = false;
+
+                // ---------------------------------------------------------
+                // OPTION A: CONFIRMATION ("enter" OR Button A/Start)
+                // ---------------------------------------------------------
+                if ((pressed & BTN_A) || (pressed & BTN_START) || c == '\r' || c == '\n') {
+                    printf("\r\n"); // Move to new line to lock in the choice
+                    break; // Break inner loop to validate 'choice'
                 }
-                if (idx < sizeof(input)-1) {
-                    input[idx++] = c;
-                    putchar(c); // echo typed char
+
+                // ---------------------------------------------------------
+                // OPTION B: BUTTON SCROLLING (Modifies the text buffer)
+                // ---------------------------------------------------------
+                if ((pressed & BTN_L) || (pressed & BTN_R)) {
+                    // Parse current buffer to integer (default to 1 if empty)
+                    int val = atoi(input);
+                    if (val == 0) val = 1; 
+
+                    // Modify value
+                    if (pressed & BTN_L) val--;
+                    if (pressed & BTN_R) val++;
+
+                    // Wrap around logic (optional, but nice for UX)
+                    if (val < 1) val = count;
+                    if (val > count) val = 1;
+
+                    // Convert BACK to string so keyboard can continue editing if needed
+                    sprintf(input, "%d", val);
+                    idx = strlen(input); // Update cursor position
+                    input_changed = true;
                 }
+
+                // ---------------------------------------------------------
+                // OPTION C: KEYBOARD TYPING (Appends to text buffer)
+                // ---------------------------------------------------------
+                if (c != PICO_ERROR_TIMEOUT) {
+                    // If it is a number
+                    if (c >= '0' && c <= '9' && idx < sizeof(input) - 1) {
+                        input[idx++] = c;
+                        input[idx] = 0; // Null terminate
+                        input_changed = true;
+                    }
+                    // Handle Backspace (Works for both button mistakes and typing mistakes)
+                    else if ((c == '\b' || c == 127) && idx > 0) { 
+                        input[--idx] = 0;
+                        input_changed = true;
+                    }
+                }
+
+                // ---------------------------------------------------------
+                // REFRESH DISPLAY
+                // ---------------------------------------------------------
+                if (input_changed) {
+                    // \r returns to start of line. 
+                    // Spaces at end clear leftover characters if number gets shorter (e.g. 10 -> 9)
+                    printf("\rSelect track (1-%d): %s   ", count, input);
+                }
+
+                sleep_ms(20); // Prevent CPU hogging
             }
 
+            // --- VALIDATION ---
             choice = atoi(input);
-            if (choice < 1 || choice > count)
-                printf("Invalid. Try again.");
+            if (choice < 1 || choice > count) {
+                printf("Invalid selection %d. Try again.\n", choice);
+                // Reset for retry
+                memset(input, 0, sizeof(input)); 
+                idx = 0;
+                choice = 0; // Ensure we loop back
+            }
         }
 
         track_info_t *sel = &tracks[choice - 1];

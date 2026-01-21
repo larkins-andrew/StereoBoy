@@ -41,6 +41,7 @@ add_executable(StereoBoy_FW
     lib/sb_util.c
     lib/vs1053.c
     lib/dac.c
+    lib/buttons.c
     )
 
 pico_set_program_name(StereoBoy_FW "StereoBoy_FW")
