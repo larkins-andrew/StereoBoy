@@ -398,8 +398,6 @@ int main() {
     ////////////////////////////DISPLAY/////////////////////////////
     PIO pio = pio0;
     uint sm = 0;
-    uint offset = pio_add_program(pio, &st7789_lcd_program);
-    st7789_lcd_program_init(pio, sm, offset, PIN_DIN, PIN_CLK, SERIAL_CLK_DIV);
     gpio_init(PIN_CS);
     gpio_init(PIN_DC);
     gpio_init(PIN_RESET);
@@ -415,6 +413,8 @@ int main() {
     gpio_put(PIN_BL, 1);
     lcd_draw_circle(120,120, 16, GREEN);
     lcd_draw_circle_fill(120, 180, 33, rgbto565(0xFF3399));
+    lcd_draw_string(80, 80, "Shubham Was Here", BLUE);
+    lcd_draw_char(10, 10, 'B', CYAN);
     lcd_update(pio, sm);
     lcd_draw_progress_bar(pio, sm, 200, 46);
     

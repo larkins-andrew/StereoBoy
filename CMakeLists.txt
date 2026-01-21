@@ -49,6 +49,7 @@ pico_set_program_version(StereoBoy_FW "0.1")
 
 # Generate PIO header
 pico_generate_pio_header(StereoBoy_FW ${CMAKE_CURRENT_LIST_DIR}/blink.pio)
+pico_generate_pio_header(StereoBoy_FW ${CMAKE_CURRENT_LIST_DIR}/lib/display.pio)
 
 # Modify the below lines to enable/disable output over UART/USB
 pico_enable_stdio_uart(StereoBoy_FW 0)
@@ -56,7 +57,8 @@ pico_enable_stdio_usb(StereoBoy_FW 1)
 
 # Add the standard library to the build
 target_link_libraries(StereoBoy_FW
-        pico_stdlib)
+        pico_stdlib
+        hardware_pio)
 
 # Add the standard include files to the build
 target_include_directories(StereoBoy_FW PRIVATE
@@ -73,6 +75,7 @@ target_link_libraries(StereoBoy_FW
         hardware_pio
         hardware_timer
         hardware_clocks
+        hardware_interp
         no-OS-FatFS-SD-SDIO-SPI-RPi-Pico
         )
 

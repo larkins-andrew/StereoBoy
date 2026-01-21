@@ -4,12 +4,11 @@
 #include <stdio.h>
 #include <math.h>
 
-#include "st7789_lcd.pio.h"
 
 #include "pico/stdlib.h"
 #include "hardware/pio.h"
 #include "hardware/gpio.h"
-// #include "hardware/interp.h"
+#include "hardware/interp.h"
 
 #define SCREEN_WIDTH 240
 #define SCREEN_HEIGHT 240
@@ -66,9 +65,4 @@ void lcd_draw_progress_bar(PIO pio, uint sm, int length, int progress);
 
 void lcd_draw_char(uint16_t x, uint16_t y, char c, uint16_t color);
 void lcd_draw_string(uint16_t x, uint16_t y, const char *text, uint16_t color);
-
-void lcd_set_dc_cs(bool dc, bool cs);
-void lcd_write_cmd(PIO pio, uint sm, const uint8_t *cmd, size_t count);
-void lcd_set_window(PIO pio, uint sm, uint16_t x, uint16_t y, uint16_t w, uint16_t h);
-
 #endif // DISPLAY_H

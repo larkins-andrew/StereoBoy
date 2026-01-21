@@ -5,10 +5,11 @@
  */
 
 #include "display.h"
+#include "display.pio.h"
+#include "font.h"
 
-// #include "font.h"
 
-#include "main.pio.h"
+
 // #include "raspberry_256x256_rgb565.h"
 uint16_t framebuffer[SCREEN_WIDTH * SCREEN_HEIGHT] = {0};  // Each element is one pixel (RGB565)
 
@@ -39,13 +40,13 @@ inline uint16_t rgbto565(int RGB){
     return (((R & 0b11111000) << 8) | ((G & 0b11111100) << 3) | (B >> 3));
 }
 
-inline void lcd_set_dc_cs(bool dc, bool cs) {
+static inline void lcd_set_dc_cs(bool dc, bool cs) {
     sleep_us(1);
     gpio_put_masked((1u << PIN_DC) | (1u << PIN_CS_DISPLAY), !!dc << PIN_DC | !!cs << PIN_CS_DISPLAY);
     sleep_us(1);
 }
 
-inline void lcd_write_cmd(PIO pio, uint sm, const uint8_t *cmd, size_t count) {
+static inline void lcd_write_cmd(PIO pio, uint sm, const uint8_t *cmd, size_t count) {
     st7789_lcd_wait_idle(pio, sm);
     lcd_set_dc_cs(0, 0);
     st7789_lcd_put(pio, sm, *cmd++);
@@ -59,7 +60,16 @@ inline void lcd_write_cmd(PIO pio, uint sm, const uint8_t *cmd, size_t count) {
     lcd_set_dc_cs(1, 1);
 }
 
-inline void lcd_init(PIO pio, uint sm, const uint8_t *init_seq) {
+void lcd_init(PIO pio, uint sm, const uint8_t *init_seq) {
+    // --- MOVED FROM MAIN.C ---
+    // Load the PIO program into the PIO hardware
+    uint offset = pio_add_program(pio, &st7789_lcd_program);
+    
+    // Initialize the state machine
+    st7789_lcd_program_init(pio, sm, offset, PIN_DIN, PIN_CLK, SERIAL_CLK_DIV);
+    // -------------------------
+
+    // Run the existing initialization sequence
     const uint8_t *cmd = init_seq;
     while (*cmd) {
         lcd_write_cmd(pio, sm, cmd + 2, *cmd);
@@ -70,7 +80,7 @@ inline void lcd_init(PIO pio, uint sm, const uint8_t *init_seq) {
 
 
 // Tells controller done sending command data, start writing the pixels
-inline void st7789_start_pixels(PIO pio, uint sm) {
+static inline void st7789_start_pixels(PIO pio, uint sm) {
     uint8_t cmd = 0x2c; // RAMWR
     lcd_write_cmd(pio, sm, &cmd, 1);
     lcd_set_dc_cs(1, 0);
@@ -78,7 +88,7 @@ inline void st7789_start_pixels(PIO pio, uint sm) {
 
 
 // Helper to send a 16-bit color to the PIO since lcd expect colors as 2 8-bit chunks
-inline void st7789_lcd_put16(PIO pio, uint sm, uint16_t color) {
+static inline void st7789_lcd_put16(PIO pio, uint sm, uint16_t color) {
     st7789_lcd_put(pio, sm, color >> 8);
     st7789_lcd_put(pio, sm, color & 0xFF);
 }
@@ -96,7 +106,7 @@ inline void st7789_lcd_put16(PIO pio, uint sm, uint16_t color) {
  * @param h height of window
  * 
  */
-inline void lcd_set_window(PIO pio, uint sm, uint16_t x, uint16_t y, uint16_t w, uint16_t h) {
+static inline void lcd_set_window(PIO pio, uint sm, uint16_t x, uint16_t y, uint16_t w, uint16_t h) {
     uint16_t x_end = x + w - 1;
     uint16_t y_end = y + h - 1;
 
