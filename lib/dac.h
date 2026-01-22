@@ -37,13 +37,14 @@
 #define DAC_REG_HPR_DRIVER      0x29 // HPR driver
 #define DAC_REG_SPK_DRIVER      0x2A // Class-D driver
 
-
-void dac_write(i2c_inst_t *i2c, uint8_t reg, uint8_t val);
+uint8_t dac_read(uint8_t page, uint8_t reg);
+void dac_write(uint8_t page, uint8_t reg, uint8_t val);
 uint8_t dac_init(i2c_inst_t *i2c);
 bool dac_begin(i2c_inst_t *i2c);
-void dac_set_volume(i2c_inst_t *i2c, uint8_t volume);
-void dac_increase_volume();
-void dac_decrease_volume();
-void dac_apply_volume(uint8_t vol);
+void dac_set_volume(uint8_t vol);
+void dac_increase_volume(uint8_t step);
+void dac_decrease_volume(uint8_t step);
+uint8_t dac_get_volume();
+void dac_interrupt_init(void);
 
 #endif
