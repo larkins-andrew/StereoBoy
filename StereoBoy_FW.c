@@ -536,7 +536,6 @@ int main() {
     stdio_init_all();
 
     sleep_ms(3000);
-    sleep_ms(3000);
 
     // set SPI0 for codec and SD card
     gpio_set_function(PIN_SCK,  GPIO_FUNC_SPI);
