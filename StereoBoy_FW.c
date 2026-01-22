@@ -210,7 +210,13 @@ out:
 JUKEBOX: MAIN PLAY LOOP
 ########################################################## */
 
+/* ##########################################################
+JUKEBOX: MAIN PLAY LOOP
+########################################################## */
+
 bool paused = false;
+bool warping = false;
+bool stopped = false;
 bool warping = false;
 bool stopped = false;
 bool fast_forward = false;
@@ -220,6 +226,17 @@ uint16_t normal_speed = 1;  // 1 = normal
 #define PAUSE_WARP_US 600000      // 0.7 seconds for pause
 #define RESUME_WARP_US 1200000    // 1.2 seconds for resume
 
+#define PAUSE_WARP_US 600000      // 0.7 seconds for pause
+#define RESUME_WARP_US 1200000    // 1.2 seconds for resume
+
+void jukebox(vs1053_t *player, const char *filename) {
+    FIL fil; // file object
+    UINT br; // pointer to number of bytes read
+    uint8_t buffer[512]; // buffer read from file
+
+    sci_write(player, 0x05, 0xAC45); // initialize codec sampling speed to 44.1 Khz
+
+    // status bits for player state and warp effect
 void jukebox(vs1053_t *player, const char *filename) {
     FIL fil; // file object
     UINT br; // pointer to number of bytes read
@@ -240,6 +257,17 @@ void jukebox(vs1053_t *player, const char *filename) {
     absolute_time_t warp_start_time;
 
     // open selected MP3 file
+    warping = false;
+    stopped = 0;
+
+    // more warp effect stuff
+    float transport = 1.0f; // desired speed
+    float warp_start_transport = 1.0f; // start speed for warp
+    float warp_target = 1.0f; // target speed for warp
+    uint32_t warp_duration = RESUME_WARP_US; // warp effect duration
+    absolute_time_t warp_start_time;
+
+    // open selected MP3 file
     if (f_open(&fil, filename, FA_READ) != FR_OK) {
         printf("Failed to open %s\r\n", filename);
         return;
@@ -249,16 +277,26 @@ void jukebox(vs1053_t *player, const char *filename) {
     uint16_t stereo_bit = reg & 1; // LSB indicates mono or stereo (not exactly sure what but this is pretty much always 1)
     uint16_t base_rate  = reg & 0xFFFE; // sampling speed in upper 15 bits
 
+    uint16_t reg = sci_read(player, 0x05); // read SCI_AUDATA (0x05) from codec to get sampling speed info
+    uint16_t stereo_bit = reg & 1; // LSB indicates mono or stereo (not exactly sure what but this is pretty much always 1)
+    uint16_t base_rate  = reg & 0xFFFE; // sampling speed in upper 15 bits
+
     uint32_t start = find_audio_start(&fil);
     f_lseek(&fil, start);
+    absolute_time_t last_skip_time = get_absolute_time();
     absolute_time_t last_skip_time = get_absolute_time();
 
     // This while loop continuously scans for key inputs while playing audio.
     // Warping is achieved by continuously sending audio bytes after pause point until warp duration is met.
+    // This while loop continuously scans for key inputs while playing audio.
+    // Warping is achieved by continuously sending audio bytes after pause point until warp duration is met.
     while (1) {
+        int c = getchar_timeout_us(0); // nonblocking getchar
         int c = getchar_timeout_us(0); // nonblocking getchar
         if (c != PICO_ERROR_TIMEOUT) {
             long pos = f_tell(&fil);
+            // bool headphonesIn = dac_read(0, 0x43) & 0x20;
+            // printf("Headphone prescence: %d\r\n", headphonesIn);
             // bool headphonesIn = dac_read(0, 0x43) & 0x20;
             // printf("Headphone prescence: %d\r\n", headphonesIn);
             absolute_time_t now = get_absolute_time();
@@ -276,13 +314,26 @@ void jukebox(vs1053_t *player, const char *filename) {
 
                     printf(paused ? "\r\nTape slowing...\r\n"
                                    : "\r\nTape resuming...\r\n");
+                    paused = !paused; // set paused flag
+                    warp_start_time = get_absolute_time(); // get timestamp for warp start
+                    warp_start_transport = transport; // 
+                    warp_target = paused ? 0.0f : 1.0f;
+                    warping = true;
+
+                    // select duration based on pause/resume
+                    warp_duration = paused ? PAUSE_WARP_US : RESUME_WARP_US;
+
+                    printf(paused ? "\r\nTape slowing...\r\n"
+                                   : "\r\nTape resuming...\r\n");
                     break;
                 case 'f':
                 case 'F':
                     if (absolute_time_diff_us(last_skip_time, now) >= SKIP_INTERVAL_MS * 1000) {
                         pos += 320 * 128;
+                        pos += 320 * 128;
                         if (pos > f_size(&fil)) pos = f_size(&fil) - 1;
                         f_lseek(&fil, pos);
+                        printf("\r\nFast-forwarded ~320Kb\r\n");
                         printf("\r\nFast-forwarded ~320Kb\r\n");
                         last_skip_time = now;
                     }
@@ -291,8 +342,10 @@ void jukebox(vs1053_t *player, const char *filename) {
                 case 'R':
                     if (absolute_time_diff_us(last_skip_time, now) >= SKIP_INTERVAL_MS * 1000) {
                         pos -= 320 * 128;
+                        pos -= 320 * 128;
                         if (pos < 0) pos = 0;
                         f_lseek(&fil, pos);
+                        printf("\r\nRewound ~320Kb\r\n");
                         printf("\r\nRewound ~320Kb\r\n");
                         last_skip_time = now;
                     }
@@ -300,10 +353,12 @@ void jukebox(vs1053_t *player, const char *filename) {
                 case 'u':
                 case 'U':
                     dac_increase_volume(3);
+                    dac_increase_volume(3);
                     printf("\r\nVolume up!\r\n");
                     break;
                 case 'd':
                 case 'D':
+                    dac_decrease_volume(3);
                     dac_decrease_volume(3);
                     printf("\r\nVolume down!\r\n");
                     break;
@@ -324,15 +379,72 @@ void jukebox(vs1053_t *player, const char *filename) {
                     warping = true;
                     printf("Stopping...\r\n");
                     break;
+                    if (paused) {
+                        vs1053_set_play_speed(player, 0); // hard pause
+                        printf("\r\nStopping....\r\n");
+                        f_close(&fil);
+                        vs1053_stop(player);
+                        return;
+                    }
+                    stopped = 1;
+                    warp_start_time = get_absolute_time();
+                    warp_start_transport = transport;
+                    warp_target = 0.0f;
+                    warp_duration = PAUSE_WARP_US;
+                    warping = true;
+                    printf("Stopping...\r\n");
+                    break;
             }
         }
 
+        // Always feed decoder unless fully paused
+        if (!paused || warping) {
         // Always feed decoder unless fully paused
         if (!paused || warping) {
             if (f_read(&fil, buffer, sizeof(buffer), &br) != FR_OK || br == 0)
                 break;
 
             vs1053_play_data(player, buffer, br);
+        }
+
+        // --- Warp logic ---
+        if (warping) {
+            int64_t elapsed = absolute_time_diff_us(warp_start_time, get_absolute_time());
+
+            if (elapsed >= warp_duration) {
+                transport = warp_target;
+                warping = false;
+
+                if (paused) {
+                    vs1053_set_play_speed(player, 0); // hard pause
+                    printf("\r\nPaused.\r\n");
+                } else if (stopped) {
+                    vs1053_set_play_speed(player, 0); // hard pause
+                    printf("\r\nPaused.\r\n");
+                    f_close(&fil);
+                    vs1053_stop(player);
+                    return;
+                }
+            } else {
+                float t = (float)elapsed / (float)warp_duration;
+                transport = warp_start_transport +
+                            (warp_target - warp_start_transport) * t;
+            }
+        }
+
+        // --- Apply playback rate + volume ---
+        if (!paused || warping) {
+            uint16_t new_rate = (uint16_t)(base_rate * transport) & 0xFFFE;
+            if (new_rate < 9000) new_rate = 9000;
+            sci_write(player, 0x05, new_rate | stereo_bit);
+
+            // volume scales with transport
+            // uint8_t vol = (uint8_t)(0xFE * (1.0f - transport));
+            // if (vol > 0xFE) vol = 0xFE;
+            // vs1053_set_volume(player, vol, vol);
+        }
+    }
+
         }
 
         // --- Warp logic ---
@@ -424,6 +536,7 @@ int main() {
     stdio_init_all();
 
     sleep_ms(3000);
+    sleep_ms(3000);
 
     // set SPI0 for codec and SD card
     gpio_set_function(PIN_SCK,  GPIO_FUNC_SPI);
@@ -461,6 +574,7 @@ int main() {
 
     // initialize DAC
     dac_init(i2c0);
+    dac_interrupt_init();
     dac_interrupt_init();
     printf("DAC intialized.\r\n");
 
@@ -535,6 +649,7 @@ int main() {
         printf("  Artist: %s\r\n", sel->artist);
         printf("  Album : %s\r\n\r\n", sel->album);
 
+        jukebox(&player, sel->filename);
         jukebox(&player, sel->filename);
 
         printf("\r\nPlayback finished.\r\n");

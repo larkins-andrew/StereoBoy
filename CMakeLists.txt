@@ -62,6 +62,15 @@ target_include_directories(StereoBoy_FW PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}
 )
 
+set(PICO_FLASH_SIZE_BYTES 2097152 CACHE STRING "RP2350 flash size")
+
+# Generate memory usage report
+target_link_options(StereoBoy_FW PRIVATE
+    -Wl,-Map=StereoBoy_FW.map
+    -Wl,--cref
+    -Wl,--print-memory-usage
+)
+
 add_subdirectory(lib/no-OS-FatFS-SD-SDIO-SPI-RPi-Pico/src build)
 
 # Add any user requested libraries
