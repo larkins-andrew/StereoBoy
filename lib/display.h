@@ -15,8 +15,8 @@
 #define IMAGE_SIZE 256
 #define LOG_IMAGE_SIZE 8
 
-#define PIN_DIN 34
-#define PIN_CLK 35
+#define PIN_DIN 1
+#define PIN_CLK 0
 #define PIN_CS_DISPLAY 6
 #define PIN_DC 5
 #define PIN_RESET 4

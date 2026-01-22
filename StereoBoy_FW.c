@@ -18,6 +18,9 @@
 #define PIN_MISO 31
 #define PIN_CS   32
 
+//Debug LEDs
+
+
 // Codec control signals
 #define PIN_DCS  33
 #define PIN_DREQ 29
@@ -317,6 +320,7 @@ int main() {
     gpio_set_function(PIN_MOSI, GPIO_FUNC_SPI);
     gpio_set_function(PIN_MISO, GPIO_FUNC_SPI);
 
+
     // set I2C0 for DAC
     i2c_init(i2c0, 400 * 1000);
     gpio_set_function(PIN_I2C0_SCL, GPIO_FUNC_I2C);
@@ -396,6 +400,9 @@ int main() {
 
 
     ////////////////////////////DISPLAY/////////////////////////////
+    const uint LED_PIN = 25;
+    gpio_init(LED_PIN);
+    gpio_set_dir(LED_PIN, GPIO_OUT);
     PIO pio = pio0;
     uint sm = 0;
     gpio_init(PIN_CS);
@@ -406,7 +413,7 @@ int main() {
     gpio_set_dir(PIN_DC, GPIO_OUT);
     gpio_set_dir(PIN_RESET, GPIO_OUT);
     gpio_set_dir(PIN_BL, GPIO_OUT);
-    
+    gpio_put(LED_PIN, 1);
     gpio_put(PIN_CS, 1);
     gpio_put(PIN_RESET, 1);
     lcd_init(pio, sm, st7789_init_seq);
