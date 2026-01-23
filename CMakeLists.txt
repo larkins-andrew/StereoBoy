@@ -23,7 +23,7 @@ if (EXISTS ${picoVscode})
     include(${picoVscode})
 endif()
 # ====================================================================================
-set(PICO_BOARD adafruit_fruit_jam CACHE STRING "Board type")
+set(PICO_BOARD pico2 CACHE STRING "Board type")
 
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
@@ -42,6 +42,7 @@ add_executable(StereoBoy_FW
     lib/vs1053.c
     lib/dac.c
     lib/display.c
+    lib/led_driver.c
     )
 
 pico_set_program_name(StereoBoy_FW "StereoBoy_FW")

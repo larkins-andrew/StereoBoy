@@ -8,36 +8,38 @@
 #include "lib/vs1053.h"
 #include "lib/dac.h"
 #include "lib/display.h"
+#include "lib/led_driver.h"
 
 #define MAX_FILENAME_LEN 256 // max filaname character length
-#define MAX_TRACKS 50 // max number of mp3 files in sd card
+#define MAX_TRACKS 50        // max number of mp3 files in sd card
 
 // SPI1 configuration for codec & sd card
-#define PIN_SCK  30
+#define PIN_SCK 30
 #define PIN_MOSI 28
 #define PIN_MISO 31
-#define PIN_CS   32
+#define PIN_CS 32
 
-//Debug LEDs
-
+// Debug LEDs
 
 // Codec control signals
-#define PIN_DCS  33
+#define PIN_DCS 33
 #define PIN_DREQ 29
-#define PIN_RST  27
+#define PIN_RST 27
 
 // I2C0 for DAC
 #define PIN_I2C0_SCL 21
 #define PIN_I2C0_SDA 20
 
-#define SKIP_INTERVAL_MS 50   // minimum interval between FF/RW jumps
+#define SKIP_INTERVAL_MS 50 // minimum interval between FF/RW jumps
 
 // Convert syncsafe integer (ID3 size format)
-static uint32_t syncsafe_to_uint(const uint8_t *b) {
+static uint32_t syncsafe_to_uint(const uint8_t *b)
+{
     return (b[0] << 21) | (b[1] << 14) | (b[2] << 7) | b[3];
 }
 
-static void read_text_frame(FIL *fil, uint32_t frame_size, char *out, size_t out_size) {
+static void read_text_frame(FIL *fil, uint32_t frame_size, char *out, size_t out_size)
+{
     UINT br;
     uint8_t encoding;
 
@@ -47,7 +49,8 @@ static void read_text_frame(FIL *fil, uint32_t frame_size, char *out, size_t out
     memset(out, 0, out_size);
 
     // ---------------- UTF-8 ----------------
-    if (encoding == 3) {
+    if (encoding == 3)
+    {
         uint32_t n = (frame_size < out_size - 1) ? frame_size : out_size - 1;
         f_read(fil, out, n, &br);
         out[n] = '\0';
@@ -55,16 +58,22 @@ static void read_text_frame(FIL *fil, uint32_t frame_size, char *out, size_t out
     }
 
     // ---------------- ISO-8859-1 → UTF-8 ----------------
-    if (encoding == 0) {
+    if (encoding == 0)
+    {
         uint8_t b;
         size_t oi = 0;
 
-        for (uint32_t i = 0; i < frame_size && oi < out_size - 1; i++) {
+        for (uint32_t i = 0; i < frame_size && oi < out_size - 1; i++)
+        {
             f_read(fil, &b, 1, &br);
-            if (b < 0x80) {
+            if (b < 0x80)
+            {
                 out[oi++] = b;
-            } else {
-                if (oi + 2 >= out_size) break;
+            }
+            else
+            {
+                if (oi + 2 >= out_size)
+                    break;
                 out[oi++] = 0xC0 | (b >> 6);
                 out[oi++] = 0x80 | (b & 0x3F);
             }
@@ -74,7 +83,8 @@ static void read_text_frame(FIL *fil, uint32_t frame_size, char *out, size_t out
     }
 
     // ---------------- UTF-16 → UTF-8 ----------------
-    if (encoding == 1 || encoding == 2) {
+    if (encoding == 1 || encoding == 2)
+    {
         bool little_endian = true;
         uint8_t bom[2];
 
@@ -82,31 +92,41 @@ static void read_text_frame(FIL *fil, uint32_t frame_size, char *out, size_t out
         f_read(fil, bom, 2, &br);
         frame_size -= 2;
 
-        if (encoding == 1) {
+        if (encoding == 1)
+        {
             if (bom[0] == 0xFE && bom[1] == 0xFF)
                 little_endian = false;
             else if (bom[0] == 0xFF && bom[1] == 0xFE)
                 little_endian = true;
-        } else {
+        }
+        else
+        {
             // UTF-16BE without BOM
             little_endian = false;
         }
 
         size_t oi = 0;
-        for (uint32_t i = 0; i + 1 < frame_size && oi < out_size - 1; i += 2) {
+        for (uint32_t i = 0; i + 1 < frame_size && oi < out_size - 1; i += 2)
+        {
             uint8_t b1, b2;
             f_read(fil, &b1, 1, &br);
             f_read(fil, &b2, 1, &br);
 
             uint16_t ch = little_endian ? (b1 | (b2 << 8)) : ((b1 << 8) | b2);
-            if (ch == 0x0000) break;
+            if (ch == 0x0000)
+                break;
 
-            if (ch < 0x80) {
+            if (ch < 0x80)
+            {
                 out[oi++] = ch;
-            } else if (ch < 0x800 && oi + 2 < out_size) {
+            }
+            else if (ch < 0x800 && oi + 2 < out_size)
+            {
                 out[oi++] = 0xC0 | (ch >> 6);
                 out[oi++] = 0x80 | (ch & 0x3F);
-            } else if (oi + 3 < out_size) {
+            }
+            else if (oi + 3 < out_size)
+            {
                 out[oi++] = 0xE0 | (ch >> 12);
                 out[oi++] = 0x80 | ((ch >> 6) & 0x3F);
                 out[oi++] = 0x80 | (ch & 0x3F);
@@ -121,14 +141,16 @@ static void read_text_frame(FIL *fil, uint32_t frame_size, char *out, size_t out
     f_lseek(fil, f_tell(fil) + frame_size);
 }
 
-typedef struct {
+typedef struct
+{
     char filename[256];
     char title[128];
     char artist[128];
     char album[128];
 } track_info_t;
 
-static uint32_t find_audio_start(FIL *fil) {
+static uint32_t find_audio_start(FIL *fil)
+{
     UINT br;
     uint8_t header[10];
 
@@ -137,7 +159,8 @@ static uint32_t find_audio_start(FIL *fil) {
     if (f_read(fil, header, 10, &br) != FR_OK || br != 10)
         return 0;
 
-    if (memcmp(header, "ID3", 3) == 0) {
+    if (memcmp(header, "ID3", 3) == 0)
+    {
         uint32_t tag_size = syncsafe_to_uint(&header[6]);
         return 10 + tag_size;
     }
@@ -146,7 +169,8 @@ static uint32_t find_audio_start(FIL *fil) {
     return 0;
 }
 
-static void get_mp3_metadata(const char *filename, track_info_t *track) {
+static void get_mp3_metadata(const char *filename, track_info_t *track)
+{
     strcpy(track->filename, filename);
     strcpy(track->title, "(unknown)");
     strcpy(track->artist, "(unknown)");
@@ -169,12 +193,14 @@ static void get_mp3_metadata(const char *filename, track_info_t *track) {
     uint32_t tag_size = syncsafe_to_uint(&header[6]);
     uint32_t bytes_read = 0;
 
-    while (bytes_read < tag_size) {
+    while (bytes_read < tag_size)
+    {
         if (f_read(&fil, frame_header, 10, &br) != FR_OK || br != 10)
             break;
 
         bytes_read += 10;
-        if (frame_header[0] == 0) break;
+        if (frame_header[0] == 0)
+            break;
 
         char id[5];
         memcpy(id, frame_header, 4);
@@ -205,10 +231,11 @@ out:
 bool paused = false;
 bool fast_forward = false;
 bool audio_rewind = false;
-uint16_t normal_speed = 1;  // 1 = normal
-uint16_t ff_speed = 3;      // 3x speed
+uint16_t normal_speed = 1; // 1 = normal
+uint16_t ff_speed = 3;     // 3x speed
 
-void play_file(vs1053_t *player, const char *filename) {
+void play_file(vs1053_t *player, const char *filename)
+{
     FIL fil;
     UINT br;
     uint8_t buffer[512];
@@ -216,7 +243,8 @@ void play_file(vs1053_t *player, const char *filename) {
 
     absolute_time_t last_skip_time = get_absolute_time();
 
-    if (f_open(&fil, filename, FA_READ) != FR_OK) {
+    if (f_open(&fil, filename, FA_READ) != FR_OK)
+    {
         printf("Failed to open %s\r\n", filename);
         return;
     }
@@ -225,68 +253,77 @@ void play_file(vs1053_t *player, const char *filename) {
     uint32_t start = find_audio_start(&fil);
     f_lseek(&fil, start);
 
-    while (1) {
+    while (1)
+    {
         int c = getchar_timeout_us(0); // non-blocking
 
-        if (c != PICO_ERROR_TIMEOUT) {
+        if (c != PICO_ERROR_TIMEOUT)
+        {
             long pos = f_tell(&fil);
             absolute_time_t now = get_absolute_time();
 
-            switch (c) {
-                case 'p':
-                case 'P':
-                    paused = !paused;
-                    printf("\r\n%s\r\n", paused ? "Paused" : "Resumed");
-                    vs1053_set_play_speed(player, paused ? 0 : normal_speed);
-                    break;
+            switch (c)
+            {
+            case 'p':
+            case 'P':
+                paused = !paused;
+                printf("\r\n%s\r\n", paused ? "Paused" : "Resumed");
+                vs1053_set_play_speed(player, paused ? 0 : normal_speed);
+                break;
 
-                case 'f':
-                case 'F':
-                    if (absolute_time_diff_us(last_skip_time, now) >= SKIP_INTERVAL_MS * 1000) {
-                        pos += 100 * 1024; // fast-forward
-                        if (pos > f_size(&fil)) pos = f_size(&fil) - 1;
-                        f_lseek(&fil, pos);
-                        printf("\r\nFast-forwarded ~100KB\r\n");
-                        last_skip_time = now;
-                    }
-                    break;
+            case 'f':
+            case 'F':
+                if (absolute_time_diff_us(last_skip_time, now) >= SKIP_INTERVAL_MS * 1000)
+                {
+                    pos += 100 * 1024; // fast-forward
+                    if (pos > f_size(&fil))
+                        pos = f_size(&fil) - 1;
+                    f_lseek(&fil, pos);
+                    printf("\r\nFast-forwarded ~100KB\r\n");
+                    last_skip_time = now;
+                }
+                break;
 
-                case 'r':
-                case 'R':
-                    if (absolute_time_diff_us(last_skip_time, now) >= SKIP_INTERVAL_MS * 1000) {
-                        pos -= 100 * 1024; // rewind
-                        if (pos < 0) pos = 0;
-                        f_lseek(&fil, pos);
-                        printf("\r\nRewound ~100KB\r\n");
-                        last_skip_time = now;
-                    }
-                    break;
+            case 'r':
+            case 'R':
+                if (absolute_time_diff_us(last_skip_time, now) >= SKIP_INTERVAL_MS * 1000)
+                {
+                    pos -= 100 * 1024; // rewind
+                    if (pos < 0)
+                        pos = 0;
+                    f_lseek(&fil, pos);
+                    printf("\r\nRewound ~100KB\r\n");
+                    last_skip_time = now;
+                }
+                break;
 
-                case 'u':
-                case 'U':
-                    dac_increase_volume();
-                    printf("\r\nVolume up!\r\n");
-                    break;
-                case 'd':
-                case 'D':
-                    dac_decrease_volume();
-                    printf("\r\nVolume down!\r\n");
-                    break;
-                case 's':
-                case 'S':
-                    printf("\r\nStopped. Returning to menu.\r\n");
-                    f_close(&fil);
-                    return;   // Exit play_file immediately
-
+            case 'u':
+            case 'U':
+                dac_increase_volume();
+                printf("\r\nVolume up!\r\n");
+                break;
+            case 'd':
+            case 'D':
+                dac_decrease_volume();
+                printf("\r\nVolume down!\r\n");
+                break;
+            case 's':
+            case 'S':
+                printf("\r\nStopped. Returning to menu.\r\n");
+                f_close(&fil);
+                return; // Exit play_file immediately
             }
         }
 
-        if (!paused) {
+        if (!paused)
+        {
             if (f_read(&fil, buffer, sizeof(buffer), &br) != FR_OK || br == 0)
                 break;
 
             vs1053_play_data(player, buffer, br);
-        } else {
+        }
+        else
+        {
             sleep_ms(50);
         }
     }
@@ -295,7 +332,8 @@ void play_file(vs1053_t *player, const char *filename) {
     f_close(&fil);
 }
 
-uint8_t readReg(i2c_inst_t *i2c, uint8_t reg) {
+uint8_t readReg(i2c_inst_t *i2c, uint8_t reg)
+{
     uint8_t val;
     i2c_write_blocking(i2c, 0x18, &reg, 1, true);
     i2c_read_blocking(i2c, 0x18, &val, 1, false);
@@ -303,23 +341,24 @@ uint8_t readReg(i2c_inst_t *i2c, uint8_t reg) {
 }
 
 // Helper for qsort
-static int compare_filenames(const void *a, const void *b) {
+static int compare_filenames(const void *a, const void *b)
+{
     const track_info_t *ta = (const track_info_t *)a;
     const track_info_t *tb = (const track_info_t *)b;
     return strcasecmp(ta->filename, tb->filename);
 }
 
-int main() {
+int main()
+{
 
     stdio_init_all();
 
     sleep_ms(5000);
 
     // set SPI0 for codec and SD card
-    gpio_set_function(PIN_SCK,  GPIO_FUNC_SPI);
+    gpio_set_function(PIN_SCK, GPIO_FUNC_SPI);
     gpio_set_function(PIN_MOSI, GPIO_FUNC_SPI);
     gpio_set_function(PIN_MISO, GPIO_FUNC_SPI);
-
 
     // set I2C0 for DAC
     i2c_init(i2c0, 400 * 1000);
@@ -330,15 +369,19 @@ int main() {
 
     printf("SPI0 and I2C0 initialized.\r\n");
 
-    if (!sd_init_driver()) {
+    if (!sd_init_driver())
+    {
         printf("SD init failed\r\n");
-        while (1);
+        while (1)
+            ;
     }
 
     FATFS fs;
-    if (f_mount(&fs, "0:", 1) != FR_OK) {
+    if (f_mount(&fs, "0:", 1) != FR_OK)
+    {
         printf("Mount failed\r\n");
-        while (1);
+        while (1)
+            ;
     }
 
     vs1053_t player = {
@@ -346,14 +389,13 @@ int main() {
         .cs = PIN_CS,
         .dcs = PIN_DCS,
         .dreq = PIN_DREQ,
-        .rst = PIN_RST
-    };
+        .rst = PIN_RST};
 
     vs1053_init(&player);
     printf("VS1053 initialized.\r\n");
     vs1053_set_volume(&player, 0x00, 0x00);
     printf("VS1053 volume set to max!\r\n");
-    
+
     // Enable I2S output
     vs1053_enable_i2s(&player);
     printf("VS1053 I2S enabled.\r\n");
@@ -379,11 +421,14 @@ int main() {
 
     f_opendir(&dir, "0:/");
 
-    while (f_readdir(&dir, &fno) == FR_OK && fno.fname[0]) {
-        if (fno.fattrib & AM_DIR) continue;
+    while (f_readdir(&dir, &fno) == FR_OK && fno.fname[0])
+    {
+        if (fno.fattrib & AM_DIR)
+            continue;
 
         char *ext = strrchr(fno.fname, '.');
-        if (ext && !strcasecmp(ext, ".mp3") && count < MAX_TRACKS) {
+        if (ext && !strcasecmp(ext, ".mp3") && count < MAX_TRACKS)
+        {
             get_mp3_metadata(fno.fname, &tracks[count]);
             count++;
         }
@@ -391,18 +436,16 @@ int main() {
 
     f_closedir(&dir);
 
-    if (count == 0) {
+    if (count == 0)
+    {
         printf("No MP3 files found.\r\n");
-        while (1);
+        while (1)
+            ;
     }
 
     qsort(tracks, count, sizeof(track_info_t), compare_filenames);
 
-
     ////////////////////////////DISPLAY/////////////////////////////
-    const uint LED_PIN = 25;
-    gpio_init(LED_PIN);
-    gpio_set_dir(LED_PIN, GPIO_OUT);
     PIO pio = pio0;
     uint sm = 0;
     gpio_init(PIN_CS_DISPLAY);
@@ -413,7 +456,6 @@ int main() {
     gpio_set_dir(PIN_DC, GPIO_OUT);
     gpio_set_dir(PIN_RESET, GPIO_OUT);
     gpio_set_dir(PIN_BL, GPIO_OUT);
-    gpio_put(LED_PIN, 1);
     gpio_put(PIN_CS_DISPLAY, 1);
     gpio_put(PIN_RESET, 1);
     lcd_init(pio, sm, st7789_init_seq);
@@ -424,19 +466,76 @@ int main() {
     // lcd_draw_char(10, 10, 'B', CYAN);
     lcd_update(pio, sm);
     // lcd_draw_progress_bar(pio, sm, 200, 46);
-    
+
     ///////////////////////////DISPLAY END///////////////////////////
 
     //////////////////////////LED DRIVER/////////////////////////////
-    
 
+    // GPIO Init
+    gpio_init(LED_HEARTBEAT);
+    gpio_set_dir(LED_HEARTBEAT, GPIO_OUT);
+    gpio_init(LED_FOUND);
+    gpio_set_dir(LED_FOUND, GPIO_OUT);
 
+    gpio_init(SDA_PIN);
+    gpio_set_dir(SDA_PIN, GPIO_IN);
+    gpio_init(SCL_PIN);
+    gpio_set_dir(SCL_PIN, GPIO_IN);
+    gpio_pull_up(SDA_PIN);
+    gpio_pull_up(SCL_PIN);
+
+    sleep_ms(2000);
+
+    // --- CONNECTION TEST ---
+    i2c_start();
+    bool ack = i2c_write_byte(PCA_ADDR << 1);
+    i2c_stop();
+
+    if (!ack)
+    {
+        // FAILED: Frantic Blink
+        while (true)
+        {
+            gpio_put(LED_HEARTBEAT, 1);
+            sleep_ms(50);
+            gpio_put(LED_HEARTBEAT, 0);
+            sleep_ms(50);
+        }
+    }
+
+    // SUCCESS
+    gpio_put(LED_FOUND, 1);
+    pca_init();
 
     //////////////////////////LED END////////////////////////////////
-    while (1) {
+    while (1)
+    {
+        //////////////////////// LED DRIVER //////////////////////////
+        gpio_put(LED_HEARTBEAT, 1); // Heartbeat ON
+        // We step by 32 because bit-banging is slow.
+        // 0 -> 4096
+        for (int i = 0; i < 4096; i += 128)
+        {
+            // ON=0, OFF=i means the LED is ON for 'i' ticks out of 4096
+            for (int j=0; j<16; j++){
+                pca_set_pwm(j, 0, i);
+            }
+        }
+
+        // FADE DOWN (Get Dimmer)
+        gpio_put(LED_HEARTBEAT, 0); // Heartbeat OFF
+        // 4095 -> 0
+        for (int i = 4095; i >= 0; i -= 128)
+        {
+            
+            pca_set_pwm(TARGET_CHANNEL, 0, i);
+        }
+        /////////////////////// LED END ///////////////////
+
         // --- Print menu ---
         printf("\r\nAvailable tracks:\r\n");
-        for (int i = 0; i < count; i++) {
+        for (int i = 0; i < count; i++)
+        {
             printf("\r\n[%d] %s - %s\r\n", i + 1, tracks[i].artist, tracks[i].title);
             printf("     Album: %s\r\n", tracks[i].album);
         }
@@ -444,19 +543,23 @@ int main() {
         char input[8];
         int choice = 0;
 
-        while (choice < 1 || choice > count) {
+        while (choice < 1 || choice > count)
+        {
             printf("\r\nSelect track (1-%d): ", count);
 
             int idx = 0;
             memset(input, 0, sizeof(input));
 
-            while (1) {
+            while (1)
+            {
                 int c = getchar(); // blocking read
-                if (c == '\r' || c == '\n') { // Enter pressed
+                if (c == '\r' || c == '\n')
+                { // Enter pressed
                     printf("\r\n");
                     break;
                 }
-                if (idx < sizeof(input)-1) {
+                if (idx < sizeof(input) - 1)
+                {
                     input[idx++] = c;
                     putchar(c); // echo typed char
                 }
