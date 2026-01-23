@@ -5,8 +5,8 @@
 #include "sd_card.h"
 #include "ff.h"
 #include "hw_config.h"
-#include "lib/vs1053.h"
-#include "lib/dac.h"
+#include "lib/codec/vs1053.h"
+#include "lib/dac/dac.h"
 
 #define MAX_FILENAME_LEN 256 // max filaname character length
 #define MAX_TRACKS 50 // max number of mp3 files in sd card
