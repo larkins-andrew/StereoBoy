@@ -43,6 +43,7 @@ add_executable(StereoBoy_FW
     lib/dac.c
     lib/display.c
     lib/led_driver.c
+    lib/codec.c
     )
 
 pico_set_program_name(StereoBoy_FW "StereoBoy_FW")
