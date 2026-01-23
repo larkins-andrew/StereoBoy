@@ -36,7 +36,7 @@ pico_sdk_init()
 # Add executable. Default name is the project name, version 0.1
 
 add_executable(StereoBoy_FW
-    src/StereoBoy_FW.c
+    src/jukebox.c
     src/hw_config.c # this is important!!! https://forums.raspberrypi.com/viewtopic.php?t=342315
     lib/codec/vs1053.c
     lib/dac/dac.c
@@ -46,7 +46,7 @@ pico_set_program_name(StereoBoy_FW "StereoBoy_FW")
 pico_set_program_version(StereoBoy_FW "0.1")
 
 # Generate PIO header
-pico_generate_pio_header(StereoBoy_FW ${CMAKE_CURRENT_LIST_DIR}/pio/blink.pio)
+pico_generate_pio_header(StereoBoy_FW ${CMAKE_CURRENT_LIST_DIR}/pio/main.pio)
 
 # Modify the below lines to enable/disable output over UART/USB
 pico_enable_stdio_uart(StereoBoy_FW 0)
@@ -80,6 +80,7 @@ target_link_libraries(StereoBoy_FW
         hardware_pio
         hardware_timer
         hardware_clocks
+        hardware_interp
         no-OS-FatFS-SD-SDIO-SPI-RPi-Pico
         )
 
