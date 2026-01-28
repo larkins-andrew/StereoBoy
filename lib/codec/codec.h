@@ -5,9 +5,9 @@
 #include "sd_card.h"
 #include "ff.h"
 #include "hw_config.h"
-#include "lib/vs1053.h"
+#include "vs1053.h"
 #include "hardware/i2c.h"
-#include "dac.h"
+#include "lib/dac/dac.h"
 
 
 

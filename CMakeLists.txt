@@ -50,8 +50,8 @@ pico_set_program_name(StereoBoy_FW "StereoBoy_FW")
 pico_set_program_version(StereoBoy_FW "0.1")
 
 # Generate PIO header
-pico_generate_pio_header(StereoBoy_FW ${CMAKE_CURRENT_LIST_DIR}/blink.pio)
-pico_generate_pio_header(StereoBoy_FW ${CMAKE_CURRENT_LIST_DIR}/lib/display.pio)
+pico_generate_pio_header(StereoBoy_FW ${CMAKE_CURRENT_LIST_DIR}/src/blink.pio)
+pico_generate_pio_header(StereoBoy_FW ${CMAKE_CURRENT_LIST_DIR}/lib/display/display.pio)
 
 # Modify the below lines to enable/disable output over UART/USB
 pico_enable_stdio_uart(StereoBoy_FW 0)

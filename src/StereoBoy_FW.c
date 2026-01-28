@@ -1,10 +1,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h> // Required for qsort
-#include "lib/dac.h"
-#include "lib/display.h"
-#include "lib/led_driver.h"
-#include "lib/codec.h"
+#include "lib/dac/dac.h"
+#include "lib/display/display.h"
+#include "lib/led_driver/led_driver.h"
+#include "lib/codec/codec.h"
 
 
 int main()

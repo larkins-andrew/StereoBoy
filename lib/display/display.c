@@ -6,7 +6,7 @@
 
 #include "display.h"
 #include "display.pio.h"
-#include "font.h"
+#include "lib/font/font.h"
 
 
 
