@@ -35,6 +35,11 @@ pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 
+# add_executable(StereoBoy_FW
+#     src/led_driver.c
+#     src/hw_config.c
+#     lib/led_driver/led_driver.c
+# )
 add_executable(StereoBoy_FW
     src/StereoBoy_FW.c
     src/hw_config.c # this is important!!! https://forums.raspberrypi.com/viewtopic.php?t=342315
@@ -43,7 +48,8 @@ add_executable(StereoBoy_FW
     lib/dac/dac.c
     lib/display/display.c
     lib/led_driver/led_driver.c
-    # lib/codec/codec.c
+    
+    # lib/codec/codec.c # Comment this in for Stereoboy_FW_shubham.c, Comment out for Stereoboy_FW.c
     )
 
 pico_set_program_name(StereoBoy_FW "StereoBoy_FW")
@@ -66,6 +72,8 @@ target_link_libraries(StereoBoy_FW
 # Add the standard include files to the build
 target_include_directories(StereoBoy_FW PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}
+        # ${CMAKE_CURRENT_LIST_DIR}/lib
+        # ${CMAKE_CURRENT_LIST_DIR}/src
 )
 
 set(PICO_FLASH_SIZE_BYTES 2097152 CACHE STRING "RP2350 flash size")

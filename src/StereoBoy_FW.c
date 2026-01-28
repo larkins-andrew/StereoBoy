@@ -7,6 +7,8 @@
 #include "hw_config.h"
 #include "lib/codec/vs1053.h"
 #include "lib/dac/dac.h"
+#include "lib/display/display.h"
+#include "lib/led_driver/led_driver.h"
 
 #define MAX_FILENAME_LEN 256 // max filaname character length
 #define MAX_TRACKS 50 // max number of mp3 files in sd card
@@ -506,7 +508,96 @@ int main() {
 
     qsort(tracks, count, sizeof(track_info_t), compare_filenames);
 
+    ////////////////////////////DISPLAY/////////////////////////////
+    PIO pio = pio0;
+    uint sm = 0;
+    gpio_init(PIN_CS_DISPLAY);
+    gpio_init(PIN_DC);
+    gpio_init(PIN_RESET);
+    gpio_init(PIN_BL);
+    gpio_set_dir(PIN_CS_DISPLAY, GPIO_OUT);
+    gpio_set_dir(PIN_DC, GPIO_OUT);
+    gpio_set_dir(PIN_RESET, GPIO_OUT);
+    gpio_set_dir(PIN_BL, GPIO_OUT);
+    gpio_put(PIN_CS_DISPLAY, 1);
+    gpio_put(PIN_RESET, 1);
+    lcd_init(pio, sm, st7789_init_seq);
+    gpio_put(PIN_BL, 1);
+    // lcd_draw_circle(120,120, 16, GREEN);
+    // lcd_draw_circle_fill(120, 180, 33, rgbto565(0xFF3399));
+    lcd_draw_string(0, 0, "Shubham Was Here", BLUE);
+    // lcd_draw_char(10, 10, 'B', CYAN);
+    lcd_update(pio, sm);
+    // lcd_draw_progress_bar(pio, sm, 200, 46);
+
+    ///////////////////////////DISPLAY END///////////////////////////
+
+    //////////////////////////LED DRIVER/////////////////////////////
+
+    // GPIO Init
+    gpio_init(LED_HEARTBEAT);
+    gpio_set_dir(LED_HEARTBEAT, GPIO_OUT);
+    gpio_init(LED_FOUND);
+    gpio_set_dir(LED_FOUND, GPIO_OUT);
+
+    gpio_init(SDA_PIN);
+    gpio_set_dir(SDA_PIN, GPIO_IN);
+    gpio_init(SCL_PIN);
+    gpio_set_dir(SCL_PIN, GPIO_IN);
+    gpio_pull_up(SDA_PIN);
+    gpio_pull_up(SCL_PIN);
+
+    sleep_ms(2000);
+
+    // --- CONNECTION TEST ---
+    i2c_start();
+    bool ack = i2c_write_byte(PCA_ADDR << 1);
+    i2c_stop();
+
+    if (!ack)
+    {
+        // FAILED: Frantic Blink
+        while (true)
+        {
+            printf("Err: ack not found for LED Driver");
+            gpio_put(LED_HEARTBEAT, 1);
+            sleep_ms(50);
+            gpio_put(LED_HEARTBEAT, 0);
+            sleep_ms(50);
+        }
+    }
+
+    // SUCCESS
+    gpio_put(LED_FOUND, 1);
+    pca_init();
+    printf("Ack found found for LED Driver");
+
+    //////////////////////////LED END////////////////////////////////
+
     while (1) {
+
+        //////////////////////// LED DRIVER //////////////////////////
+        gpio_put(LED_HEARTBEAT, 1); // Heartbeat ON
+        // We step by 32 because bit-banging is slow.
+        // 0 -> 4096
+        for (int i = 0; i < 4096; i += 128)
+        {
+            // ON=0, OFF=i means the LED is ON for 'i' ticks out of 4096
+            for (int j=0; j<16; j++){
+                pca_set_pwm(j, 0, i);
+            }
+        }
+
+        // FADE DOWN (Get Dimmer)
+        gpio_put(LED_HEARTBEAT, 0); // Heartbeat OFF
+        // 4095 -> 0
+        for (int i = 4095; i >= 0; i -= 128)
+        {
+            
+            pca_set_pwm(TARGET_CHANNEL, 0, i);
+        }
+        /////////////////////// LED END ///////////////////
+
         // --- Print menu ---
         printf("\r\nAvailable tracks:\r\n");
         for (int i = 0; i < count; i++) {

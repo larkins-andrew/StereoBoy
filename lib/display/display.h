@@ -8,7 +8,7 @@
 #include "hardware/pio.h"
 #include "hardware/gpio.h"
 #include "hardware/interp.h"
-#include "lib/font/font.h"
+// #include "lib/font/font.h"
 
 #define SCREEN_WIDTH 240
 #define SCREEN_HEIGHT 240

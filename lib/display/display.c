@@ -257,7 +257,7 @@ void lcd_draw_circle_fill(uint16_t x, uint16_t y, uint8_t radius, uint16_t color
 }
 
 void lcd_draw_char(uint16_t x, uint16_t y, char c, uint16_t color) {
-    const struct Font* f = find_font_char(c);
+    const Font* f = find_font_char(c);
     if (!f) return;
     for (uint8_t row = 0; row < 7; row++) {
         for (uint8_t col = 0; col < 5; col++) {

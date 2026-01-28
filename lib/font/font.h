@@ -12,12 +12,15 @@
 #ifndef FONT_H
 #define FONT_H
 
-struct Font {
+#include "pico/stdlib.h"
+
+typedef struct Font {
     char letter;
     char code[7][5];
-};
+} Font;
 
-const struct Font * find_font_char(char c);
+const Font * find_font_char(char c);
+
 
 struct Font font[] = {
 {' ', { /* Processor should ignore this */
@@ -735,7 +738,7 @@ font size, use this as the "null terminator" */
 "11111"}},
 };
 
-const struct Font* find_font_char(char c) {
+const Font* find_font_char(char c) {
     for (int i = 0; font[i].letter != 0; i++) {
         if (font[i].letter == c) return &font[i];
     }
