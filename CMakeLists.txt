@@ -52,6 +52,7 @@ pico_set_program_version(StereoBoy_FW "0.1")
 # Generate PIO header
 pico_generate_pio_header(StereoBoy_FW ${CMAKE_CURRENT_LIST_DIR}/src/blink.pio)
 pico_generate_pio_header(StereoBoy_FW ${CMAKE_CURRENT_LIST_DIR}/lib/display/display.pio)
+pico_generate_pio_header(StereoBoy_FW ${CMAKE_CURRENT_LIST_DIR}/pio/main.pio)
 
 # Modify the below lines to enable/disable output over UART/USB
 pico_enable_stdio_uart(StereoBoy_FW 0)
@@ -65,6 +66,15 @@ target_link_libraries(StereoBoy_FW
 # Add the standard include files to the build
 target_include_directories(StereoBoy_FW PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}
+)
+
+set(PICO_FLASH_SIZE_BYTES 2097152 CACHE STRING "RP2350 flash size")
+
+# Generate memory usage report
+target_link_options(StereoBoy_FW PRIVATE
+    -Wl,-Map=StereoBoy_FW.map
+    -Wl,--cref
+    -Wl,--print-memory-usage
 )
 
 add_subdirectory(lib/no-OS-FatFS-SD-SDIO-SPI-RPi-Pico/src build)

@@ -17,6 +17,8 @@ struct Font {
     char code[7][5];
 };
 
+const struct Font * find_font_char(char c);
+
 struct Font font[] = {
 {' ', { /* Processor should ignore this */
 "00000",
@@ -733,4 +735,10 @@ font size, use this as the "null terminator" */
 "11111"}},
 };
 
+const struct Font* find_font_char(char c) {
+    for (int i = 0; font[i].letter != 0; i++) {
+        if (font[i].letter == c) return &font[i];
+    }
+    return NULL;
+}
 #endif

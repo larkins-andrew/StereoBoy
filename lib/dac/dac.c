@@ -1,14 +1,23 @@
+#include <stdio.h>
 #include "pico/stdlib.h"
+#include "hardware/gpio.h"
 #include "hardware/gpio.h"
 #include "hardware/i2c.h"
 #include <stdint.h>
+#include "pico/time.h"
+
+#define DEBOUNCE_US 1000000  // 1000 ms
 
 #define TLV_RESET_PIN 5
 #define DAC_I2C_ADDR 0x18
 
-#define DAC_VOL_MIN   0x06   // ~ -4 dB (pretty loud)
-#define DAC_VOL_MAX   0x60   // ~ -48 dB (very quiet)
+#define DAC_VOL_MIN   0x00
+#define DAC_VOL_MAX   0x60
 #define DAC_VOL_STEP  3      // 1.5 dB step
+
+#define DAC_INT_GPIO 15   // Pico pin connected to TLV320 GPIO1/INT1
+
+static uint8_t dac_volume = 0x20; // default DAC volume
 
 uint8_t dac_read(uint8_t page, uint8_t reg) {
     uint8_t val;
@@ -27,46 +36,53 @@ uint8_t dac_read(uint8_t page, uint8_t reg) {
 }
 
 // Helper to write a register on the DAC
-static void dac_write(uint8_t page, uint8_t reg, uint8_t val) {
+void dac_write(uint8_t page, uint8_t reg, uint8_t val) {
     // Set page first
     i2c_write_blocking(i2c0, DAC_I2C_ADDR, (uint8_t[]){0x00, page}, 2, false);
     // Write register
     i2c_write_blocking(i2c0, DAC_I2C_ADDR, (uint8_t[]){reg, val}, 2, false);
 }
 
-static uint8_t dac_volume = 0x20;
-
-static void dac_apply_volume(uint8_t vol) {
-    dac_write(1, 0x24, vol);
-    dac_write(1, 0x25, vol);
-}
-
-void dac_increase_volume(void) {
-    if (dac_volume > DAC_VOL_MIN + DAC_VOL_STEP) {
-        dac_volume -= DAC_VOL_STEP;
+void dac_increase_volume(uint8_t step) {
+    if (dac_volume > DAC_VOL_MIN + step) {
+        dac_volume -= step;
     } else {
         dac_volume = DAC_VOL_MIN;
     }
 
-    dac_apply_volume(dac_volume);
+    dac_write(1, 0x24, dac_volume);
+    dac_write(1, 0x25, dac_volume);
+    dac_write(1, 0x26, dac_volume);
 }
 
-void dac_decrease_volume(void) {
-    if (dac_volume < DAC_VOL_MAX - DAC_VOL_STEP) {
-        dac_volume += DAC_VOL_STEP;
+void dac_decrease_volume(uint8_t step) {
+    if (dac_volume < DAC_VOL_MAX - step) {
+        dac_volume += step;
     } else {
         dac_volume = DAC_VOL_MAX;
     }
 
-    dac_apply_volume(dac_volume);
+    dac_write(1, 0x24, dac_volume);
+    dac_write(1, 0x25, dac_volume);
+    dac_write(1, 0x26, dac_volume);
 }
 
 void dac_set_volume(uint8_t vol) {
     if (vol < DAC_VOL_MIN) vol = DAC_VOL_MIN;
     if (vol > DAC_VOL_MAX) vol = DAC_VOL_MAX;
 
-    dac_volume = vol;
-    dac_apply_volume(dac_volume);
+    dac_write(1, 0x24, vol);
+    dac_write(1, 0x25, vol);
+    dac_write(1, 0x26, vol);
+}
+
+// gets volume of left headphone
+// hopefully left and right are equal
+uint8_t dac_get_volume() {
+    uint8_t vol = dac_read(1, 0x24);
+    // dac_read(1, 0x25);
+
+    return vol & 0b01111111;
 }
 
 void dac_init() {
@@ -116,8 +132,8 @@ void dac_init() {
 
     // 9. DAC Volume (Page 0)
     dac_write(0, 0x40, 0x00); // Unmute
-    dac_write(0, 0x41, 0);   // Left Vol (0dB is usually 0, 18 is +9dB depending on mapping)
-    dac_write(0, 0x42, 0);   // Right Vol
+    dac_write(0, 0x41, 00);   // Left Vol (0dB is usually 0, 18 is +9dB depending on mapping)
+    dac_write(0, 0x42, 00);   // Right Vol
 
     // 10. Headphone & Speaker Setup (Page 1)
     // Reg 0x1F: HP Drivers power up
@@ -126,19 +142,22 @@ void dac_init() {
     // ADJUST THESE VALUES FOR VOLUME CONTROL IN MAIN FIRMWARE!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     dac_write(1, 0x24, 0x10);
     dac_write(1, 0x25, 0x10);
+    dac_write(1, 0x26, 0x10);
     // Reg 0x28/0x29: HPL/R Driver unmute
     dac_write(1, 0x28, 0x06); 
     dac_write(1, 0x29, 0x06); 
 
     // Speaker
-    dac_write(1, 0x20, 0x86); // Speaker Power Up, 6dB gain
-    dac_write(1, 0x2A, 0x00); // Speaker Unmute / Gain
+    dac_write(1, 0x20, 0b10000110); // Speaker Power Up, 6dB gain
+    dac_write(1, 0x2A, 0b00010100); // Speaker Unmute / Gain
 
     // 11. Headset Detect
-    dac_write(1, 0x2E, 0x08); // Mic Bias
-    dac_write(0, 0x43, 0x80); // Headset detect enable
-    dac_write(0, 0x30, 0x80); // INT1 source
-    dac_write(0, 0x33, 0x10); // GPIO1 as INT1
+    dac_write(1, 0x2E, 0x0b);  // MICBIAS enable
 
-    dac_apply_volume(dac_volume);
+    // Route headset detect interrupt to GPIO1
+    dac_write(0, 0x43, 0b10010101);  // Enable headset detect + interrupt
+    dac_write(0, 0x30, 0b10000001); // route INT1 to headset change interrupt
+    dac_write(0, 0x33, 0b00010100); // GPIO1 as INT1 output
+
+    dac_set_volume(dac_volume);
 }

@@ -4,11 +4,11 @@
 #include <stdio.h>
 #include <math.h>
 
-
 #include "pico/stdlib.h"
 #include "hardware/pio.h"
 #include "hardware/gpio.h"
 #include "hardware/interp.h"
+#include "lib/font/font.h"
 
 #define SCREEN_WIDTH 240
 #define SCREEN_HEIGHT 240
@@ -31,9 +31,11 @@
 #define CYAN    0x07FF
 #define MAGENTA 0xF81F
 
-#define GRAY        0x888888
-#define LIGHT_GRAY  0x444444
+// Define some 24-bit RGB888 colors
+#define GRAY   0x888888
+#define LIGHT_GRAY   0x444444
 
+// Define ST7789 commands
 #define ST7789_CMD_CASET 0x2A
 #define ST7789_CMD_RASET 0x2B
 #define ST7789_CMD_RAMWR 0x2C
@@ -46,8 +48,6 @@
 
 extern uint16_t framebuffer[SCREEN_WIDTH * SCREEN_HEIGHT];
 extern const uint8_t st7789_init_seq[];
-
-struct Font; //???? TODO
 
 uint16_t rgbto565(int RGB);
 
