@@ -6,11 +6,12 @@
 #define SCI_MODE    0x00
 #define SCI_CLOCKF  0x03
 #define SCI_VOL     0x0B
+#define SCI_AUDATA  0x05
 
 #define SCI_WRAM      0x06
 #define SCI_WRAMADDR  0x07
 
-#define VS1053_PARA_PLAYSPEED 0x1E06
+#define VS1053_PARA_PLAYSPEED 0x1E04
 
 static inline void cs_low(uint pin)  { gpio_put(pin, 0); }
 static inline void cs_high(uint pin) { gpio_put(pin, 1); }
@@ -19,7 +20,7 @@ static void wait_dreq(vs1053_t *v) {
     while (!gpio_get(v->dreq)) tight_loop_contents();
 }
 
-static void sci_write(vs1053_t *v, uint8_t addr, uint16_t data) {
+void sci_write(vs1053_t *v, uint8_t addr, uint16_t data) {
     wait_dreq(v);
 
     uint8_t buf[4] = {VS_WRITE, addr, data >> 8, data & 0xFF};
@@ -28,7 +29,7 @@ static void sci_write(vs1053_t *v, uint8_t addr, uint16_t data) {
     cs_high(v->cs);
 }
 
-static uint16_t sci_read(vs1053_t *v, uint8_t addr) {
+uint16_t sci_read(vs1053_t *v, uint8_t addr) {
     wait_dreq(v);
 
     uint8_t tx[4] = {VS_READ, addr, 0xFF, 0xFF};
@@ -95,13 +96,13 @@ void vs1053_stop(vs1053_t *v) {
     sci_write(v, SCI_MODE, 0x0808); // SM_CANCEL | SM_SDINEW
 }
 
-void vs1053_set_play_speed(vs1053_t *player, uint16_t speed) {
-    uint8_t buf[4];
-    buf[0] = 0x02; // SCI_WRITE
-    buf[1] = (VS1053_PARA_PLAYSPEED & 0xFF); // address low byte
-    buf[2] = speed >> 8;
-    buf[3] = speed & 0xFF;
-    spi_write_blocking(player->spi, buf, 4);
+void vs1053_set_play_speed(vs1053_t *player, uint16_t playspeed) {
+    sci_write(player, SCI_WRAMADDR, VS1053_PARA_PLAYSPEED);
+    sci_write(player, SCI_WRAM, playspeed);
+}
+
+void vs1053_set_samplerate(vs1053_t *player, uint16_t samplerate) {
+    sci_write(player, SCI_AUDATA, samplerate);
 }
 
 uint16_t vs1053_get_play_speed(vs1053_t *player) {
@@ -121,4 +122,63 @@ void vs1053_enable_i2s(vs1053_t *v) {
 
     // Enable I2S + MCLK (bits 6 and 7)
     sci_write(v, SCI_WRAM, 0x000C);
+}
+
+void vs1053_load_patch(vs1053_t *v, const unsigned short* plugin, unsigned short plugin_size) {
+    int i = 0;
+    while (i<plugin_size) {
+        unsigned short addr, n, val;
+        addr = plugin[i++];
+        n = plugin[i++];
+        if (n & 0x8000U) { /* RLE run, replicate n samples */
+            n &= 0x7FFF;
+            val = plugin[i++];
+            while (n--) {
+                sci_write(v, addr, val);
+            }
+        } else {           /* Copy run, copy n samples */
+            while (n--) {
+                val = plugin[i++];
+                sci_write(v, addr, val);
+            }
+        }
+    }
+}
+
+void vs1053_tape_stop(vs1053_t *v) {
+    // 1. Read current rate and preserve the stereo bit (Bit 0)
+    uint16_t current_reg = sci_read(v, SCI_AUDATA);
+    uint16_t stereo_bit = current_reg & 0x0001;
+    uint16_t base_rate = current_reg & 0xFFFE;
+
+    // 2. Prepare "End Fill" bytes (silence)
+    // VS1053 needs these to keep the decoder running when no more file data exists
+    uint8_t dummy[32] = {0}; 
+    float factor = 1.0f;
+    float factorfactor = 0.96f;
+
+    // 3. The Slowdown Loop
+    while (factor > 0.005f) {
+        uint16_t new_rate = (uint16_t)(base_rate * factor) & 0xFFFE;
+        factor *= factorfactor;
+        
+        if (new_rate < 500) break; // Don't go below 2000 (4kHz total)
+
+        // Write the new rate
+        sci_write(v, SCI_AUDATA, new_rate | stereo_bit);
+
+        // FEED THE CHIP: This is the missing link. 
+        // We must send data so the decoder has something to play at the new speed.
+        for(int i = 0; i < 1; i++) {
+            vs1053_play_data(v, dummy, 32);
+        }
+    }
+
+    // 4. Clean exit
+    vs1053_set_volume(v, 0xFE, 0xFE); // Mute
+    vs1053_stop(v);
+    
+    // Optional: Reset rate to 44.1k for the next song
+    sci_write(v, SCI_AUDATA, 0xAC45); 
+    vs1053_set_volume(v, 0x00, 0x00); // Unmute
 }
