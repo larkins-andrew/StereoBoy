@@ -36,10 +36,10 @@ pico_sdk_init()
 # Add executable. Default name is the project name, version 0.1
 
 add_executable(StereoBoy_FW
-    StereoBoy_FW.c
-    hw_config.c # this is important!!! https://forums.raspberrypi.com/viewtopic.php?t=342315
+    src/StereoBoy_FW.c
+    src/hw_config.c # this is important!!! https://forums.raspberrypi.com/viewtopic.php?t=342315
     lib/sb_util/sb_util.c
-    # lib/codec/vs1053.c
+    lib/codec/vs1053.c
     lib/dac/dac.c
     lib/display/display.c
     lib/led_driver/led_driver.c
