@@ -8,7 +8,7 @@
 #include "lib/codec/vs1053.h"
 #include "lib/dac/dac.h"
 #include "lib/display/display.h"
-#include "lib/led_driver/led_driver.h"
+#include "lib/led_driver/SB_PCA9685.h"
 
 #define MAX_FILENAME_LEN 256 // max filaname character length
 #define MAX_TRACKS 64 // max number of mp3 files in sd card
@@ -555,7 +555,14 @@ int main() {
     gpio_pull_up(PIN_I2C0_SCL);
     gpio_pull_up(PIN_I2C0_SDA);
 
-    printf("SPI0 and I2C0 initialized.\r\n");
+    // set I2C1 for LED_DRIVER at 400KHz
+    i2c_init(i2c1, 400 * 1000);
+    gpio_set_function(SDA_PIN, GPIO_FUNC_I2C);
+    gpio_set_function(SCL_PIN, GPIO_FUNC_I2C);
+    gpio_pull_up(SDA_PIN);
+    gpio_pull_up(SCL_PIN);
+
+    printf("SPI0 and I2C0/1 initialized.\r\n");
 
     if (!sd_init_driver()) {
         printf("SD init failed\r\n");
@@ -645,63 +652,48 @@ int main() {
     gpio_init(LED_FOUND);
     gpio_set_dir(LED_FOUND, GPIO_OUT);
 
-    gpio_init(SDA_PIN);
-    gpio_set_dir(SDA_PIN, GPIO_IN);
-    gpio_init(SCL_PIN);
-    gpio_set_dir(SCL_PIN, GPIO_IN);
-    gpio_pull_up(SDA_PIN);
-    gpio_pull_up(SCL_PIN);
+    // gpio_init(SDA_PIN);
+    // gpio_set_dir(SDA_PIN, GPIO_IN);
+    // gpio_init(SCL_PIN);
+    // gpio_set_dir(SCL_PIN, GPIO_IN);
 
-    sleep_ms(2000);
+    // sleep_ms(2000);
 
-    // --- CONNECTION TEST ---
-    i2c_start();
-    bool ack = i2c_write_byte(PCA_ADDR << 1);
-    i2c_stop();
-
-    if (!ack)
-    {
-        // FAILED: Frantic Blink
-        while (true)
-        {
-            printf("Err: ack not found for LED Driver");
-            gpio_put(LED_HEARTBEAT, 1);
-            sleep_ms(50);
-            gpio_put(LED_HEARTBEAT, 0);
-            sleep_ms(50);
+    // Test if PCA9685 is present
+    if (!pca_check_presence()) {
+        // Blink rapidly forever
+        while (true) {
+            printf("LED NOT FOUND");
+            gpio_put(LED_HEARTBEAT, 1); sleep_ms(50);
+            gpio_put(LED_HEARTBEAT, 0); sleep_ms(50);
         }
     }
 
-    // SUCCESS
+    // Device found
+    printf("LED_FOUND");
     gpio_put(LED_FOUND, 1);
     pca_init();
-    printf("Ack found found for LED Driver");
 
     //////////////////////////LED END////////////////////////////////
 
+    // //////////////////////// LED DRIVER //////////////////////////
+    //     gpio_put(LED_HEARTBEAT, 1);
+    //     for (int i = 0; i < 4096; i += 128) {
+    //         pca_set_pwm(TARGET_CHANNEL, 0, i);
+    //     }
+    //     sleep_ms(100);
+
+    //     // Fade DOWN
+    //     gpio_put(LED_HEARTBEAT, 0);
+    //     for (int i = 4095; i >= 0; i -= 128) {
+    //         pca_set_pwm(TARGET_CHANNEL, 0, i);
+    //     }
+
+    //     sleep_ms(100);
+    //     /////////////////////// LED END ///////////////////
+
     while (1) {
-
-        //////////////////////// LED DRIVER //////////////////////////
-        gpio_put(LED_HEARTBEAT, 1); // Heartbeat ON
-        // We step by 32 because bit-banging is slow.
-        // 0 -> 4096
-        for (int i = 0; i < 4096; i += 128)
-        {
-            // ON=0, OFF=i means the LED is ON for 'i' ticks out of 4096
-            for (int j=0; j<16; j++){
-                pca_set_pwm(j, 0, i);
-            }
-        }
-
-        // FADE DOWN (Get Dimmer)
-        gpio_put(LED_HEARTBEAT, 0); // Heartbeat OFF
-        // 4095 -> 0
-        for (int i = 4095; i >= 0; i -= 128)
-        {
-            
-            pca_set_pwm(TARGET_CHANNEL, 0, i);
-        }
-        /////////////////////// LED END ///////////////////
+        
 
         // --- Print menu ---
         printf("\r\nAvailable tracks:\r\n");
