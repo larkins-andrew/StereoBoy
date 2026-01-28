@@ -259,12 +259,12 @@ void play_file(vs1053_t *player, const char *filename)
 
             case 'u':
             case 'U':
-                dac_increase_volume();
+                dac_increase_volume(3);
                 printf("\r\nVolume up!\r\n");
                 break;
             case 'd':
             case 'D':
-                dac_decrease_volume();
+                dac_decrease_volume(3);
                 printf("\r\nVolume down!\r\n");
                 break;
             case 's':
