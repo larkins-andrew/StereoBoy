@@ -9,7 +9,7 @@
 #include "lib/dac.h"
 
 #define MAX_FILENAME_LEN 256 // max filaname character length
-#define MAX_TRACKS 50 // max number of mp3 files in sd card
+#define MAX_TRACKS 64 // max number of mp3 files in sd card
 
 // SPI1 configuration for codec & sd card
 #define PIN_SCK  30
@@ -25,8 +25,6 @@
 // I2C0 for DAC
 #define PIN_I2C0_SCL 21
 #define PIN_I2C0_SDA 20
-
-#define SKIP_INTERVAL_MS 100   // minimum interval between FF/RW jumps
 
 vs1053_t player = {
     .spi = spi1,
@@ -130,6 +128,11 @@ typedef struct {
     char title[128];
     char artist[128];
     char album[128];
+    uint8_t mpegID;
+    uint16_t bitrate;
+    uint16_t samplespeed;
+    uint8_t channels;
+    uint32_t header;
 } track_info_t;
 
 static uint32_t find_audio_start(FIL *fil) {
@@ -148,6 +151,97 @@ static uint32_t find_audio_start(FIL *fil) {
 
     // No ID3 tag → audio starts at 0
     return 0;
+}
+
+static void get_mp3_header(FIL *fil, track_info_t *track) {
+    UINT br;
+    uint8_t header[4];
+
+    // Find first frame header (0x7FF)
+    while (1) {
+        if (f_read(fil, &header[0], 1, &br) != FR_OK || br != 1) return;
+
+        // First 8 sync bits must be all ones
+        if (header[0] != 0xFF) continue;
+
+        if (f_read(fil, &header[1], 1, &br) != FR_OK || br != 1) return;
+
+        // Next 3 bits must also be ones (111xxxxx)
+        if ((header[1] & 0xE0) != 0xE0) {
+            // Not a real sync → rewind 1 byte so we don't skip potential syncs
+            f_lseek(fil, f_tell(fil) - 1);
+            continue;
+        }
+
+        // We now have a valid 11-bit sync → read remaining 2 bytes
+        if (f_read(fil, &header[2], 2, &br) != FR_OK || br != 2) return;
+
+        break; // Valid frame header found
+    }
+
+    track->header =
+        ((uint32_t)header[0] << 24) |
+        ((uint32_t)header[1] << 16) |
+        ((uint32_t)header[2] << 8)  |
+        ((uint32_t)header[3]);
+
+    uint8_t version_bits = (header[1] >> 3) & 0x03; // MPEG version
+    uint8_t layer_bits   = (header[1] >> 1) & 0x03; // Layer
+    uint8_t bitrate_bits = (header[2] >> 4) & 0x0F;
+    uint8_t samplespeed_bits = (header[2] >> 2) & 0x03;
+    uint8_t channel_bits = (header[3] >> 6) & 0x03;
+    
+    // MPEG version
+    switch (version_bits) {
+        case 0: track->mpegID = 2; break; // MPEG 2.5
+        case 2: track->mpegID = 2; break; // MPEG 2
+        case 3: track->mpegID = 1; break; // MPEG 1
+        default: track->mpegID = 0; break; // reserved/unknown
+    }
+
+    // Sample rates table (Hz)
+    const uint16_t samplespeeds[4][4] = {
+        {11025, 12000, 8000, 0},   // MPEG 2.5  [00]
+        {0,0,0,0},                 // reserved  [01]
+        {22050, 24000, 16000, 0},  // MPEG 2    [10]
+        {44100, 48000, 32000, 0}   // MPEG 1    [11]
+    };
+
+    track->samplespeed = samplespeeds[version_bits][samplespeed_bits];
+
+    // Bitrate tables
+    const uint16_t v1_bitrates[4][16] = {
+        // Layer 0 (should never happen)
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+        // V1 L3
+        {0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 0},
+        // V1 L2
+        {0, 32, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 384, 0},
+        // V1 L1
+        {0, 32, 64, 96, 128, 160, 192, 224, 256, 288, 320, 352, 384, 416, 448, 0}
+    };
+
+    const uint16_t v2_bitrates[4][16] = {
+        // Layer 0 (should never happen)
+        {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+        // V2, L3
+        {0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, 0},
+        // V2, L2
+        {0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, 0},
+        // V2 L1
+        {0, 32, 48, 56, 64, 80, 96, 112, 128, 144, 160, 176, 192, 224, 256, 0}
+    };
+
+    if (track->mpegID == 2) {
+        track->bitrate = v2_bitrates[layer_bits][bitrate_bits]; // if MPEG Version 2
+    } else if (track->mpegID == 1) {
+        track->bitrate = v1_bitrates[layer_bits][bitrate_bits]; // if MPEG Version 1
+    } else {
+        track->bitrate = 0;
+    }
+
+    // Channels
+    track->channels = (channel_bits >> 1) & 1; // 0 = stereo, 1 = mono
 }
 
 static void get_mp3_metadata(const char *filename, track_info_t *track) {
@@ -201,14 +295,11 @@ static void get_mp3_metadata(const char *filename, track_info_t *track) {
 
         bytes_read += size;
     }
+    get_mp3_header(&fil, track);
 
-out:
-    f_close(&fil);
+    out:
+        f_close(&fil);
 }
-
-/* ##########################################################
-JUKEBOX: MAIN PLAY LOOP
-########################################################## */
 
 /* ##########################################################
 JUKEBOX: MAIN PLAY LOOP
@@ -223,13 +314,19 @@ uint16_t normal_speed = 1;  // 1 = normal
 
 #define PAUSE_WARP_US 600000      // 0.7 seconds for pause
 #define RESUME_WARP_US 1200000    // 1.2 seconds for resume
+#define SKIP_INTERVAL_MS 100   // minimum interval between FF/RW jumps
 
-void jukebox(vs1053_t *player, const char *filename) {
+void jukebox(vs1053_t *player, track_info_t *track) {
     FIL fil; // file object
     UINT br; // pointer to number of bytes read
     uint8_t buffer[512]; // buffer read from file
 
-    sci_write(player, 0x05, 0xAC45); // initialize codec sampling speed to 44.1 Khz
+    char *filename = track->filename;
+    uint16_t sampleSpeed = track->samplespeed;
+    uint16_t bitRate = track->bitrate;
+    uint16_t skip_bits = bitRate * 125; // bitRate * 1000 / 8 = approx. 1 second
+
+    sci_write(player, 0x05, sampleSpeed + 1); // initialize codec sampling speed (+1 at the end for stereo)
 
     // status bits for player state and warp effect
     paused = false;
@@ -249,9 +346,8 @@ void jukebox(vs1053_t *player, const char *filename) {
         return;
     }
 
-    uint16_t samplingSpeed = sci_read(player, 0x05); // read SCI_AUDATA (0x05) from codec to get sampling speed info
-    uint16_t stereo_bit = samplingSpeed & 1; // LSB indicates mono or stereo (not exactly sure what but this is pretty much always 1)
-    uint16_t base_rate  = samplingSpeed & 0xFFFE; // sampling speed in upper 15 bits
+    uint16_t stereo_bit = sampleSpeed & 1; // LSB indicates mono or stereo (not exactly sure what but this is pretty much always 1)
+    uint16_t base_rate  = sampleSpeed & 0xFFFE; // sampling speed in upper 15 bits
 
     uint32_t start = find_audio_start(&fil);
     f_lseek(&fil, start);
@@ -284,20 +380,20 @@ void jukebox(vs1053_t *player, const char *filename) {
                 case 'f':
                 case 'F':
                     if (absolute_time_diff_us(last_skip_time, now) >= SKIP_INTERVAL_MS * 1000) {
-                        pos += 320 * 128;
+                        pos += skip_bits;
                         if (pos > f_size(&fil)) pos = f_size(&fil) - 1;
                         f_lseek(&fil, pos);
-                        printf("\r\nFast-forwarded ~320Kb\r\n");
+                        printf("\r\nFast-forwarded ~1s\r\n");
                         last_skip_time = now;
                     }
                     break;
                 case 'r':
                 case 'R':
                     if (absolute_time_diff_us(last_skip_time, now) >= SKIP_INTERVAL_MS * 1000) {
-                        pos -= 320 * 128;
+                        pos -= skip_bits;
                         if (pos < 0) pos = 0;
                         f_lseek(&fil, pos);
-                        printf("\r\nRewound ~320Kb\r\n");
+                        printf("\r\nRewound ~1s\r\n");
                         last_skip_time = now;
                     }
                     break;
@@ -310,6 +406,17 @@ void jukebox(vs1053_t *player, const char *filename) {
                 case 'D':
                     dac_decrease_volume(3);
                     printf("\r\nVolume down!\r\n");
+                    break;
+                case 'i':
+                case 'I':
+                    printf("\r\n\rNOW PLAYING:\r\n");
+                    printf("  Title : %s\r\n", track->title);
+                    printf("  Artist: %s\r\n", track->artist);
+                    printf("  Album : %s\r\n", track->album);
+                    printf("  Bitrate : %d Kbps\r\n", track->bitrate);
+                    printf("  Sample rate : %d Hz\r\n", track->samplespeed);
+                    printf("  Channels : %s\r\n", track->channels == 1 ? "Mono" : "Stereo");
+                    printf("  Header: %X\r\n", track->header);
                     break;
                 case 's':
                 case 'S':
@@ -407,8 +514,6 @@ void dac_int_callback(uint gpio, uint32_t events) {
         warping = 0;
     } else {
         printf("Headphones pulled out! Paused and switching to mono speakers.\n");
-        // uint16_t mode = sci_read(&player, 0x00);  // SCI_MODE
-        // sci_write(&player, 0x00, mode & 0xFFFE);
         dac_write(1, 0x20, 0b10000110); // power up speaker driver
         // pause without warping
         paused = 1;
@@ -441,7 +546,7 @@ int main() {
     gpio_set_function(PIN_MOSI, GPIO_FUNC_SPI);
     gpio_set_function(PIN_MISO, GPIO_FUNC_SPI);
 
-    // set I2C0 for DAC
+    // set I2C0 for DAC at 400KHz
     i2c_init(i2c0, 400 * 1000);
     gpio_set_function(PIN_I2C0_SCL, GPIO_FUNC_I2C);
     gpio_set_function(PIN_I2C0_SDA, GPIO_FUNC_I2C);
@@ -512,6 +617,10 @@ int main() {
         for (int i = 0; i < count; i++) {
             printf("\r\n[%d] %s - %s\r\n", i + 1, tracks[i].artist, tracks[i].title);
             printf("     Album: %s\r\n", tracks[i].album);
+            printf("     Bit Rate: %d Kbps\r\n", tracks[i].bitrate);
+            printf("     Sample Rate: %d Hz\r\n", tracks[i].samplespeed);
+            printf("     Channels : %s\r\n", tracks[i].channels == 1 ? "Mono" : "Stereo");
+            printf("     Header: %X\r\n", tracks[i].header);
         }
 
         char input[8];
@@ -540,15 +649,19 @@ int main() {
                 printf("Invalid. Try again.");
         }
 
-        track_info_t *sel = &tracks[choice - 1];
+        track_info_t *track = &tracks[choice - 1];
 
-        printf("\r\n\r\nNow playing:\r\n");
-        printf("  Title : %s\r\n", sel->title);
-        printf("  Artist: %s\r\n", sel->artist);
-        printf("  Album : %s\r\n\r\n", sel->album);
+        printf("\r\n\rNOW PLAYING:\r\n");
+        printf("  Title : %s\r\n", track->title);
+        printf("  Artist: %s\r\n", track->artist);
+        printf("  Album : %s\r\n", track->album);
+        printf("  Bitrate : %d Kbps\r\n", track->bitrate);
+        printf("  Sample rate : %d Hz\r\n", track->samplespeed);
+        printf("  Channels : %s\r\n", track->channels == 1 ? "Mono" : "Stereo");
+        printf("  Header: %X\r\n", track->header);
 
-        jukebox(&player, sel->filename);
+        jukebox(&player, track);
 
-        printf("\r\nPlayback finished.\r\n");
+        printf("\r\nPlayback finished!\r\n");
     };
 }

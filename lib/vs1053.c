@@ -7,11 +7,14 @@
 #define SCI_CLOCKF  0x03
 #define SCI_VOL     0x0B
 #define SCI_AUDATA  0x05
+#define VS1053_REG_HDAT0 0x08      //!< Stream header data 0
+#define VS1053_REG_HDAT1 0x09      //!< Stream header data 1
 
 #define SCI_WRAM      0x06
 #define SCI_WRAMADDR  0x07
 
 #define VS1053_PARA_PLAYSPEED 0x1E04
+
 
 static inline void cs_low(uint pin)  { gpio_put(pin, 0); }
 static inline void cs_high(uint pin) { gpio_put(pin, 1); }
@@ -143,42 +146,4 @@ void vs1053_load_patch(vs1053_t *v, const unsigned short* plugin, unsigned short
             }
         }
     }
-}
-
-void vs1053_tape_stop(vs1053_t *v) {
-    // 1. Read current rate and preserve the stereo bit (Bit 0)
-    uint16_t current_reg = sci_read(v, SCI_AUDATA);
-    uint16_t stereo_bit = current_reg & 0x0001;
-    uint16_t base_rate = current_reg & 0xFFFE;
-
-    // 2. Prepare "End Fill" bytes (silence)
-    // VS1053 needs these to keep the decoder running when no more file data exists
-    uint8_t dummy[32] = {0}; 
-    float factor = 1.0f;
-    float factorfactor = 0.96f;
-
-    // 3. The Slowdown Loop
-    while (factor > 0.005f) {
-        uint16_t new_rate = (uint16_t)(base_rate * factor) & 0xFFFE;
-        factor *= factorfactor;
-        
-        if (new_rate < 500) break; // Don't go below 2000 (4kHz total)
-
-        // Write the new rate
-        sci_write(v, SCI_AUDATA, new_rate | stereo_bit);
-
-        // FEED THE CHIP: This is the missing link. 
-        // We must send data so the decoder has something to play at the new speed.
-        for(int i = 0; i < 1; i++) {
-            vs1053_play_data(v, dummy, 32);
-        }
-    }
-
-    // 4. Clean exit
-    vs1053_set_volume(v, 0xFE, 0xFE); // Mute
-    vs1053_stop(v);
-    
-    // Optional: Reset rate to 44.1k for the next song
-    sci_write(v, SCI_AUDATA, 0xAC45); 
-    vs1053_set_volume(v, 0x00, 0x00); // Unmute
 }
