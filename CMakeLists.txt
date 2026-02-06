@@ -42,6 +42,7 @@ add_executable(StereoBoy_FW
     lib/codec/vs1053.c
     lib/dac/dac.c
     lib/display/display.c
+    lib/btns/buttons.c
     lib/led_driver/SB_PCA9685.c
     
     # lib/codec/codec.c # Comment this in for Stereoboy_FW_shubham.c, Comment out for Stereoboy_FW.c

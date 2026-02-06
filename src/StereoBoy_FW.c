@@ -1,3 +1,4 @@
+// #include <cstdio>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h> // Required for qsort
@@ -35,6 +36,8 @@ vs1053_t player = {
     .dreq = PIN_DREQ,
     .rst = PIN_RST
 };
+
+char buff [50];
 
 // Convert syncsafe integer (ID3 size format)
 static uint32_t syncsafe_to_uint(const uint8_t *b) {
@@ -344,7 +347,8 @@ void jukebox(vs1053_t *player, track_info_t *track) {
 
     // open selected MP3 file
     if (f_open(&fil, filename, FA_READ) != FR_OK) {
-        printf("Failed to open %s\r\n", filename);
+        sprintf(buff, "Failed to open %s\r\n", filename);
+        print_screen(buff);
         return;
     }
 
@@ -376,8 +380,8 @@ void jukebox(vs1053_t *player, track_info_t *track) {
                     // select duration based on pause/resume
                     warp_duration = paused ? PAUSE_WARP_US : RESUME_WARP_US;
 
-                    printf(paused ? "\r\nTape slowing...\r\n"
-                                   : "\r\nTape resuming...\r\n");
+                    print_screen(paused ? "Tape slowing..."
+                                   : "Tape resuming...");
                     break;
                 case 'f':
                 case 'F':
@@ -385,7 +389,8 @@ void jukebox(vs1053_t *player, track_info_t *track) {
                         pos += skip_bits;
                         if (pos > f_size(&fil)) pos = f_size(&fil) - 1;
                         f_lseek(&fil, pos);
-                        printf("\r\nFast-forwarded ~1s\r\n");
+                        sprintf(buff, "Fast-forwarded ~1s");
+                        print_screen(buff);
                         last_skip_time = now;
                     }
                     break;
@@ -395,36 +400,48 @@ void jukebox(vs1053_t *player, track_info_t *track) {
                         pos -= skip_bits;
                         if (pos < 0) pos = 0;
                         f_lseek(&fil, pos);
-                        printf("\r\nRewound ~1s\r\n");
+                        sprintf(buff, "Rewound ~1s");
+                        print_screen(buff);
                         last_skip_time = now;
                     }
                     break;
                 case 'u':
                 case 'U':
                     dac_increase_volume(3);
-                    printf("\r\nVolume up!\r\n");
+                    sprintf(buff, "Volume up!");
+                    print_screen(buff);
                     break;
                 case 'd':
                 case 'D':
                     dac_decrease_volume(3);
-                    printf("\r\nVolume down!\r\n");
+                    sprintf(buff, "Volume down!");
+                    print_screen(buff);
                     break;
                 case 'i':
                 case 'I':
-                    printf("\r\n\rNOW PLAYING:\r\n");
-                    printf("  Title : %s\r\n", track->title);
-                    printf("  Artist: %s\r\n", track->artist);
-                    printf("  Album : %s\r\n", track->album);
-                    printf("  Bitrate : %d Kbps\r\n", track->bitrate);
-                    printf("  Sample rate : %d Hz\r\n", track->samplespeed);
-                    printf("  Channels : %s\r\n", track->channels == 1 ? "Mono" : "Stereo");
-                    printf("  Header: %X\r\n", track->header);
+                    sprintf(buff, "\rNOW PLAYING:");
+                    print_screen(buff);
+                    sprintf(buff, "  Title : %s", track->title);
+                    print_screen(buff);
+                    sprintf(buff, "  Artist: %s", track->artist);
+                    print_screen(buff);
+                    sprintf(buff, "  Album : %s", track->album);
+                    print_screen(buff);
+                    sprintf(buff, "  Bitrate : %d Kbps", track->bitrate);
+                    print_screen(buff);
+                    sprintf(buff, "  Sample rate : %d Hz", track->samplespeed);
+                    print_screen(buff);
+                    sprintf(buff, "  Channels : %s", track->channels == 1 ? "Mono" : "Stereo");
+                    print_screen(buff);
+                    sprintf(buff, "  Header: %X", track->header);
+                    print_screen(buff);
                     break;
                 case 's':
                 case 'S':
                     if (paused) {
                         vs1053_set_play_speed(player, 0); // hard pause
-                        printf("\r\nStopping....\r\n");
+                        sprintf(buff, "Stopping....");
+                        print_screen(buff);
                         f_close(&fil);
                         vs1053_stop(player);
                         return;
@@ -435,11 +452,13 @@ void jukebox(vs1053_t *player, track_info_t *track) {
                     warp_target = 0.0f;
                     warp_duration = PAUSE_WARP_US;
                     warping = true;
-                    printf("Stopping...\r\n");
+                    sprintf(buff, "Stopping...");
+                    print_screen(buff);
                     break;
                     if (paused) {
                         vs1053_set_play_speed(player, 0); // hard pause
-                        printf("\r\nStopping....\r\n");
+                        sprintf(buff, "Stopping....");
+                        print_screen(buff);
                         f_close(&fil);
                         vs1053_stop(player);
                         return;
@@ -465,10 +484,12 @@ void jukebox(vs1053_t *player, track_info_t *track) {
 
                 if (paused) {
                     vs1053_set_play_speed(player, 0); // hard pause
-                    printf("\r\nPaused.\r\n");
+                    sprintf(buff, "Paused.");
+                    print_screen(buff);
                 } else if (stopped) {
                     vs1053_set_play_speed(player, 0); // hard pause
-                    printf("\r\nPaused.\r\n");
+                    sprintf(buff, "Paused.");
+                    print_screen(buff);
                     f_close(&fil);
                     vs1053_stop(player);
                     return;
@@ -509,13 +530,15 @@ void dac_int_callback(uint gpio, uint32_t events) {
     dac_read(0, 0x2C); // THIS NEEDS TO BE HERE!!!! DO NOT REMOVE THIS LINE
     // read whether headphone in or out
     if (dac_read(0, 0x2E) & 0x10) { // Bit 5
-        printf("Headphones plugged in! Paused and switching to stereo headphones.\n");
+        sprintf(buff, "Headphones plugged in! Paused and switching to stereo headphones.");
+        print_screen(buff);
         dac_write(1, 0x20, 0b00000110); // shut down speaker driver
         // pause without warping
         paused = 1;
         warping = 0;
     } else {
-        printf("Headphones pulled out! Paused and switching to mono speakers.\n");
+        sprintf(buff, "Headphones pulled out! Paused and switching to mono speakers.");
+        print_screen(buff);
         dac_write(1, 0x20, 0b10000110); // power up speaker driver
         // pause without warping
         paused = 1;
@@ -543,6 +566,30 @@ int main() {
 
     sleep_ms(3000);
 
+    ////////////////////////////DISPLAY/////////////////////////////
+    PIO pio = pio0;
+    uint sm = 0;
+    gpio_init(PIN_CS_DISPLAY);
+    gpio_init(PIN_DC);
+    gpio_init(PIN_RESET);
+    gpio_init(PIN_BL);
+    gpio_set_dir(PIN_CS_DISPLAY, GPIO_OUT);
+    gpio_set_dir(PIN_DC, GPIO_OUT);
+    gpio_set_dir(PIN_RESET, GPIO_OUT);
+    gpio_set_dir(PIN_BL, GPIO_OUT);
+    gpio_put(PIN_CS_DISPLAY, 1);
+    gpio_put(PIN_RESET, 1);
+    lcd_init(pio, sm, st7789_init_seq);
+    gpio_put(PIN_BL, 1);
+    // lcd_draw_circle(120,120, 16, GREEN);
+    // lcd_draw_circle_fill(120, 180, 33, rgbto565(0xFF3399));
+    lcd_draw_string(0, 0, "Shubham Was Here", BLUE);
+    // lcd_draw_char(10, 10, 'B', CYAN);
+    lcd_update();
+    // lcd_draw_progress_bar(pio, sm, 200, 46);
+
+    ///////////////////////////DISPLAY END///////////////////////////
+
     // set SPI0 for codec and SD card
     gpio_set_function(PIN_SCK,  GPIO_FUNC_SPI);
     gpio_set_function(PIN_MOSI, GPIO_FUNC_SPI);
@@ -562,36 +609,45 @@ int main() {
     gpio_pull_up(SDA_PIN);
     gpio_pull_up(SCL_PIN);
 
-    printf("SPI0 and I2C0/1 initialized.\r\n");
+    sprintf(buff, "SPI0 and I2C0/1 initialized.\r\n");
+    print_screen(buff);
 
     if (!sd_init_driver()) {
-        printf("SD init failed\r\n");
+        sprintf(buff, "SD init failed\r\n");
+        print_screen(buff);
         while (1);
     }
 
     FATFS fs;
     if (f_mount(&fs, "0:", 1) != FR_OK) {
-        printf("Mount failed\r\n");
+        sprintf(buff, "Mount failed\r\n");
+        print_screen(buff);
         while (1);
     }
 
     vs1053_init(&player);
-    printf("VS1053 initialized.\r\n");
+    sprintf(buff, "VS1053 initialized.\r\n");
+    print_screen(buff);
     vs1053_set_volume(&player, 0x00, 0x00);
-    printf("VS1053 volume set to max!\r\n");
+    sprintf(buff, "VS1053 volume set to max!\r\n");
+    print_screen(buff);
     
     // Enable I2S output
     vs1053_enable_i2s(&player);
-    printf("VS1053 I2S enabled.\r\n");
+    sprintf(buff, "VS1053 I2S enabled.\r\n");
+    print_screen(buff);
 
     // initialize DAC
     dac_init(i2c0);
     dac_interrupt_init();
     dac_interrupt_init();
-    printf("DAC intialized.\r\n");
+    sprintf(buff, "DAC intialized.\r\n");
+    print_screen(buff);
 
-    printf("Audio init complete.\r\n");
-    printf("\r\nScanning directory...\r\n");
+    sprintf(buff, "Audio init complete.\r\n");
+    print_screen(buff);
+    sprintf(buff, "\r\nScanning directory...\r\n");
+    print_screen(buff);
 
     // --- Scan MP3 files ---
     DIR dir;
@@ -614,35 +670,14 @@ int main() {
     f_closedir(&dir);
 
     if (count == 0) {
-        printf("No MP3 files found.\r\n");
+        sprintf(buff, "No MP3 files found.\r\n");
+        print_screen(buff);
         while (1);
     }
 
     qsort(tracks, count, sizeof(track_info_t), compare_filenames);
 
-    ////////////////////////////DISPLAY/////////////////////////////
-    PIO pio = pio0;
-    uint sm = 0;
-    gpio_init(PIN_CS_DISPLAY);
-    gpio_init(PIN_DC);
-    gpio_init(PIN_RESET);
-    gpio_init(PIN_BL);
-    gpio_set_dir(PIN_CS_DISPLAY, GPIO_OUT);
-    gpio_set_dir(PIN_DC, GPIO_OUT);
-    gpio_set_dir(PIN_RESET, GPIO_OUT);
-    gpio_set_dir(PIN_BL, GPIO_OUT);
-    gpio_put(PIN_CS_DISPLAY, 1);
-    gpio_put(PIN_RESET, 1);
-    lcd_init(pio, sm, st7789_init_seq);
-    gpio_put(PIN_BL, 1);
-    // lcd_draw_circle(120,120, 16, GREEN);
-    // lcd_draw_circle_fill(120, 180, 33, rgbto565(0xFF3399));
-    lcd_draw_string(0, 0, "Shubham Was Here", BLUE);
-    // lcd_draw_char(10, 10, 'B', CYAN);
-    lcd_update(pio, sm);
-    // lcd_draw_progress_bar(pio, sm, 200, 46);
-
-    ///////////////////////////DISPLAY END///////////////////////////
+    
 
     //////////////////////////LED DRIVER/////////////////////////////
 
@@ -663,14 +698,16 @@ int main() {
     if (!pca_check_presence()) {
         // Blink rapidly forever
         while (true) {
-            printf("LED NOT FOUND");
+            sprintf(buff, "LED NOT FOUND");
+            print_screen(buff);
             gpio_put(LED_HEARTBEAT, 1); sleep_ms(50);
             gpio_put(LED_HEARTBEAT, 0); sleep_ms(50);
         }
     }
 
     // Device found
-    printf("LED_FOUND");
+    sprintf(buff, "LED_FOUND\n");
+    print_screen(buff);
     gpio_put(LED_FOUND, 1);
     pca_init();
 
@@ -692,59 +729,83 @@ int main() {
     //     sleep_ms(100);
     //     /////////////////////// LED END ///////////////////
 
+    
     while (1) {
         
 
         // --- Print menu ---
-        printf("\r\nAvailable tracks:\r\n");
+        sprintf(buff, "Available tracks:");
+        print_screen(buff);
         for (int i = 0; i < count; i++) {
-            printf("\r\n[%d] %s - %s\r\n", i + 1, tracks[i].artist, tracks[i].title);
-            printf("     Album: %s\r\n", tracks[i].album);
-            printf("     Bit Rate: %d Kbps\r\n", tracks[i].bitrate);
-            printf("     Sample Rate: %d Hz\r\n", tracks[i].samplespeed);
-            printf("     Channels : %s\r\n", tracks[i].channels == 1 ? "Mono" : "Stereo");
-            printf("     Header: %X\r\n", tracks[i].header);
+            sprintf(buff, "[%d] %s - %s", i + 1, tracks[i].artist, tracks[i].title);
+            print_screen(buff);
+            sprintf(buff, "     Album: %s", tracks[i].album);
+            print_screen(buff);
+            sprintf(buff, "     Bit Rate: %d Kbps", tracks[i].bitrate);
+            print_screen(buff);
+            sprintf(buff, "     Sample Rate: %d Hz", tracks[i].samplespeed);
+            print_screen(buff);
+            sprintf(buff, "     Channels : %s", tracks[i].channels == 1 ? "Mono" : "Stereo");
+            print_screen(buff);
+            sprintf(buff, "     Header: %X", tracks[i].header);
+            print_screen(buff);
         }
 
         char input[8];
         int choice = 0;
 
         while (choice < 1 || choice > count) {
-            printf("\r\nSelect track (1-%d): ", count);
+            sprintf(buff, "Select track (1-%d): ", count);
+            print_screen(buff);
 
             int idx = 0;
             memset(input, 0, sizeof(input));
 
             while (1) {
                 int c = getchar(); // blocking read
+                sprintf(buff, "Read char: %c", c);
+                print_screen(buff);
                 if (c == '\r' || c == '\n') { // Enter pressed
-                    printf("\r\n");
+                    sprintf(buff, "");
+                    print_screen(buff);
                     break;
                 }
                 if (idx < sizeof(input)-1) {
                     input[idx++] = c;
-                    putchar(c); // echo typed char
+                    // putchar(c); // echo typed char
+                    sprintf(buff, "%c", c);
+                    print_screen(buff);
                 }
             }
 
             choice = atoi(input);
             if (choice < 1 || choice > count)
-                printf("Invalid. Try again.");
+                sprintf(buff, "Invalid. Try again.");
+                print_screen(buff);
         }
 
         track_info_t *track = &tracks[choice - 1];
 
-        printf("\r\n\rNOW PLAYING:\r\n");
-        printf("  Title : %s\r\n", track->title);
-        printf("  Artist: %s\r\n", track->artist);
-        printf("  Album : %s\r\n", track->album);
-        printf("  Bitrate : %d Kbps\r\n", track->bitrate);
-        printf("  Sample rate : %d Hz\r\n", track->samplespeed);
-        printf("  Channels : %s\r\n", track->channels == 1 ? "Mono" : "Stereo");
-        printf("  Header: %X\r\n", track->header);
+        sprintf(buff, "\rNOW PLAYING:");
+        print_screen(buff);
+        sprintf(buff, "  Title : %s", track->title);
+        print_screen(buff);
+        sprintf(buff, "  Artist: %s", track->artist);
+        print_screen(buff);
+        sprintf(buff, "  Album : %s", track->album);
+        print_screen(buff);
+        sprintf(buff, "  Bitrate : %d Kbps", track->bitrate);
+        print_screen(buff);
+        sprintf(buff, "  Sample rate : %d Hz", track->samplespeed);
+        print_screen(buff);
+        sprintf(buff, "  Channels : %s", track->channels == 1 ? "Mono" : "Stereo");
+        print_screen(buff);
+        sprintf(buff, "  Header: %X", track->header);
+        print_screen(buff);
 
         jukebox(&player, track);
 
-        printf("\r\nPlayback finished!\r\n");
+        sprintf(buff, "Playback finished!");
+        print_screen(buff);
     };
 }

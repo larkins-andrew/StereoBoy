@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+#include <string.h>
 #include "display.h"
 #include "display.pio.h"
 #include "lib/font/font.h"
@@ -12,6 +13,9 @@
 
 // #include "raspberry_256x256_rgb565.h"
 uint16_t framebuffer[SCREEN_WIDTH * SCREEN_HEIGHT] = {0};  // Each element is one pixel (RGB565)
+
+PIO pio;
+uint sm;
 
 // Format: cmd length (including cmd byte), post delay in units of 5 ms, then cmd payload
 // Note the delays have been shortened a little
@@ -60,7 +64,9 @@ static inline void lcd_write_cmd(PIO pio, uint sm, const uint8_t *cmd, size_t co
     lcd_set_dc_cs(1, 1);
 }
 
-void lcd_init(PIO pio, uint sm, const uint8_t *init_seq) {
+void lcd_init(PIO _pio, uint _sm, const uint8_t *init_seq) {
+    pio = _pio;
+    sm = _sm;
     // --- MOVED FROM MAIN.C ---
     // Load the PIO program into the PIO hardware
     uint offset = pio_add_program(pio, &st7789_lcd_program);
@@ -217,7 +223,11 @@ void set_pixel(uint16_t x, uint16_t y, uint16_t color) {
     framebuffer[y * SCREEN_WIDTH + x] = color;
 }
 
-void lcd_update(PIO pio, uint sm) {
+void clear_framebuffer(){
+    memset(framebuffer, 0, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(uint16_t));
+}
+
+void lcd_update() {
     lcd_set_window(pio, sm, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
     st7789_start_pixels(pio, sm);
 
@@ -264,16 +274,36 @@ void lcd_draw_char(uint16_t x, uint16_t y, char c, uint16_t color) {
             if (f->code[row][col] == '1') {
                 set_pixel(x + col, y + row, color);
             }
+            else{
+                set_pixel(x+col, y+row, BLACK);
+            }
         }
     }
 }
 
 void lcd_draw_string(uint16_t x, uint16_t y, const char *text, uint16_t color) {
     uint16_t start_x = x;
+    uint16_t start_y = y;
+
     for (int i = 0; text[i] != '\0'; i++) {
-        lcd_draw_char(start_x, y, text[i], color);
-        start_x += 6;
+        if (text[i] == '\n' || text[i] == '\r') {
+            start_x = x;
+            start_y += 10;
+        }
+        else if (start_x < SCREEN_WIDTH-5 && start_y < SCREEN_HEIGHT-7) {
+            lcd_draw_char(start_x, y, text[i], color);
+            start_x += 6;
+        }
     }
+}
+
+void print_screen(const char * text){
+    printf("%s\n", text);
+    memmove(framebuffer, framebuffer+SCREEN_WIDTH*10, sizeof(uint16_t)*(SCREEN_WIDTH)*(SCREEN_HEIGHT-10));
+    //move all framebuffer rows 10 up (one text row)
+    lcd_draw_string(0, SCREEN_HEIGHT-8, text, WHITE);
+    lcd_update();
+
 }
 
 // int main() {

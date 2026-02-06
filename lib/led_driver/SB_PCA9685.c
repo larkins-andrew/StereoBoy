@@ -44,7 +44,7 @@ void pca_set_pwm(uint8_t channel, uint16_t on, uint16_t off) {
 // PCA9685 Init
 // -----------------------------------------------------------------------------
 void pca_init() {
-    printf("entering pca_init");
+    printf("entering pca_init\n");
     // MODE1: Enter sleep so prescale can be set
     pca_write_reg(MODE1, MODE1_SLEEP);
 
@@ -62,7 +62,7 @@ void pca_init() {
 
     // Optional: Restart bit
     pca_write_reg(MODE1, MODE1_AI | MODE1_RESTART);
-    printf("exiting pca_init");
+    printf("exiting pca_init\n");
 }
 
 // -----------------------------------------------------------------------------

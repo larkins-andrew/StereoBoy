@@ -1,6 +1,7 @@
 #ifndef DISPLAY_H
 #define DISPLAY_H
 
+#include <string.h>
 #include <stdio.h>
 #include <math.h>
 
@@ -53,9 +54,10 @@ uint16_t rgbto565(int RGB);
 
 void lcd_init(PIO pio, uint sm, const uint8_t *init_seq);
 
-void lcd_update(PIO pio, uint sm);
+void lcd_update();
 
 void set_pixel(uint16_t x, uint16_t y, uint16_t color);
+void clear_framebuffer();
 
 void lcd_draw_pixel(PIO pio, uint sm, uint16_t x, uint16_t y, uint16_t color);
 void lcd_draw_rect(PIO pio, uint sm, uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t color);
@@ -65,4 +67,6 @@ void lcd_draw_progress_bar(PIO pio, uint sm, int length, int progress);
 
 void lcd_draw_char(uint16_t x, uint16_t y, char c, uint16_t color);
 void lcd_draw_string(uint16_t x, uint16_t y, const char *text, uint16_t color);
+
+void print_screen(const char * text);
 #endif // DISPLAY_H
