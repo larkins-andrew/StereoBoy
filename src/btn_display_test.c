@@ -38,14 +38,16 @@ int main(){
     char * chars[] = {"a", "b", "c", "d"};
     int i = 0;
     char buff [10] = "0";
+    stdio_init_all();
     while (true){
         // clear_framebuffer();
         // i = (i+1)%4;
-        if (buttons_get_just_pressed() & BTN_A){
-            i = i+1;
-            sprintf(buff, "%d", i);
-            print_screen(buff);
-        }
+        int c = getchar();
+        sprintf(buff, "%c", c);
+        print_screen(buff);
+        // if (buttons_get_just_pressed() & BTN_A){
+            
+        // }
         // lcd_draw_string(0,0,chars[i%4], WHITE);
         // lcd_draw_string(0,10,chars[(i+1)%4], WHITE);
         // lcd_draw_string(0,20,chars[(i+2)%4], WHITE);

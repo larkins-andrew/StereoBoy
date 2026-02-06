@@ -762,6 +762,7 @@ int main() {
             memset(input, 0, sizeof(input));
 
             while (1) {
+                print_screen("theoretically a break point");
                 int c = getchar(); // blocking read
                 sprintf(buff, "Read char: %c", c);
                 print_screen(buff);
