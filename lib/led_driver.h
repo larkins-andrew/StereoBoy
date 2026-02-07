@@ -5,8 +5,8 @@
 #include "pico/stdlib.h"
 
 // --- Hardware Config ---
-#define SDA_PIN 26
-#define SCL_PIN 38
+#define SDA_PIN 10
+#define SCL_PIN 8
 
 // Debug LEDs
 #define LED_HEARTBEAT 25   // Blinks to show code is running

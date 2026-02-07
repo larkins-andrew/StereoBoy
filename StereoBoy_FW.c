@@ -146,6 +146,16 @@ int main()
     sleep_ms(2000);
 
     // --- CONNECTION TEST ---
+    if (gpio_get(SDA_PIN) == 0 || gpio_get(SCL_PIN) == 0) {
+    // Bus is stuck
+    while (true)
+        {
+            gpio_put(LED_FOUND, 1);
+            sleep_ms(50);
+            gpio_put(LED_FOUND, 0);
+            sleep_ms(50);
+        }
+    }
     i2c_start();
     bool ack = i2c_write_byte(PCA_ADDR << 1);
     i2c_stop();
@@ -187,7 +197,9 @@ int main()
         for (int i = 4095; i >= 0; i -= 128)
         {
             
-            pca_set_pwm(TARGET_CHANNEL, 0, i);
+            for (int j=0; j<16; j++){
+                pca_set_pwm(j, 0, i);
+            }        
         }
         /////////////////////// LED END ///////////////////
 
