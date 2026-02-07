@@ -30,6 +30,7 @@ static FATFS fs;
 // I2C0 for DAC
 #define PIN_I2C0_SCL 21
 #define PIN_I2C0_SDA 20
+#define DAC_INT_GPIO 3
 
 // Display and oscope stuff
 #define SCREEN_WIDTH  240
@@ -142,8 +143,8 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
         240 * 240,                     // Count: Total number of 16-bit pixels
         true                           // Start now!
     );
-    sleep_ms(500);
     printf("Oscope ADC and DMA initialized!\r\n");
+    sleep_ms(500);
 
     // initialize DAC
     dac_init(i2c0);
@@ -490,63 +491,80 @@ static int compare_filenames(const void *a, const void *b) {
 #define ADC_CH_L 5
 #define ADC_CH_R 4
 
-#define WAVE_L_COLOR 0x07E0
-#define WAVE_R_COLOR 0x07FF
+#define WAVE_L_COLOR 0x04DF
+#define WAVE_R_COLOR 0xF808
+
+// Adjusted constants for higher density
+#define CAPTURE_SAMPLES 960    // 240 * 4 (Capture 4x more data per screen)
+#define SAMPLE_DELAY_US 2      // Tiny delay to tune the horizontal "zoom"
 
 void update_visualizer_core1() {
-    static int x = 0;
-    static int last_y_l = OFFSET_L;
-    static int last_y_r = OFFSET_R;
-    
-    // 1. Sample Channels
-    adc_select_input(ADC_CH_L);
-    uint16_t raw_l = adc_read();
-    adc_select_input(ADC_CH_R);
-    uint16_t raw_r = adc_read();
+    static uint16_t raw_l_buf[CAPTURE_SAMPLES];
+    static uint16_t raw_r_buf[CAPTURE_SAMPLES];
+    static int last_y_l[SCREEN_WIDTH];
+    static int last_y_r[SCREEN_WIDTH];
 
-    // 2. Map to Split Offsets
-    // Left Channel centered at 150
-    int dev_l = (int)raw_l - ADC_BIAS_CENTER;
-    int y_l = OFFSET_L - (dev_l * TARGET_HEIGHT / ADC_RANGE_PKPK);
-    
-    // Right Channel centered at 90
-    int dev_r = (int)raw_r - ADC_BIAS_CENTER;
-    int y_r = OFFSET_R - (dev_r * TARGET_HEIGHT / ADC_RANGE_PKPK);
+    while (1) {
+        // 1. HIGH-SPEED BURST CAPTURE
+        // This determines the "zoom". Faster sampling = more waves.
+        for (int i = 0; i < CAPTURE_SAMPLES; i++) {
+            adc_select_input(ADC_CH_L);
+            raw_l_buf[i] = adc_read();
+            adc_select_input(ADC_CH_R);
+            raw_r_buf[i] = adc_read();
+            
+            // Optional: Adjust this delay to see more/fewer periods
+            // sleep_us(SAMPLE_DELAY_US); 
+        }
 
-    // 3. Clamps (Keep them within their respective zones or full screen)
-    if (y_l < 0) y_l = 0; if (y_l > 239) y_l = 239;
-    if (y_r < 0) y_r = 0; if (y_r > 239) y_r = 239;
+        // 2. RENDER TO FRAME BUFFER
+        // We iterate through 240 horizontal pixels
+        for (int x = 0; x < SCREEN_WIDTH; x++) {
+            // Clear the old column in the buffer
+            for (int i = 0; i < SCREEN_HEIGHT; i++) {
+                frame_buffer[i * SCREEN_WIDTH + x] = BG_COLOR;
+            }
 
-    // 4. Clear Column
-    for (int i = 0; i < 240; i++) {
-        frame_buffer[i * 240 + x] = BG_COLOR;
-    }
+            // Downsample: Map CAPTURE_SAMPLES down to SCREEN_WIDTH
+            // We use the index (x * 4) since CAPTURE_SAMPLES is 4x SCREEN_WIDTH
+            uint16_t raw_l = raw_l_buf[x * 4];
+            uint16_t raw_r = raw_r_buf[x * 4];
 
-    // 5. Draw Left (Green)
-    int start_l = (y_l < last_y_l) ? y_l : last_y_l;
-    int end_l = (y_l < last_y_l) ? last_y_l : y_l;
-    for (int i = start_l; i <= end_l; i++) {
-        frame_buffer[i * 240 + x] |= WAVE_L_COLOR;
-    }
+            // Map to Screen Offsets
+            int dev_l = (int)raw_l - ADC_BIAS_CENTER;
+            int y_l = OFFSET_L - (dev_l * TARGET_HEIGHT / ADC_RANGE_PKPK);
+            
+            int dev_r = (int)raw_r - ADC_BIAS_CENTER;
+            int y_r = OFFSET_R - (dev_r * TARGET_HEIGHT / ADC_RANGE_PKPK);
 
-    // 6. Draw Right (Cyan)
-    int start_r = (y_r < last_y_r) ? y_r : last_y_r;
-    int end_r = (y_r < last_y_r) ? last_y_r : y_r;
-    for (int i = start_r; i <= end_r; i++) {
-        frame_buffer[i * 240 + x] |= WAVE_R_COLOR;
-    }
+            // Clamp values
+            if (y_l < 0) y_l = 0; if (y_l > 239) y_l = 239;
+            if (y_r < 0) y_r = 0; if (y_r > 239) y_r = 239;
 
-    last_y_l = y_l;
-    last_y_r = y_r;
-    x++;
+            // Draw connecting lines (prevents the "dotted" look at high frequencies)
+            int start_l = (x == 0) ? y_l : (y_l < last_y_l[x-1] ? y_l : last_y_l[x-1]);
+            int end_l   = (x == 0) ? y_l : (y_l < last_y_l[x-1] ? last_y_l[x-1] : y_l);
+            for (int i = start_l; i <= end_l; i++) frame_buffer[i * SCREEN_WIDTH + x] |= WAVE_L_COLOR;
 
-    // 7. Push to Display
-    if (x >= 240) {
-        x = 0;
+            int start_r = (x == 0) ? y_r : (y_r < last_y_r[x-1] ? y_r : last_y_r[x-1]);
+            int end_r   = (x == 0) ? y_r : (y_r < last_y_r[x-1] ? last_y_r[x-1] : y_r);
+            for (int i = start_r; i <= end_r; i++) frame_buffer[i * SCREEN_WIDTH + x] |= WAVE_R_COLOR;
+
+            last_y_l[x] = y_l;
+            last_y_r[x] = y_r;
+        }
+
+        // 3. ASYNC PUSH TO DISPLAY
+        // Ensure the previous SPI transfer is done before starting a new one
         st7789_set_cursor(0, 0);
         st7789_ramwr();
+        
+        // Use 16-bit SPI mode for speed
         spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
-        spi_write16_blocking(spi0, frame_buffer, 240 * 240);
+        
+        // This is the fastest way to blast the buffer to the screen
+        // spi_write16_blocking is fine here because Core 1 has nothing else to do
+        spi_write16_blocking(spi0, frame_buffer, SCREEN_WIDTH * SCREEN_HEIGHT);
     }
 }
 
@@ -773,12 +791,12 @@ void dac_int_callback(uint gpio, uint32_t events) {
 
 // ---- Init GPIO interrupt ----
 void dac_interrupt_init(void) {
-    gpio_init(15);
-    gpio_set_dir(15, GPIO_IN);
-    gpio_pull_up(15);  // INT is usually open-drain
+    gpio_init(DAC_INT_GPIO);
+    gpio_set_dir(DAC_INT_GPIO, GPIO_IN);
+    gpio_pull_up(DAC_INT_GPIO);  // INT is usually open-drain
 
     gpio_set_irq_enabled_with_callback(
-        15,
+        DAC_INT_GPIO,
         GPIO_IRQ_EDGE_RISE,   // active-low interrupt
         true,
         &dac_int_callback
