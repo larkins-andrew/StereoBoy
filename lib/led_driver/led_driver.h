@@ -1,54 +1,28 @@
+#ifndef PCA9685_H
+#define PCA9685_H
 
-#ifndef BITBANG_I2C_PCA_H
-#define BITBANG_I2C_PCA_H
-#include <stdio.h>
-#include "pico/stdlib.h"
+#include "hardware/i2c.h"
+#include <stdint.h>
+#include <stdbool.h>
 
-// --- Hardware Config ---
-#define SDA_PIN 26
-#define SCL_PIN 38
+#define PCA9685_I2C_ADDR 0x40
+#define PCA9685_OSC_FREQ 25000000
 
-// Debug LEDs
-#define LED_HEARTBEAT 25   // Blinks to show code is running
-#define LED_FOUND     24   // Solid ON if device is detected
+typedef struct {
+    i2c_inst_t *i2c;
+    uint8_t addr;
+    uint32_t osc_freq;
+} pca9685_t;
 
-// PCA9685 Config
-#define PCA_ADDR      0x40
-#define TARGET_CHANNEL 9   // Ensure this matches your confirmed working pin
+bool pca9685_init(pca9685_t *dev, i2c_inst_t *i2c, uint8_t addr);
 
-// Registers
-#define MODE1         0x00
-#define MODE2         0x01
-#define LED0_ON_L     0x06
-#define MODE1_SLEEP   0x10
-#define MODE1_AI      0x20
-#define MODE1_RESTART 0x80
-#define MODE2_OUTDRV  0x04 // Totem Pole (Critical for your setup)
+void pca9685_reset(pca9685_t *dev);
+void pca9685_sleep(pca9685_t *dev);
+void pca9685_wakeup(pca9685_t *dev);
 
-// --- Bit Bang Delay ---
-#define DELAY_US      100 
+void pca9685_set_pwm_freq(pca9685_t *dev, float freq);
+void pca9685_set_pwm(pca9685_t *dev, uint8_t channel, uint16_t on, uint16_t off);
+void pca9685_set_pin(pca9685_t *dev, uint8_t channel, uint16_t value, bool invert);
+void pca9685_write_microseconds(pca9685_t *dev, uint8_t channel, uint16_t us);
 
-/* --- Bit Bang I2C Primitives --- */
-void i2c_delay(void);
-
-void sda_high(void);
-void sda_low(void);
-
-void scl_high(void);
-void scl_low(void);
-
-void i2c_start(void);
-void i2c_stop(void);
-
-bool i2c_write_byte(uint8_t byte);
-
-
-/* --- PCA Helper Functions --- */
-void pca_write(uint8_t reg, uint8_t val);
-void pca_init(void);
-
-
-/* --- PWM Control --- */
-void pca_set_pwm(uint8_t channel, uint16_t on, uint16_t off);
-
-#endif /* BITBANG_I2C_PCA_H */
+#endif

@@ -61,7 +61,11 @@ pico_enable_stdio_usb(StereoBoy_FW 1)
 # Add the standard library to the build
 target_link_libraries(StereoBoy_FW
         pico_stdlib
-        hardware_pio)
+        hardware_pio
+        hardware_adc
+        hardware_dma
+        pico_multicore
+        )
 
 # Add the standard include files to the build
 target_include_directories(StereoBoy_FW PRIVATE

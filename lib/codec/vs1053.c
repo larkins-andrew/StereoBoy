@@ -76,6 +76,10 @@ void vs1053_set_volume(vs1053_t *v, uint8_t left, uint8_t right) {
     sci_write(v, SCI_VOL, ((uint16_t)left << 8) | right);
 }
 
+void vs1053_set_dac_gain(vs1053_t *v, uint8_t gain) {
+    
+}
+
 void vs1053_play_data(vs1053_t *v, const uint8_t *data, size_t len) {
     size_t i = 0;
 

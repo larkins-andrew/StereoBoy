@@ -1,74 +1,115 @@
 #include "led_driver.h"
+#include "pico/stdlib.h"
+#include <math.h>
 
+/* Registers */
+#define MODE1      0x00
+#define MODE2      0x01
+#define PRESCALE   0xFE
+#define LED0_ON_L  0x06
 
-// --- Bit Bang I2C Primitives ---
-void i2c_delay() { sleep_us(DELAY_US); }
+/* Bits */
+#define MODE1_SLEEP  0x10
+#define MODE1_AI     0x20
+#define MODE1_RESTART 0x80
 
-void sda_high() { gpio_set_dir(SDA_PIN, GPIO_IN); i2c_delay(); }
-void sda_low()  { gpio_set_dir(SDA_PIN, GPIO_OUT); gpio_put(SDA_PIN, 0); i2c_delay(); }
+#define MODE2_OUTDRV 0x04
 
-void scl_high() {
-    gpio_set_dir(SCL_PIN, GPIO_IN);
-    // Timeout for clock stretching
-    int timeout = 1000;
-    while(gpio_get(SCL_PIN) == 0 && timeout > 0) { sleep_us(1); timeout--; } 
-    i2c_delay();
-}
-void scl_low()  { gpio_set_dir(SCL_PIN, GPIO_OUT); gpio_put(SCL_PIN, 0); i2c_delay(); }
-
-void i2c_start() { sda_high(); scl_high(); sda_low(); scl_low(); }
-void i2c_stop()  { sda_low(); scl_low(); scl_high(); sda_high(); }
-
-bool i2c_write_byte(uint8_t byte) {
-    for(int i=0; i<8; i++) {
-        if ((byte & 0x80) != 0) sda_high();
-        else sda_low();
-        scl_high(); scl_low();
-        byte <<= 1;
-    }
-    sda_high(); scl_high();
-    bool nack = gpio_get(SDA_PIN); // Read ACK bit
-    scl_low();
-    return !nack; // Return true if ACK (Low)
+static void write8(pca9685_t *dev, uint8_t reg, uint8_t val) {
+    uint8_t buf[2] = {reg, val};
+    i2c_write_blocking(dev->i2c, dev->addr, buf, 2, false);
 }
 
-// --- PCA Helper ---
-void pca_write(uint8_t reg, uint8_t val) {
-    i2c_start();
-    i2c_write_byte(PCA_ADDR << 1);
-    i2c_write_byte(reg);
-    i2c_write_byte(val);
-    i2c_stop();
+static uint8_t read8(pca9685_t *dev, uint8_t reg) {
+    i2c_write_blocking(dev->i2c, dev->addr, &reg, 1, true);
+    uint8_t val;
+    i2c_read_blocking(dev->i2c, dev->addr, &val, 1, false);
+    return val;
 }
 
-void pca_init() {
-    // 1. Set Output Drive to Totem Pole (Push-Pull)
-    pca_write(MODE2, MODE2_OUTDRV);
+bool pca9685_init(pca9685_t *dev, i2c_inst_t *i2c, uint8_t addr) {
+    dev->i2c = i2c;
+    dev->addr = addr;
+    dev->osc_freq = PCA9685_OSC_FREQ;
 
-    // 2. Wake Up
-    pca_write(MODE1, 0x00);
+    pca9685_reset(dev);
     sleep_ms(10);
-    
-    // 3. Enable Auto-Increment (Crucial for writing 4 PWM bytes at once)
-    pca_write(MODE1, MODE1_AI);
+
+    pca9685_set_pwm_freq(dev, 1000);
+    return true;
 }
 
-// --- NEW FUNCTION: PWM Fading ---
-void pca_set_pwm(uint8_t channel, uint16_t on, uint16_t off) {
-    i2c_start();
-    
-    // Write Address
-    i2c_write_byte(PCA_ADDR << 1);
-    
-    // Write Start Register (LEDn_ON_L)
-    // Because MODE1_AI is set, the chip will auto-move to the next registers
-    i2c_write_byte(LED0_ON_L + (4 * channel));
-    
-    // Send 4 Bytes: ON_L, ON_H, OFF_L, OFF_H
-    i2c_write_byte(on & 0xFF);
-    i2c_write_byte(on >> 8);
-    i2c_write_byte(off & 0xFF);
-    i2c_write_byte(off >> 8);
-    
-    i2c_stop();
+void pca9685_reset(pca9685_t *dev) {
+    write8(dev, MODE1, MODE1_RESTART);
+    sleep_ms(10);
+}
+
+void pca9685_sleep(pca9685_t *dev) {
+    uint8_t mode = read8(dev, MODE1);
+    write8(dev, MODE1, mode | MODE1_SLEEP);
+    sleep_ms(1);
+}
+
+void pca9685_wakeup(pca9685_t *dev) {
+    uint8_t mode = read8(dev, MODE1);
+    write8(dev, MODE1, mode & ~MODE1_SLEEP);
+    sleep_ms(1);
+}
+
+void pca9685_set_pwm_freq(pca9685_t *dev, float freq) {
+    if (freq < 1) freq = 1;
+    if (freq > 3500) freq = 3500;
+
+    float prescale_val = ((dev->osc_freq / (freq * 4096.0f)) + 0.5f) - 1.0f;
+    uint8_t prescale = (uint8_t)fminf(fmaxf(prescale_val, 3), 255);
+
+    uint8_t oldmode = read8(dev, MODE1);
+    write8(dev, MODE1, (oldmode & ~MODE1_RESTART) | MODE1_SLEEP);
+    write8(dev, PRESCALE, prescale);
+    write8(dev, MODE1, oldmode);
+    sleep_ms(5);
+    write8(dev, MODE1, oldmode | MODE1_RESTART | MODE1_AI);
+}
+
+void pca9685_set_pwm(pca9685_t *dev, uint8_t channel, uint16_t on, uint16_t off) {
+    uint8_t reg = LED0_ON_L + 4 * channel;
+    uint8_t buf[5] = {
+        reg,
+        on & 0xFF,
+        on >> 8,
+        off & 0xFF,
+        off >> 8
+    };
+    i2c_write_blocking(dev->i2c, dev->addr, buf, 5, false);
+}
+
+void pca9685_set_pin(pca9685_t *dev, uint8_t channel, uint16_t value, bool invert) {
+    if (value > 4095) value = 4095;
+
+    if (invert) {
+        if (value == 0)
+            pca9685_set_pwm(dev, channel, 4096, 0);
+        else if (value == 4095)
+            pca9685_set_pwm(dev, channel, 0, 4096);
+        else
+            pca9685_set_pwm(dev, channel, 0, 4095 - value);
+    } else {
+        if (value == 4095)
+            pca9685_set_pwm(dev, channel, 4096, 0);
+        else if (value == 0)
+            pca9685_set_pwm(dev, channel, 0, 4096);
+        else
+            pca9685_set_pwm(dev, channel, 0, value);
+    }
+}
+
+void pca9685_write_microseconds(pca9685_t *dev, uint8_t channel, uint16_t us) {
+    uint8_t prescale = read8(dev, PRESCALE) + 1;
+
+    double pulse_len = 1000000.0;
+    pulse_len *= prescale;
+    pulse_len /= dev->osc_freq;
+
+    double ticks = us / pulse_len;
+    pca9685_set_pwm(dev, channel, 0, (uint16_t)ticks);
 }
