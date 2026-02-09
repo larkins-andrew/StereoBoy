@@ -55,10 +55,10 @@ static FATFS fs;
 
 #define WAVE_L_COLOR 0x07E0
 #define WAVE_R_COLOR 0x07FF
-#define WAVE_L_COLOR_DARK 0x0600
-#define WAVE_R_COLOR_DARK 0x05FF
-#define WAVE_L_COLOR_LIGHT 0x8FF1
-#define WAVE_R_COLOR_LIGHT 0xAFFF
+#define FFT_L_COLOR_DARK 0x0600
+#define FFT_R_COLOR_DARK 0x05FF
+#define FFT_L_COLOR_LIGHT 0x8FF1
+#define FFT_R_COLOR_LIGHT 0xAFFF
 
 static uint16_t frame_buffer[240 * 240];
 static uint16_t column_buf[240];
@@ -71,8 +71,8 @@ static dma_channel_config dcc;
 volatile cplx audio_history_l[HISTORY_SIZE];
 volatile cplx audio_history_r[HISTORY_SIZE];
 int history_index = 0;
-// static const int bucket_limits[16] = {2, 3, 4, 6, 9, 13, 18, 25, 35, 48, 63, 80, 98, 110, 120, 128};
-static const int bucket_limits[16] = {2, 3, 4, 5, 7, 10, 14, 19, 25, 32, 40, 49, 59, 70, 80, 90};
+static const int bucket_limits[16] = {2, 3, 4, 6, 9, 13, 18, 25, 35, 48, 63, 80, 98, 110, 120, 128};
+// static const int bucket_limits[16] = {2, 3, 4, 5, 6, 8, 10, 12, 15, 18, 22, 26, 31, 36, 41, 48};
 int visualizer = 1;
 /*******************fft*******************/
 
@@ -93,63 +93,37 @@ static void jukebox(vs1053_t *player, track_info_t *track, st7789_t *display);
    ========================================================= */
 
 // This is the main loop for Core 1
-void core1_entry()
-{
-    adc_select_input(ADC_CH_L);
-    const uint32_t sample_interval_us = 45;
-    absolute_time_t next_sample_time = get_absolute_time();
+void core1_entry() {
+    static int history_ptr = 0;
 
-    int last_visualizer_mode = -1;
-
-    while (1)
-    {
-        // If we just switched modes, clear the buffer to prevent ghosting
-        if (visualizer != last_visualizer_mode)
-        {
-            memset(frame_buffer, 0, sizeof(frame_buffer));
-            last_visualizer_mode = visualizer;
-        }
-
-        if (visualizer == 1)
-        {
-            // SPECTRUM MODE
-            // 1. Collect 256 samples at a specific cadence
-            for (int i = 0; i < HISTORY_SIZE; i++)
-            {
-                // Wait until it's time for the next sample
-                while (absolute_time_diff_us(get_absolute_time(), next_sample_time) > 0)
-                {
-                    tight_loop_contents();
-                }
-
+    while (1) {
+        if (visualizer == 1) {
+            // 1. CONTINUOUS SAMPLE: Fill the buffer over time
+            // To balance bass and treble, we want about 22kHz sampling
+            for (int i = 0; i < 32; i++) { // Sample 32 new points per frame
                 adc_select_input(ADC_CH_L);
-                uint16_t raw_l = adc_read();
+                audio_history_l[history_ptr] = (cplx)adc_read();
                 adc_select_input(ADC_CH_R);
-                uint16_t raw_r = adc_read();
-
-                audio_history_l[i] = (cplx)raw_l;
-                audio_history_r[i] = (cplx)raw_r;
-
-                next_sample_time = delayed_by_us(next_sample_time, sample_interval_us);
+                audio_history_r[history_ptr] = (cplx)adc_read();
+                
+                history_ptr = (history_ptr + 1) % HISTORY_SIZE;
+                sleep_us(45); // ~22.2kHz sampling
             }
 
-            // 2. Process and Draw (Full frame)
+            // 2. PROCESS
             memset(frame_buffer, 0, sizeof(frame_buffer));
-            get_bins();
-
+            get_bins(); // This now processes the last 256 samples
+            
+            // 3. DISPLAY
             st7789_set_cursor(0, 0);
             st7789_ramwr();
             spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
             spi_write16_blocking(spi0, frame_buffer, 240 * 240);
-        }
-        else
-        {
-            // OSCILLOSCOPE MODE
+        } else {
             update_visualizer_core1();
         }
     }
 }
-
 void fast_drawline(int x, int y1, int y2, uint16_t color)
 {
     if (y1 > y2)
@@ -721,85 +695,74 @@ void fft_optimized(cplx buf[], int n)
         }
     }
 }
-void get_bins()
-{
-    float complex proc_l[HISTORY_SIZE];
-    float complex proc_r[HISTORY_SIZE];
-    static float display_l[16];
-    static float display_r[16];
 
-    // 1. Calculate DC Bias
+void get_bins() {
+    float complex proc_l[HISTORY_SIZE], proc_r[HISTORY_SIZE];
+    static float display_l[16], display_r[16];
+
+    // 1. DC Removal
     float avg_l = 0, avg_r = 0;
-    for (int i = 0; i < HISTORY_SIZE; i++)
-    {
+    for (int i = 0; i < HISTORY_SIZE; i++) {
         avg_l += (float)audio_history_l[i];
         avg_r += (float)audio_history_r[i];
     }
-    avg_l /= HISTORY_SIZE;
-    avg_r /= HISTORY_SIZE;
+    avg_l /= HISTORY_SIZE; avg_r /= HISTORY_SIZE;
 
-    // 2. Capture and Windowing
-    for (int i = 0; i < HISTORY_SIZE; i++)
-    {
+    for (int i = 0; i < HISTORY_SIZE; i++) {
         float mult = 0.5f * (1.0f - cosf(2.0f * PI * i / (HISTORY_SIZE - 1)));
-
-        // Subtract bias AND normalize to 0.0 - 1.0 range (important for log math)
-        proc_l[i] = ((float)audio_history_l[i] - avg_l) / 4096.0f * mult + 0.0f * I;
-        proc_r[i] = ((float)audio_history_r[i] - avg_r) / 4096.0f * mult + 0.0f * I;
+        proc_l[i] = ((float)audio_history_l[i] - avg_l) * mult + 0.0f*I;
+        proc_r[i] = ((float)audio_history_r[i] - avg_r) * mult + 0.0f*I;
     }
 
     fft_optimized(proc_l, HISTORY_SIZE);
     fft_optimized(proc_r, HISTORY_SIZE);
 
-    // 3. Process 16 Buckets
-    int start_bin = 2; // START AT BIN 2: Skip DC (0) and very low rumble (1)
-    for (int b = 0; b < 16; b++)
-    {
-        float max_mag_l = 0;
-        float max_mag_r = 0;
+    // 2. Process Buckets
+int start_bin = 2; 
+    for (int b = 0; b < 16; b++) {
+        float peak_l = 0, peak_r = 0;
         int end_bin = bucket_limits[b];
 
-        // 1. PEAK DETECTION: Find the loudest bin in this bucket
-        for (int i = start_bin; i <= end_bin; i++)
-        {
-            float cur_l = cabsf(proc_l[i]);
-            float cur_r = cabsf(proc_r[i]);
-            if (cur_l > max_mag_l)
-                max_mag_l = cur_l;
-            if (cur_r > max_mag_r)
-                max_mag_r = cur_r;
+        for (int i = start_bin; i <= end_bin; i++) {
+            float m_l = cabsf(proc_l[i]) / HISTORY_SIZE;
+            float m_r = cabsf(proc_r[i]) / HISTORY_SIZE;
+            if (m_l > peak_l) peak_l = m_l;
+            if (m_r > peak_r) peak_r = m_r;
         }
         start_bin = end_bin + 1;
 
-        // 2. LOG SCALING (Normalized by FFT Size)
-        float db_l = 20.0f * log10f((max_mag_l / HISTORY_SIZE) + 1e-9f);
-        float db_r = 20.0f * log10f((max_mag_r / HISTORY_SIZE) + 1e-9f);
+        // 1. ADAPTIVE GATE
+        // High frequencies (high b) get a much lower gate.
+        // Bucket 0 gate = 8.0, Bucket 15 gate = 1.0
+        float adaptive_gate = 8.0f - (b * 0.25f);
+        if (adaptive_gate < 0.8f) adaptive_gate = 0.8f; 
 
-        // 3. TILT COMPENSATION
-        // We add more "fake" volume the further right (higher index) we go
-        float tilt = b * 1.5f; // Increase 2.0f if highs are still too low
+        float target_l = 0, target_r = 0;
 
-        // 4. MAPPING TO SCREEN
-        float target_l = (db_l + 95.0f) * 1.5f + tilt;
-        float target_r = (db_r + 95.0f) * 1.5f + tilt;
+        // 2. LOG MATH WITH INCREASING SENSITIVITY
+        // 'sens' increases as we move to higher frequencies
+        float sens = 40.0f + (b * 10.0f); 
 
-        if (target_l < 0)
-            target_l = 0;
-        if (target_r < 0)
-            target_r = 0;
+        if (peak_l > adaptive_gate) {
+            target_l = (log10f(peak_l + 1e-9f) - log10f(adaptive_gate)) * sens;
+        }
+        if (peak_r > adaptive_gate) {
+            target_r = (log10f(peak_r + 1e-9f) - log10f(adaptive_gate)) * sens;
+        }
 
-        // 5. Fall/Decay
-        if (target_l > display_l[b])
-            display_l[b] = target_l;
-        else
-            display_l[b] -= 1.0f;
+        // 3. SMOOTHING
+        // We make high frequencies decay slightly slower so you can actually see them
+        float decay = 6.0f - (b * 0.15f); 
+        
+        if (target_l > display_l[b]) display_l[b] = target_l;
+        else display_l[b] -= decay;
 
-        if (target_r > display_r[b])
-            display_r[b] = target_r;
-        else
-            display_r[b] -= 1.0f;
+        if (target_r > display_r[b]) display_r[b] = target_r;
+        else display_r[b] -= decay;
 
-        // 6. Draw
+        if (display_l[b] < 0) display_l[b] = 0;
+        if (display_r[b] < 0) display_r[b] = 0;
+
         draw_spectrum_bars(b * 15, (int)display_l[b], (int)display_r[b], (int)target_l, (int)target_r);
     }
 }
@@ -826,13 +789,13 @@ void draw_spectrum_bars(int x_start, int h_l, int h_r, int target_l, int target_
         // LEFT CHANNEL: Top of screen, drawing DOWNWARD
         for (int y = 0; y < h_l; y++)
         {
-            frame_buffer[y * SCREEN_WIDTH + cur_x] = y > target_l ? WAVE_L_COLOR_LIGHT: WAVE_L_COLOR_DARK;
+            frame_buffer[(120+y) * SCREEN_WIDTH + cur_x] = y > target_l ? FFT_L_COLOR_LIGHT: FFT_L_COLOR_DARK;
         }
 
         // RIGHT CHANNEL: Bottom of screen, drawing UPWARD
         for (int y = 0; y < h_r; y++)
         {
-            frame_buffer[(239 - y) * SCREEN_WIDTH + cur_x] = y > target_r ? WAVE_R_COLOR_LIGHT : WAVE_R_COLOR_DARK;
+            frame_buffer[(120 - y) * SCREEN_WIDTH + cur_x] = y > target_r ? FFT_R_COLOR_LIGHT : FFT_R_COLOR_DARK;
         }
     }
 }
