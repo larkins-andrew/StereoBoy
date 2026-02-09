@@ -6,6 +6,11 @@
 #include "lib/codec/vs1053.h"
 #include "../display/display.h"
 
+
+#include <complex.h>
+#include <math.h>
+
+
 #define MAX_TRACKS 64
 #define MAX_FILENAME_LEN 256
 
@@ -20,7 +25,6 @@ typedef struct {
     uint8_t channels;
     uint32_t header;
 } track_info_t;
-
 
 /* ========= Hardware ========= */
 void sb_hw_init(vs1053_t *player, st7789_t *display);
@@ -40,5 +44,17 @@ void fast_drawline(int x, int y1, int y2, uint16_t color);
 
 // ADD THIS LINE HERE:
 void update_visualizer_core1(void);
+
+
+#ifndef PI
+#define PI 3.141592653589793
+#endif
+
+typedef float complex cplx;
+
+void bit_reverse(cplx buf[], int n);
+void fft_optimized(cplx buf[], int n);
+void get_bins();
+void draw_spectrum_bars(int x_start, int h_l, int h_r, int target_l, int target_r);
 
 #endif
