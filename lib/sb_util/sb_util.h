@@ -54,7 +54,8 @@ typedef float complex cplx;
 
 void bit_reverse(cplx buf[], int n);
 void fft_optimized(cplx buf[], int n);
-void get_bins();
-void draw_spectrum_bars(int x_start, int h_l, int h_r, int target_l, int target_r);
+void get_bins(int n);
+void draw_spectrum_bars(int x_start, int width, int h_l, int h_r, int target_l, int target_r);
+
 
 #endif
