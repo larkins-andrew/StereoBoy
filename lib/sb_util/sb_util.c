@@ -73,7 +73,7 @@ volatile cplx audio_history_r[HISTORY_SIZE];
 int history_index = 0;
 // static const int bucket_limits[16] = {2, 3, 4, 6, 9, 13, 18, 25, 35, 48, 63, 80, 98, 110, 120, 128};
 // static const int bucket_limits[16] = {2, 3, 4, 5, 6, 8, 10, 12, 15, 18, 22, 26, 31, 36, 41, 48};
-int visualizer = 2;
+int visualizer = 3;
 /*******************fft*******************/
 
 /* =========================================================
@@ -97,36 +97,46 @@ void core1_entry() {
     static int history_ptr = 0;
 
     while (1) {
-        if (visualizer == 1 || visualizer==2) {
-            // 1. CONTINUOUS SAMPLE: Fill the buffer over time
-            // To balance bass and treble, we want about 22kHz sampling
-            for (int i = 0; i < 32; i++) { // Sample 32 new points per frame
-                adc_select_input(ADC_CH_L);
-                audio_history_l[history_ptr] = (cplx)adc_read();
-                adc_select_input(ADC_CH_R);
-                audio_history_r[history_ptr] = (cplx)adc_read();
-                
-                history_ptr = (history_ptr + 1) % HISTORY_SIZE;
-                sleep_us(20);
-            }
-            if (visualizer==2){
-                draw_lissajous_connected();
-            } else {
-            // 2. PROCESS
-            memset(frame_buffer, 0, sizeof(frame_buffer));
-            get_bins(60);
-            
-            // 3. DISPLAY
-            st7789_set_cursor(0, 0);
-            st7789_ramwr();
-            spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
-            spi_write16_blocking(spi0, frame_buffer, 240 * 240);
-            }
-        } else {
-            update_visualizer_core1();
+        switch (visualizer) {
+            case 1:
+            case 2:
+            case 3:
+                // 1. CONTINUOUS SAMPLE: Fill the buffer over time
+                // To balance bass and treble, we want about 22kHz sampling
+                for (int i = 0; i < 32; i++) { 
+                    adc_select_input(ADC_CH_L);
+                    audio_history_l[history_ptr] = (cplx)adc_read();
+                    adc_select_input(ADC_CH_R);
+                    audio_history_r[history_ptr] = (cplx)adc_read();
+                    
+                    history_ptr = (history_ptr + 1) % HISTORY_SIZE;
+                    sleep_us(20);
+                }
+
+                if (visualizer == 2) {
+                    draw_lissajous_connected();
+                } else if (visualizer == 3) {
+                    draw_lissajous();
+                } else {
+                    memset(frame_buffer, 0, sizeof(frame_buffer));
+                    get_bins(60);
+                    
+                    // 3. DISPLAY
+                    st7789_set_cursor(0, 0);
+                    st7789_ramwr();
+                    spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
+                    spi_write16_blocking(spi0, frame_buffer, 240 * 240);
+                }
+                break;
+
+            default:
+                // Handles visualizer == 0 or any other undefined modes
+                update_visualizer_core1();
+                break;
         }
     }
 }
+    
 void fast_drawline(int x, int y1, int y2, uint16_t color)
 {
     if (y1 > y2)
@@ -801,8 +811,8 @@ void draw_spectrum_bars(int x_start, int width, int h_l, int h_r, int target_l, 
 
 ////////////////LISSAJOUS///////////////////////////
 
-uint16_t dim_pixel(uint16_t color) {
-    return color/2;
+uint16_t dim_pixel(uint16_t color, uint16_t divide) {
+    return color/divide;
 }
 
 void draw_line_hot(int x0, int y0, int x1, int y1, uint16_t color) {
@@ -829,7 +839,7 @@ void draw_lissajous() {
     // This creates the phosphor trail effect
     for (int i = 0; i < (SCREEN_WIDTH * SCREEN_HEIGHT); i++) {
         if (frame_buffer[i] != 0) {
-            frame_buffer[i] = dim_pixel(frame_buffer[i]);
+            frame_buffer[i] = dim_pixel(frame_buffer[i],2);
         }
     }
 
@@ -848,9 +858,9 @@ void draw_lissajous() {
         // 4. Draw the new sample with FULL brightness
         // Using WAVE_L_COLOR (0x07E0)
         frame_buffer[y * SCREEN_WIDTH + x] = 0xFFFF;
-        
-        // Optional: Draw a line to the previous point for a "string" look
-        // (Use your fast_drawline function here if you want connectivity)
+        frame_buffer[y * SCREEN_WIDTH + (239-x)] = 0xFFFF;
+        frame_buffer[(239-y) * SCREEN_WIDTH + x] = 0xFFFF;
+        frame_buffer[(239-y) * SCREEN_WIDTH + (239-x)] = 0xFFFF;
     }
 
     // 5. Push to Display
@@ -861,10 +871,9 @@ void draw_lissajous() {
 }
 
 void draw_lissajous_connected() {
-    // 1. Process Chromatic Decay (The Spiral)
     for (int i = 0; i < (SCREEN_WIDTH * SCREEN_HEIGHT); i++) {
         if (frame_buffer[i] != 0) {
-            frame_buffer[i] = dim_pixel(frame_buffer[i]);
+            frame_buffer[i] = dim_pixel(frame_buffer[i],2);
         }
     }
 
@@ -888,7 +897,6 @@ void draw_lissajous_connected() {
         last_y = y;
     }
 
-    // 3. Push to display
     st7789_set_cursor(0, 0);
     st7789_ramwr();
     spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
