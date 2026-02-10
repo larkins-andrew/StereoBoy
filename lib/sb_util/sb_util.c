@@ -73,7 +73,7 @@ volatile cplx audio_history_r[HISTORY_SIZE];
 int history_index = 0;
 // static const int bucket_limits[16] = {2, 3, 4, 6, 9, 13, 18, 25, 35, 48, 63, 80, 98, 110, 120, 128};
 // static const int bucket_limits[16] = {2, 3, 4, 5, 6, 8, 10, 12, 15, 18, 22, 26, 31, 36, 41, 48};
-int visualizer = 1;
+int visualizer = 2;
 /*******************fft*******************/
 
 /* =========================================================
@@ -97,7 +97,7 @@ void core1_entry() {
     static int history_ptr = 0;
 
     while (1) {
-        if (visualizer == 1) {
+        if (visualizer == 1 || visualizer==2) {
             // 1. CONTINUOUS SAMPLE: Fill the buffer over time
             // To balance bass and treble, we want about 22kHz sampling
             for (int i = 0; i < 32; i++) { // Sample 32 new points per frame
@@ -109,7 +109,9 @@ void core1_entry() {
                 history_ptr = (history_ptr + 1) % HISTORY_SIZE;
                 sleep_us(20);
             }
-
+            if (visualizer==2){
+                draw_lissajous_connected();
+            } else {
             // 2. PROCESS
             memset(frame_buffer, 0, sizeof(frame_buffer));
             get_bins(60);
@@ -119,6 +121,7 @@ void core1_entry() {
             st7789_ramwr();
             spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
             spi_write16_blocking(spi0, frame_buffer, 240 * 240);
+            }
         } else {
             update_visualizer_core1();
         }
@@ -796,7 +799,104 @@ void draw_spectrum_bars(int x_start, int width, int h_l, int h_r, int target_l, 
 ///////////////////////FFT////////////////////////////////
 
 
+////////////////LISSAJOUS///////////////////////////
 
+uint16_t dim_pixel(uint16_t color) {
+    return color/2;
+}
+
+void draw_line_hot(int x0, int y0, int x1, int y1, uint16_t color) {
+    int dx = abs(x1 - x0);
+    int dy = -abs(y1 - y0);
+    int sx = x0 < x1 ? 1 : -1;
+    int sy = y0 < y1 ? 1 : -1;
+    int err = dx + dy;
+
+    while (1) {
+        if (x0 >= 0 && x0 < 240 && y0 >= 0 && y0 < 240) {
+            frame_buffer[y0 * 240 + x0] = color;
+        }
+        if (x0 == x1 && y0 == y1) break;
+        int e2 = 2 * err;
+        if (e2 >= dy) { err += dy; x0 += sx; }
+        if (e2 <= dx) { err += dx; y0 += sy; }
+    }
+}
+
+
+void draw_lissajous() {
+    // 1. Instead of clearing to black, "fade" the previous frame
+    // This creates the phosphor trail effect
+    for (int i = 0; i < (SCREEN_WIDTH * SCREEN_HEIGHT); i++) {
+        if (frame_buffer[i] != 0) {
+            frame_buffer[i] = dim_pixel(frame_buffer[i]);
+        }
+    }
+
+    for (int i = 0; i < HISTORY_SIZE; i++) {
+        float val_l = crealf(audio_history_l[i]);
+        float val_r = crealf(audio_history_r[i]);
+
+        // 2. Map and Scale (Same as before)
+        int x = (int)(((val_l - ADC_BIAS_CENTER) * 110.0f) / (ADC_RANGE_PKPK / 2.0f)) + 120;
+        int y = (int)(((val_r - ADC_BIAS_CENTER) * 110.0f) / (ADC_RANGE_PKPK / 2.0f)) + 120;
+
+        // 3. Clamping
+        if (x < 0) x = 0; if (x > 239) x = 239;
+        if (y < 0) y = 0; if (y > 239) y = 239;
+
+        // 4. Draw the new sample with FULL brightness
+        // Using WAVE_L_COLOR (0x07E0)
+        frame_buffer[y * SCREEN_WIDTH + x] = 0xFFFF;
+        
+        // Optional: Draw a line to the previous point for a "string" look
+        // (Use your fast_drawline function here if you want connectivity)
+    }
+
+    // 5. Push to Display
+    st7789_set_cursor(0, 0);
+    st7789_ramwr();
+    spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
+    spi_write16_blocking(spi0, frame_buffer, 240 * 240);
+}
+
+void draw_lissajous_connected() {
+    // 1. Process Chromatic Decay (The Spiral)
+    for (int i = 0; i < (SCREEN_WIDTH * SCREEN_HEIGHT); i++) {
+        if (frame_buffer[i] != 0) {
+            frame_buffer[i] = dim_pixel(frame_buffer[i]);
+        }
+    }
+
+    int last_x = -1, last_y = -1;
+
+    // 2. Connect the dots in the audio history
+    for (int i = 0; i < HISTORY_SIZE; i++) {
+        float val_l = crealf(audio_history_l[i]);
+        float val_r = crealf(audio_history_r[i]);
+
+        // Map to screen coordinates
+        int x = (int)(((val_l - ADC_BIAS_CENTER) * 110.0f) / (ADC_RANGE_PKPK / 2.0f)) + 120;
+        int y = (int)(((val_r - ADC_BIAS_CENTER) * 110.0f) / (ADC_RANGE_PKPK / 2.0f)) + 120;
+
+        // If we have a previous point, draw a line to the current one
+        if (last_x != -1) {
+            draw_line_hot(last_x, last_y, x, y, 0xFFFF); // Hot White Line
+        }
+
+        last_x = x;
+        last_y = y;
+    }
+
+    // 3. Push to display
+    st7789_set_cursor(0, 0);
+    st7789_ramwr();
+    spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
+    spi_write16_blocking(spi0, frame_buffer, 240 * 240);
+}
+
+
+////////////////////LISSAJOUS////////////////////////////
 
 
 

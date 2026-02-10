@@ -56,6 +56,7 @@ void bit_reverse(cplx buf[], int n);
 void fft_optimized(cplx buf[], int n);
 void get_bins(int n);
 void draw_spectrum_bars(int x_start, int width, int h_l, int h_r, int target_l, int target_r);
-
+void draw_lissajous();
+void draw_lissajous_connected();
 
 #endif
