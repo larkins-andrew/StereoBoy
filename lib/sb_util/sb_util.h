@@ -15,15 +15,16 @@
 #define MAX_FILENAME_LEN 256
 
 typedef struct {
+    uint32_t album_art_size;
+    uint32_t header;
+    uint16_t bitrate;
+    uint16_t samplespeed;
+    uint8_t mpegID;
+    uint8_t channels;
     char filename[256];
     char title[128];
     char artist[128];
     char album[128];
-    uint8_t mpegID;
-    uint16_t bitrate;
-    uint16_t samplespeed;
-    uint8_t channels;
-    uint32_t header;
 } track_info_t;
 
 /* ========= Hardware ========= */
@@ -54,7 +55,7 @@ typedef float complex cplx;
 
 void bit_reverse(cplx buf[], int n);
 void fft_optimized(cplx buf[], int n);
-void get_bins(int n);
+void draw_bins(int n);
 void draw_spectrum_bars(int x_start, int width, int h_l, int h_r, int target_l, int target_r);
 void draw_lissajous();
 void draw_lissajous_connected();
