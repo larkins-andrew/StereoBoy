@@ -63,7 +63,6 @@ static FATFS fs;
 #define IMG_WIDTH 160
 #define IMG_HEIGHT 160
 
-
 static uint16_t frame_buffer[240 * 240];
 static uint16_t img_buffer[IMG_WIDTH * IMG_HEIGHT];
 static uint16_t column_buf[240];
@@ -78,7 +77,7 @@ volatile cplx audio_history_r[HISTORY_SIZE];
 int history_index = 0;
 int visualizer = 0;
 int num_visualizations = 5;
-volatile bool album_art_ready = false;
+bool album_art_ready = false;
 /*******************visualizations not scope*******************/
 
 /* =========================================================
@@ -148,7 +147,6 @@ void core1_entry()
             if (album_art_ready)
             {
                 album_art_centered();
-
                 st7789_set_cursor(0, 0);
                 st7789_ramwr();
                 spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
@@ -303,7 +301,7 @@ void sb_print_track(track_info_t *t)
 }
 
 void sb_play_track(vs1053_t *player, track_info_t *track, st7789_t *display)
-{   
+{
     album_art_ready = false;
     jukebox(player, track, display);
 }
@@ -1114,13 +1112,19 @@ void process_image(track_info_t *track, const char *filename, float output_size)
     uint8_t frame_header[10];
 
     if (f_open(&fil, filename, FA_READ) != FR_OK)
+    {
         return;
+    }
 
     if (f_read(&fil, header, 10, &br) != FR_OK || br != 10)
+    {
         goto out;
+    }
 
     if (memcmp(header, "ID3", 3) != 0)
+    {
         goto out;
+    }
 
     f_lseek(&fil, track->album_art_offset);
     if (strcmp(track->mime_type, "image/jpeg") == 0)
@@ -1135,7 +1139,10 @@ void process_image(track_info_t *track, const char *filename, float output_size)
             pjpeg_decode_init(&jpeg_info, jpeg_need_bytes_callback, &stream, 0);
 
         if (status)
+        {
+            memset(img_buffer, 0, sizeof(img_buffer)); 
             goto out;
+        }
 
         float scale_x = (float)jpeg_info.m_width / output_size;
         float scale_y = (float)jpeg_info.m_height / output_size;
@@ -1150,9 +1157,9 @@ void process_image(track_info_t *track, const char *filename, float output_size)
                 {
                     break;
                 }
-                if (status)
+                if (status) {
                     goto out;
-
+                }
                 for (uint16_t ly = 0; ly < jpeg_info.m_MCUHeight; ly++)
                 {
                     for (uint16_t lx = 0; lx < jpeg_info.m_MCUWidth; lx++)
