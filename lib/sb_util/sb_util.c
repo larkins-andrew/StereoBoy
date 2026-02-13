@@ -9,6 +9,7 @@
 #include "hardware/dma.h"
 #include "hardware/spi.h"
 #include "../display/display.h"
+#include "../display/picojpeg.h"
 #include "pico/multicore.h"
 
 #define MAX_FILENAME_LEN 256 // max filaname character length
@@ -59,22 +60,26 @@ static FATFS fs;
 #define FFT_R_COLOR_DARK 0x05FF
 #define FFT_L_COLOR_LIGHT 0x8FF1
 #define FFT_R_COLOR_LIGHT 0xAFFF
+#define IMG_WIDTH 160
+#define IMG_HEIGHT 160
+
 
 static uint16_t frame_buffer[240 * 240];
+static uint16_t img_buffer[IMG_WIDTH * IMG_HEIGHT];
 static uint16_t column_buf[240];
 static int dma_chan = -1;
 static dma_channel_config dcc;
 
-/*******************fft*******************/
+/*******************visualizations not scope*******************/
 
 #define HISTORY_SIZE 256
 volatile cplx audio_history_l[HISTORY_SIZE];
 volatile cplx audio_history_r[HISTORY_SIZE];
 int history_index = 0;
-// static const int bucket_limits[16] = {2, 3, 4, 6, 9, 13, 18, 25, 35, 48, 63, 80, 98, 110, 120, 128};
-// static const int bucket_limits[16] = {2, 3, 4, 5, 6, 8, 10, 12, 15, 18, 22, 26, 31, 36, 41, 48};
-int visualizer = 1;
-/*******************fft*******************/
+int visualizer = 0;
+int num_visualizations = 5;
+volatile bool album_art_ready = false;
+/*******************visualizations not scope*******************/
 
 /* =========================================================
    PRIVATE HELPERS (static)
@@ -101,9 +106,9 @@ void core1_entry()
     {
         switch (visualizer)
         {
-        case 1:
         case 2:
         case 3:
+        case 4:
             // 1. CONTINUOUS SAMPLE: Fill the buffer over time
             // To balance bass and treble, we want about 22kHz sampling
             for (int i = 0; i < 32; i++)
@@ -136,10 +141,19 @@ void core1_entry()
                 spi_write16_blocking(spi0, frame_buffer, 240 * 240);
             }
             break;
-
-        default:
-            // Handles visualizer == 0 or any other undefined modes
+        case 1:
             update_visualizer_core1();
+            break;
+        default:
+            if (album_art_ready)
+            {
+                album_art_centered();
+
+                st7789_set_cursor(0, 0);
+                st7789_ramwr();
+                spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
+                spi_write16_blocking(spi0, frame_buffer, 240 * 240);
+            }
             break;
         }
     }
@@ -286,11 +300,11 @@ void sb_print_track(track_info_t *t)
            t->bitrate,
            t->samplespeed,
            t->channels ? "Mono" : "Stereo");
-    printf("Album Data Size: %d", t->album_art_size);
 }
 
 void sb_play_track(vs1053_t *player, track_info_t *track, st7789_t *display)
-{
+{   
+    album_art_ready = false;
     jukebox(player, track, display);
 }
 
@@ -544,7 +558,10 @@ static void get_mp3_metadata(const char *filename, track_info_t *track)
     strcpy(track->title, "(unknown)");
     strcpy(track->artist, "(unknown)");
     strcpy(track->album, "(unknown)");
+    strcpy(track->mime_type, "unknown");
     track->album_art_size = 0;
+    track->album_art_offset = 0;
+    track->album_art_type = 0;
 
     FIL fil;
     UINT br;
@@ -596,8 +613,61 @@ static void get_mp3_metadata(const char *filename, track_info_t *track)
         }
         else if (!strcmp(id, "APIC"))
         {
-            track->album_art_size = size;
-            f_lseek(&fil, f_tell(&fil) + size);
+            // Record exactly where the 10-byte header ended
+            FSIZE_t frame_start_pos = f_tell(&fil);
+            UINT br;
+            uint8_t encoding;
+
+            // 1. Read Text Encoding (1 byte)
+            f_read(&fil, &encoding, 1, &br);
+
+            // 2. Read MIME Type (null-terminated string)
+            char temp_mime[32];
+            int i = 0;
+            do
+            {
+                f_read(&fil, &temp_mime[i], 1, &br);
+            } while (temp_mime[i++] != '\0' && i < 31);
+
+            // 3. Read Picture Type (1 byte)
+            uint8_t pic_type;
+            f_read(&fil, &pic_type, 1, &br);
+
+            // FILTER: Only process if it's the Front Cover (0x03) or if we haven't found one yet
+            if (pic_type == 0x03 || track->album_art_offset == 0)
+            {
+                track->album_art_type = pic_type;
+                strncpy(track->mime_type, temp_mime, sizeof(track->mime_type));
+
+                // 4. Skip Description (null-terminated string)
+                char dummy;
+                if (encoding == 0)
+                { // ISO-8859-1 (Single null)
+                    do
+                    {
+                        f_read(&fil, &dummy, 1, &br);
+                    } while (dummy != '\0');
+                }
+                else
+                { // UTF-16 (Double null)
+                    uint16_t dummy16;
+                    do
+                    {
+                        f_read(&fil, &dummy16, 2, &br);
+                    } while (dummy16 != 0x0000);
+                }
+
+                // 5. STORE THE DATA JUMP POINT
+                // We are now at the first byte of the JPEG/PNG data
+                track->album_art_offset = f_tell(&fil);
+
+                // 6. CALCULATE TRUE IMAGE SIZE
+                // Total frame size minus everything we just read/skipped
+                track->album_art_size = size - (track->album_art_offset - frame_start_pos);
+            }
+
+            // 7. ALWAYS seek to the end of the frame to continue parsing other ID3 tags
+            f_lseek(&fil, frame_start_pos + size);
         }
         else
         {
@@ -984,6 +1054,145 @@ void draw_lissajous_connected()
 
 ////////////////////LISSAJOUS////////////////////////////
 
+////////////////////IMAGE////////////////////////////
+
+typedef struct
+{
+    FIL *fil;
+    uint32_t bytes_left;
+} jpeg_stream_t;
+
+unsigned char jpeg_need_bytes_callback(
+    unsigned char *pBuf,
+    unsigned char buf_size,
+    unsigned char *pBytes_actually_read,
+    void *pCallback_data)
+{
+    jpeg_stream_t *ctx = (jpeg_stream_t *)pCallback_data;
+
+    if (ctx->bytes_left == 0)
+    {
+        *pBytes_actually_read = 0;
+        return 0; // EOF is OK for picojpeg
+    }
+
+    UINT to_read = buf_size;
+    if (to_read > ctx->bytes_left)
+        to_read = ctx->bytes_left;
+
+    UINT br;
+    if (f_read(ctx->fil, pBuf, to_read, &br) != FR_OK)
+        return PJPG_STREAM_READ_ERROR;
+
+    *pBytes_actually_read = br;
+    ctx->bytes_left -= br;
+
+    return 0;
+}
+
+void album_art_centered(void)
+{
+    // Clear screen first (black borders)
+    memset(frame_buffer, 0, sizeof(frame_buffer));
+
+    const int offset = (SCREEN_WIDTH - 160) / 2;
+
+    for (int y = 0; y < 160; y++)
+    {
+        uint16_t *dst = &frame_buffer[(y + offset) * SCREEN_WIDTH + offset];
+        uint16_t *src = &img_buffer[y * 160];
+
+        memcpy(dst, src, 160 * sizeof(uint16_t));
+    }
+}
+
+void process_image(track_info_t *track, const char *filename, float output_size)
+{
+    FIL fil;
+    UINT br;
+    uint8_t header[10];
+    uint8_t frame_header[10];
+
+    if (f_open(&fil, filename, FA_READ) != FR_OK)
+        return;
+
+    if (f_read(&fil, header, 10, &br) != FR_OK || br != 10)
+        goto out;
+
+    if (memcmp(header, "ID3", 3) != 0)
+        goto out;
+
+    f_lseek(&fil, track->album_art_offset);
+    if (strcmp(track->mime_type, "image/jpeg") == 0)
+    {
+        pjpeg_image_info_t jpeg_info;
+
+        jpeg_stream_t stream = {
+            .fil = &fil,
+            .bytes_left = track->album_art_size};
+
+        unsigned char status =
+            pjpeg_decode_init(&jpeg_info, jpeg_need_bytes_callback, &stream, 0);
+
+        if (status)
+            goto out;
+
+        float scale_x = (float)jpeg_info.m_width / output_size;
+        float scale_y = (float)jpeg_info.m_height / output_size;
+
+        for (uint16_t my = 0; my < jpeg_info.m_MCUSPerCol; my++)
+        {
+            for (uint16_t mx = 0; mx < jpeg_info.m_MCUSPerRow; mx++)
+            {
+                status = pjpeg_decode_mcu();
+
+                if (status == PJPG_NO_MORE_BLOCKS)
+                {
+                    break;
+                }
+                if (status)
+                    goto out;
+
+                for (uint16_t ly = 0; ly < jpeg_info.m_MCUHeight; ly++)
+                {
+                    for (uint16_t lx = 0; lx < jpeg_info.m_MCUWidth; lx++)
+                    {
+                        uint16_t src_x = mx * jpeg_info.m_MCUWidth + lx;
+                        uint16_t src_y = my * jpeg_info.m_MCUHeight + ly;
+
+                        uint16_t dst_x = src_x / scale_x;
+                        uint16_t dst_y = src_y / scale_y;
+
+                        if (dst_x >= output_size || dst_y >= output_size)
+                            continue;
+
+                        uint16_t idx = ly * jpeg_info.m_MCUWidth + lx;
+
+                        uint8_t r = jpeg_info.m_pMCUBufR[idx];
+                        uint8_t g = jpeg_info.m_pMCUBufG[idx];
+                        uint8_t b = jpeg_info.m_pMCUBufB[idx];
+
+                        uint16_t rgb565 =
+                            ((r & 0xF8) << 8) |
+                            ((g & 0xFC) << 3) |
+                            (b >> 3);
+
+                        img_buffer[dst_y * IMG_WIDTH + dst_x] = rgb565;
+                    }
+                }
+            }
+            if (status == PJPG_NO_MORE_BLOCKS)
+            {
+                break;
+            }
+        }
+    }
+out:
+    f_close(&fil);
+}
+
+////////////////////IMAGE////////////////////////////
+
 /* ##########################################################
 JUKEBOX: MAIN PLAY LOOP
 ########################################################## */
@@ -1033,7 +1242,12 @@ void jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
 
     uint16_t stereo_bit = sampleSpeed & 1;     // LSB indicates mono or stereo (not exactly sure what but this is pretty much always 1)
     uint16_t base_rate = sampleSpeed & 0xFFFE; // sampling speed in upper 15 bits
-
+    album_art_ready = false;
+    if (track->album_art_size > 0 && visualizer == 0)
+    {
+        process_image(track, filename, 160); // fills frame_buffer
+        album_art_ready = true;
+    }
     uint32_t start = find_audio_start(&fil);
     f_lseek(&fil, start);
     absolute_time_t last_skip_time = get_absolute_time();
@@ -1106,6 +1320,33 @@ void jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
                 dac_decrease_volume(3);
                 printf("\r\nVolume down!\r\n");
                 break;
+            case 'v':
+            case 'V':
+                visualizer = (visualizer + 1) % num_visualizations;
+                if (visualizer == 0 && !album_art_ready && track->album_art_size > 0)
+                {
+                    process_image(track, filename, 160);
+                    album_art_ready = true;
+                }
+                switch (visualizer)
+                {
+                case 0:
+                    printf("\r\nAlbum Art Visualization\r\n");
+                    break;
+                case 1:
+                    printf("\r\nScope Visualization\r\n");
+                    break;
+                case 2:
+                    printf("\r\nSpectrum Analyzer Visualization\r\n");
+                    break;
+                case 3:
+                    printf("\r\nLissajous Visualization\r\n");
+                    break;
+                case 4:
+                    printf("\r\nMandala Visualization\r\n");
+                    break;
+                }
+                break;
             case 'i':
             case 'I':
                 printf("\r\n\rNOW PLAYING:\r\n");
@@ -1116,6 +1357,7 @@ void jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
                 printf("  Sample rate : %d Hz\r\n", track->samplespeed);
                 printf("  Channels : %s\r\n", track->channels == 1 ? "Mono" : "Stereo");
                 printf("  Album Art Size: %lu\r\n", (unsigned long)track->album_art_size);
+                printf("  Mime Type: %s\r\n", track->mime_type);
                 printf("  Header: %X\r\n", track->header);
                 break;
             case 's':
@@ -1134,6 +1376,7 @@ void jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
                 warp_target = 0.0f;
                 warp_duration = PAUSE_WARP_US;
                 warping = true;
+                album_art_ready = false;
                 printf("Stopping...\r\n");
                 break;
                 if (paused)

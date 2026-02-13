@@ -16,11 +16,14 @@
 
 typedef struct {
     uint32_t album_art_size;
+    uint32_t album_art_offset;
     uint32_t header;
     uint16_t bitrate;
     uint16_t samplespeed;
     uint8_t mpegID;
     uint8_t channels;
+    uint8_t album_art_type;
+    char mime_type[32];
     char filename[256];
     char title[128];
     char artist[128];
@@ -59,5 +62,7 @@ void draw_bins(int n);
 void draw_spectrum_bars(int x_start, int width, int h_l, int h_r, int target_l, int target_r);
 void draw_lissajous();
 void draw_lissajous_connected();
+void album_art_centered();
+void process_image(track_info_t *track, const char *filename, float output_size);
 
 #endif
