@@ -9,6 +9,7 @@
 #include "hardware/dma.h"
 #include "hardware/spi.h"
 #include "../display/display.h"
+#include "../display/picojpeg.h"
 #include "pico/multicore.h"
 
 #define MAX_FILENAME_LEN 256 // max filaname character length
@@ -59,22 +60,25 @@ static FATFS fs;
 #define FFT_R_COLOR_DARK 0x05FF
 #define FFT_L_COLOR_LIGHT 0x8FF1
 #define FFT_R_COLOR_LIGHT 0xAFFF
+#define IMG_WIDTH 160
+#define IMG_HEIGHT 160
 
 static uint16_t frame_buffer[240 * 240];
+static uint16_t img_buffer[IMG_WIDTH * IMG_HEIGHT];
 static uint16_t column_buf[240];
 static int dma_chan = -1;
 static dma_channel_config dcc;
 
-/*******************fft*******************/
+/*******************visualizations not scope*******************/
 
 #define HISTORY_SIZE 256
 volatile cplx audio_history_l[HISTORY_SIZE];
 volatile cplx audio_history_r[HISTORY_SIZE];
 int history_index = 0;
-// static const int bucket_limits[16] = {2, 3, 4, 6, 9, 13, 18, 25, 35, 48, 63, 80, 98, 110, 120, 128};
-// static const int bucket_limits[16] = {2, 3, 4, 5, 6, 8, 10, 12, 15, 18, 22, 26, 31, 36, 41, 48};
-int visualizer = 3;
-/*******************fft*******************/
+int visualizer = 0;
+int num_visualizations = 5;
+bool album_art_ready = false;
+/*******************visualizations not scope*******************/
 
 /* =========================================================
    PRIVATE HELPERS (static)
@@ -93,50 +97,66 @@ static void jukebox(vs1053_t *player, track_info_t *track, st7789_t *display);
    ========================================================= */
 
 // This is the main loop for Core 1
-void core1_entry() {
+void core1_entry()
+{
     static int history_ptr = 0;
 
-    while (1) {
-        switch (visualizer) {
-            case 1:
-            case 2:
-            case 3:
-                // 1. CONTINUOUS SAMPLE: Fill the buffer over time
-                // To balance bass and treble, we want about 22kHz sampling
-                for (int i = 0; i < 32; i++) { 
-                    adc_select_input(ADC_CH_L);
-                    audio_history_l[history_ptr] = (cplx)adc_read();
-                    adc_select_input(ADC_CH_R);
-                    audio_history_r[history_ptr] = (cplx)adc_read();
-                    
-                    history_ptr = (history_ptr + 1) % HISTORY_SIZE;
-                    sleep_us(20);
-                }
+    while (1)
+    {
+        switch (visualizer)
+        {
+        case 2:
+        case 3:
+        case 4:
+            // 1. CONTINUOUS SAMPLE: Fill the buffer over time
+            // To balance bass and treble, we want about 22kHz sampling
+            for (int i = 0; i < 32; i++)
+            {
+                adc_select_input(ADC_CH_L);
+                audio_history_l[history_ptr] = (cplx)adc_read();
+                adc_select_input(ADC_CH_R);
+                audio_history_r[history_ptr] = (cplx)adc_read();
 
-                if (visualizer == 2) {
-                    draw_lissajous_connected();
-                } else if (visualizer == 3) {
-                    draw_lissajous();
-                } else {
-                    memset(frame_buffer, 0, sizeof(frame_buffer));
-                    get_bins(60);
-                    
-                    // 3. DISPLAY
-                    st7789_set_cursor(0, 0);
-                    st7789_ramwr();
-                    spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
-                    spi_write16_blocking(spi0, frame_buffer, 240 * 240);
-                }
-                break;
+                history_ptr = (history_ptr + 1) % HISTORY_SIZE;
+                sleep_us(20);
+            }
 
-            default:
-                // Handles visualizer == 0 or any other undefined modes
-                update_visualizer_core1();
-                break;
+            if (visualizer == 2)
+            {
+                draw_lissajous_connected();
+            }
+            else if (visualizer == 3)
+            {
+                draw_lissajous();
+            }
+            else
+            {
+                memset(frame_buffer, 0, sizeof(frame_buffer));
+                draw_bins(60);
+
+                st7789_set_cursor(0, 0);
+                st7789_ramwr();
+                spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
+                spi_write16_blocking(spi0, frame_buffer, 240 * 240);
+            }
+            break;
+        case 1:
+            update_visualizer_core1();
+            break;
+        default:
+            if (album_art_ready)
+            {
+                album_art_centered();
+                st7789_set_cursor(0, 0);
+                st7789_ramwr();
+                spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
+                spi_write16_blocking(spi0, frame_buffer, 240 * 240);
+            }
+            break;
         }
     }
 }
-    
+
 void fast_drawline(int x, int y1, int y2, uint16_t color)
 {
     if (y1 > y2)
@@ -297,6 +317,7 @@ void sb_print_track(track_info_t *t)
 
 void sb_play_track(vs1053_t *player, track_info_t *track, st7789_t *display)
 {
+    album_art_ready = false;
     jukebox(player, track, display);
 }
 
@@ -550,6 +571,10 @@ static void get_mp3_metadata(const char *filename, track_info_t *track)
     strcpy(track->title, "(unknown)");
     strcpy(track->artist, "(unknown)");
     strcpy(track->album, "(unknown)");
+    strcpy(track->mime_type, "unknown");
+    track->album_art_size = 0;
+    track->album_art_offset = 0;
+    track->album_art_type = 0;
 
     FIL fil;
     UINT br;
@@ -588,13 +613,79 @@ static void get_mp3_metadata(const char *filename, track_info_t *track)
             frame_header[7];
 
         if (!strcmp(id, "TIT2"))
+        {
             read_text_frame(&fil, size, track->title, sizeof(track->title));
+        }
         else if (!strcmp(id, "TPE1"))
+        {
             read_text_frame(&fil, size, track->artist, sizeof(track->artist));
+        }
         else if (!strcmp(id, "TALB"))
+        {
             read_text_frame(&fil, size, track->album, sizeof(track->album));
+        }
+        else if (!strcmp(id, "APIC"))
+        {
+            // Record exactly where the 10-byte header ended
+            FSIZE_t frame_start_pos = f_tell(&fil);
+            UINT br;
+            uint8_t encoding;
+
+            // 1. Read Text Encoding (1 byte)
+            f_read(&fil, &encoding, 1, &br);
+
+            // 2. Read MIME Type (null-terminated string)
+            char temp_mime[32];
+            int i = 0;
+            do
+            {
+                f_read(&fil, &temp_mime[i], 1, &br);
+            } while (temp_mime[i++] != '\0' && i < 31);
+
+            // 3. Read Picture Type (1 byte)
+            uint8_t pic_type;
+            f_read(&fil, &pic_type, 1, &br);
+
+            // FILTER: Only process if it's the Front Cover (0x03) or if we haven't found one yet
+            if (pic_type == 0x03 || track->album_art_offset == 0)
+            {
+                track->album_art_type = pic_type;
+                strncpy(track->mime_type, temp_mime, sizeof(track->mime_type));
+
+                // 4. Skip Description (null-terminated string)
+                char dummy;
+                if (encoding == 0)
+                { // ISO-8859-1 (Single null)
+                    do
+                    {
+                        f_read(&fil, &dummy, 1, &br);
+                    } while (dummy != '\0');
+                }
+                else
+                { // UTF-16 (Double null)
+                    uint16_t dummy16;
+                    do
+                    {
+                        f_read(&fil, &dummy16, 2, &br);
+                    } while (dummy16 != 0x0000);
+                }
+
+                // 5. STORE THE DATA JUMP POINT
+                // We are now at the first byte of the JPEG/PNG data
+                track->album_art_offset = f_tell(&fil);
+
+                // 6. CALCULATE TRUE IMAGE SIZE
+                // Total frame size minus everything we just read/skipped
+                track->album_art_size = size - (track->album_art_offset - frame_start_pos);
+            }
+
+            // 7. ALWAYS seek to the end of the frame to continue parsing other ID3 tags
+            f_lseek(&fil, frame_start_pos + size);
+        }
         else
+        {
             f_lseek(&fil, f_tell(&fil) + size);
+        }
 
         bytes_read += size;
     }
@@ -724,23 +815,28 @@ void fft_optimized(cplx buf[], int n)
     }
 }
 
-void get_bins(int n) {
-    if (n <= 0) n = 1;
+void draw_bins(int n)
+{
+    if (n <= 0)
+        n = 1;
     float complex proc_l[HISTORY_SIZE], proc_r[HISTORY_SIZE];
     static float display_l[64], display_r[64]; // Support up to 64 bars
 
     // 1. DC Removal & Windowing (Same as before)
     float avg_l = 0, avg_r = 0;
-    for (int i = 0; i < HISTORY_SIZE; i++) {
+    for (int i = 0; i < HISTORY_SIZE; i++)
+    {
         avg_l += (float)audio_history_l[i];
         avg_r += (float)audio_history_r[i];
     }
-    avg_l /= HISTORY_SIZE; avg_r /= HISTORY_SIZE;
+    avg_l /= HISTORY_SIZE;
+    avg_r /= HISTORY_SIZE;
 
-    for (int i = 0; i < HISTORY_SIZE; i++) {
+    for (int i = 0; i < HISTORY_SIZE; i++)
+    {
         float mult = 0.5f * (1.0f - cosf(2.0f * PI * i / (HISTORY_SIZE - 1)));
-        proc_l[i] = ((float)audio_history_l[i] - avg_l) * mult + 0.0f*I;
-        proc_r[i] = ((float)audio_history_r[i] - avg_r) * mult + 0.0f*I;
+        proc_l[i] = ((float)audio_history_l[i] - avg_l) * mult + 0.0f * I;
+        proc_r[i] = ((float)audio_history_r[i] - avg_r) * mult + 0.0f * I;
     }
 
     fft_optimized(proc_l, HISTORY_SIZE);
@@ -750,72 +846,97 @@ void get_bins(int n) {
     int last_bin = 2; // Start skipping DC
     int max_bin = HISTORY_SIZE / 2;
 
-    for (int b = 0; b < n; b++) {
+    for (int b = 0; b < n; b++)
+    {
         // Calculate end_bin using an exponential curve
         // This ensures the frequency range of each bar grows as we go higher
         float ratio = (float)(b + 1) / n;
-        int end_bin = (int)(2 + (max_bin - 2) * powf(ratio, 2.5f)); 
-        
-        if (end_bin <= last_bin) end_bin = last_bin + 1;
-        if (end_bin >= max_bin) end_bin = max_bin - 1;
+        int end_bin = (int)(2 + (max_bin - 2) * powf(ratio, 2.5f));
+
+        if (end_bin <= last_bin)
+            end_bin = last_bin + 1;
+        if (end_bin >= max_bin)
+            end_bin = max_bin - 1;
 
         float peak_l = 0, peak_r = 0;
-        for (int i = last_bin; i <= end_bin; i++) {
+        for (int i = last_bin; i <= end_bin; i++)
+        {
             float m_l = cabsf(proc_l[i]) / HISTORY_SIZE;
             float m_r = cabsf(proc_r[i]) / HISTORY_SIZE;
-            if (m_l > peak_l) peak_l = m_l;
-            if (m_r > peak_r) peak_r = m_r;
+            if (m_l > peak_l)
+                peak_l = m_l;
+            if (m_r > peak_r)
+                peak_r = m_r;
         }
 
         // Adaptive Gate & Scaling
         float adaptive_gate = 6.0f - (ratio * 4.0f);
-        if (adaptive_gate < 1.0f) adaptive_gate = 1.0f;
+        if (adaptive_gate < 1.0f)
+            adaptive_gate = 1.0f;
 
         float sens = 50.0f + (ratio * 100.0f);
         float target_l = 0, target_r = 0;
 
-        if (peak_l > adaptive_gate) target_l = (log10f(peak_l + 1e-9f) - log10f(adaptive_gate)) * sens;
-        if (peak_r > adaptive_gate) target_r = (log10f(peak_r + 1e-9f) - log10f(adaptive_gate)) * sens;
+        if (peak_l > adaptive_gate)
+            target_l = (log10f(peak_l + 1e-9f) - log10f(adaptive_gate)) * sens;
+        if (peak_r > adaptive_gate)
+            target_r = (log10f(peak_r + 1e-9f) - log10f(adaptive_gate)) * sens;
 
         // Smoothing
         float decay = 4.0f - (ratio * 2.0f);
-        if (target_l > display_l[b]) display_l[b] = target_l; else display_l[b] -= decay;
-        if (target_r > display_r[b]) display_r[b] = target_r; else display_r[b] -= decay;
+        if (target_l > display_l[b])
+            display_l[b] = target_l;
+        else
+            display_l[b] -= decay;
+        if (target_r > display_r[b])
+            display_r[b] = target_r;
+        else
+            display_r[b] -= decay;
 
-        if (display_l[b] < 0) display_l[b] = 0;
-        if (display_r[b] < 0) display_r[b] = 0;
+        if (display_l[b] < 0)
+            display_l[b] = 0;
+        if (display_r[b] < 0)
+            display_r[b] = 0;
 
         // 3. Dynamic Screen Positioning
         int total_width = SCREEN_WIDTH;
         int bar_plus_gap = total_width / n;
         int bar_width = (int)(bar_plus_gap * 0.8f); // 80% bar, 20% gap
-        if (bar_width < 1) bar_width = 1;
-        
+        if (bar_width < 1)
+            bar_width = 1;
+
         int x_pos = b * bar_plus_gap;
 
         draw_spectrum_bars(x_pos, bar_width, (int)display_l[b], (int)display_r[b], (int)target_l, (int)target_r);
-        
+
         last_bin = end_bin + 1;
     }
 }
 
-void draw_spectrum_bars(int x_start, int width, int h_l, int h_r, int target_l, int target_r) {
+void draw_spectrum_bars(int x_start, int width, int h_l, int h_r, int target_l, int target_r)
+{
     const int MAX_BAR_HEIGHT = 110;
 
-    if (h_l > MAX_BAR_HEIGHT) h_l = MAX_BAR_HEIGHT;
-    if (h_r > MAX_BAR_HEIGHT) h_r = MAX_BAR_HEIGHT;
+    if (h_l > MAX_BAR_HEIGHT)
+        h_l = MAX_BAR_HEIGHT;
+    if (h_r > MAX_BAR_HEIGHT)
+        h_r = MAX_BAR_HEIGHT;
 
-    for (int w = 0; w < width; w++) {
+    for (int w = 0; w < width; w++)
+    {
         int cur_x = x_start + w;
-        if (cur_x >= SCREEN_WIDTH) break;
+        if (cur_x >= SCREEN_WIDTH)
+            break;
 
         // LEFT CHANNEL: Top half
-        for (int y = 0; y < h_l; y++) {
+        for (int y = 0; y < h_l; y++)
+        {
             frame_buffer[(120 + y) * SCREEN_WIDTH + cur_x] = y > target_l ? FFT_L_COLOR_LIGHT : FFT_L_COLOR_DARK;
         }
 
         // RIGHT CHANNEL: Bottom half
-        for (int y = 0; y < h_r; y++) {
+        for (int y = 0; y < h_r; y++)
+        {
             frame_buffer[(120 - y) * SCREEN_WIDTH + cur_x] = y > target_r ? FFT_R_COLOR_LIGHT : FFT_R_COLOR_DARK;
         }
     }
@@ -823,42 +944,57 @@ void draw_spectrum_bars(int x_start, int width, int h_l, int h_r, int target_l, 
 
 ///////////////////////FFT////////////////////////////////
 
-
 ////////////////LISSAJOUS///////////////////////////
 
-uint16_t dim_pixel(uint16_t color, uint16_t divide) {
-    return color/divide;
+uint16_t dim_pixel(uint16_t color, uint16_t divide)
+{
+    return color / divide;
 }
 
-void draw_line_hot(int x0, int y0, int x1, int y1, uint16_t color) {
+void draw_line_hot(int x0, int y0, int x1, int y1, uint16_t color)
+{
     int dx = abs(x1 - x0);
     int dy = -abs(y1 - y0);
     int sx = x0 < x1 ? 1 : -1;
     int sy = y0 < y1 ? 1 : -1;
     int err = dx + dy;
 
-    while (1) {
-        if (x0 >= 0 && x0 < 240 && y0 >= 0 && y0 < 240) {
+    while (1)
+    {
+        if (x0 >= 0 && x0 < 240 && y0 >= 0 && y0 < 240)
+        {
             frame_buffer[y0 * 240 + x0] = color;
         }
-        if (x0 == x1 && y0 == y1) break;
+        if (x0 == x1 && y0 == y1)
+            break;
         int e2 = 2 * err;
-        if (e2 >= dy) { err += dy; x0 += sx; }
-        if (e2 <= dx) { err += dx; y0 += sy; }
+        if (e2 >= dy)
+        {
+            err += dy;
+            x0 += sx;
+        }
+        if (e2 <= dx)
+        {
+            err += dx;
+            y0 += sy;
+        }
     }
 }
 
-
-void draw_lissajous() {
+void draw_lissajous()
+{
     // 1. Instead of clearing to black, "fade" the previous frame
     // This creates the phosphor trail effect
-    for (int i = 0; i < (SCREEN_WIDTH * SCREEN_HEIGHT); i++) {
-        if (frame_buffer[i] != 0) {
-            frame_buffer[i] = dim_pixel(frame_buffer[i],2);
+    for (int i = 0; i < (SCREEN_WIDTH * SCREEN_HEIGHT); i++)
+    {
+        if (frame_buffer[i] != 0)
+        {
+            frame_buffer[i] = dim_pixel(frame_buffer[i], 2);
         }
     }
 
-    for (int i = 0; i < HISTORY_SIZE; i++) {
+    for (int i = 0; i < HISTORY_SIZE; i++)
+    {
         float val_l = crealf(audio_history_l[i]);
         float val_r = crealf(audio_history_r[i]);
 
@@ -867,15 +1003,21 @@ void draw_lissajous() {
         int y = (int)(((val_r - ADC_BIAS_CENTER) * 110.0f) / (ADC_RANGE_PKPK / 2.0f)) + 120;
 
         // 3. Clamping
-        if (x < 0) x = 0; if (x > 239) x = 239;
-        if (y < 0) y = 0; if (y > 239) y = 239;
+        if (x < 0)
+            x = 0;
+        if (x > 239)
+            x = 239;
+        if (y < 0)
+            y = 0;
+        if (y > 239)
+            y = 239;
 
         // 4. Draw the new sample with FULL brightness
         // Using WAVE_L_COLOR (0x07E0)
         frame_buffer[y * SCREEN_WIDTH + x] = 0xFFFF;
-        frame_buffer[y * SCREEN_WIDTH + (239-x)] = 0xFFFF;
-        frame_buffer[(239-y) * SCREEN_WIDTH + x] = 0xFFFF;
-        frame_buffer[(239-y) * SCREEN_WIDTH + (239-x)] = 0xFFFF;
+        frame_buffer[y * SCREEN_WIDTH + (239 - x)] = 0xFFFF;
+        frame_buffer[(239 - y) * SCREEN_WIDTH + x] = 0xFFFF;
+        frame_buffer[(239 - y) * SCREEN_WIDTH + (239 - x)] = 0xFFFF;
     }
 
     // 5. Push to Display
@@ -885,17 +1027,21 @@ void draw_lissajous() {
     spi_write16_blocking(spi0, frame_buffer, 240 * 240);
 }
 
-void draw_lissajous_connected() {
-    for (int i = 0; i < (SCREEN_WIDTH * SCREEN_HEIGHT); i++) {
-        if (frame_buffer[i] != 0) {
-            frame_buffer[i] = dim_pixel(frame_buffer[i],2);
+void draw_lissajous_connected()
+{
+    for (int i = 0; i < (SCREEN_WIDTH * SCREEN_HEIGHT); i++)
+    {
+        if (frame_buffer[i] != 0)
+        {
+            frame_buffer[i] = dim_pixel(frame_buffer[i], 2);
         }
     }
 
     int last_x = -1, last_y = -1;
 
     // 2. Connect the dots in the audio history
-    for (int i = 0; i < HISTORY_SIZE; i++) {
+    for (int i = 0; i < HISTORY_SIZE; i++)
+    {
         float val_l = crealf(audio_history_l[i]);
         float val_r = crealf(audio_history_r[i]);
 
@@ -904,7 +1050,8 @@ void draw_lissajous_connected() {
         int y = (int)(((val_r - ADC_BIAS_CENTER) * 110.0f) / (ADC_RANGE_PKPK / 2.0f)) + 120;
 
         // If we have a previous point, draw a line to the current one
-        if (last_x != -1) {
+        if (last_x != -1)
+        {
             draw_line_hot(last_x, last_y, x, y, 0xFFFF); // Hot White Line
         }
 
@@ -918,10 +1065,155 @@ void draw_lissajous_connected() {
     spi_write16_blocking(spi0, frame_buffer, 240 * 240);
 }
 
-
 ////////////////////LISSAJOUS////////////////////////////
 
+////////////////////IMAGE////////////////////////////
 
+typedef struct
+{
+    FIL *fil;
+    uint32_t bytes_left;
+} jpeg_stream_t;
+
+unsigned char jpeg_need_bytes_callback(
+    unsigned char *pBuf,
+    unsigned char buf_size,
+    unsigned char *pBytes_actually_read,
+    void *pCallback_data)
+{
+    jpeg_stream_t *ctx = (jpeg_stream_t *)pCallback_data;
+
+    if (ctx->bytes_left == 0)
+    {
+        *pBytes_actually_read = 0;
+        return 0; // EOF is OK for picojpeg
+    }
+
+    UINT to_read = buf_size;
+    if (to_read > ctx->bytes_left)
+        to_read = ctx->bytes_left;
+
+    UINT br;
+    if (f_read(ctx->fil, pBuf, to_read, &br) != FR_OK)
+        return PJPG_STREAM_READ_ERROR;
+
+    *pBytes_actually_read = br;
+    ctx->bytes_left -= br;
+
+    return 0;
+}
+
+void album_art_centered(void)
+{
+    // Clear screen first (black borders)
+    memset(frame_buffer, 0, sizeof(frame_buffer));
+
+    const int offset = (SCREEN_WIDTH - 160) / 2;
+
+    for (int y = 0; y < 160; y++)
+    {
+        uint16_t *dst = &frame_buffer[(y + offset) * SCREEN_WIDTH + offset];
+        uint16_t *src = &img_buffer[y * 160];
+
+        memcpy(dst, src, 160 * sizeof(uint16_t));
+    }
+}
+
+void process_image(track_info_t *track, const char *filename, float output_size)
+{
+    FIL fil;
+    UINT br;
+    uint8_t header[10];
+    uint8_t frame_header[10];
+
+    if (f_open(&fil, filename, FA_READ) != FR_OK)
+    {
+        return;
+    }
+
+    if (f_read(&fil, header, 10, &br) != FR_OK || br != 10)
+    {
+        goto out;
+    }
+
+    if (memcmp(header, "ID3", 3) != 0)
+    {
+        goto out;
+    }
+
+    f_lseek(&fil, track->album_art_offset);
+    if (strcmp(track->mime_type, "image/jpeg") == 0)
+    {
+        pjpeg_image_info_t jpeg_info;
+
+        jpeg_stream_t stream = {
+            .fil = &fil,
+            .bytes_left = track->album_art_size};
+
+        unsigned char status =
+            pjpeg_decode_init(&jpeg_info, jpeg_need_bytes_callback, &stream, 0);
+
+        if (status)
+        {
+            memset(img_buffer, 0, sizeof(img_buffer)); 
+            goto out;
+        }
+
+        float scale_x = (float)jpeg_info.m_width / output_size;
+        float scale_y = (float)jpeg_info.m_height / output_size;
+
+        for (uint16_t my = 0; my < jpeg_info.m_MCUSPerCol; my++)
+        {
+            for (uint16_t mx = 0; mx < jpeg_info.m_MCUSPerRow; mx++)
+            {
+                status = pjpeg_decode_mcu();
+
+                if (status == PJPG_NO_MORE_BLOCKS)
+                {
+                    break;
+                }
+                if (status) {
+                    goto out;
+                }
+                for (uint16_t ly = 0; ly < jpeg_info.m_MCUHeight; ly++)
+                {
+                    for (uint16_t lx = 0; lx < jpeg_info.m_MCUWidth; lx++)
+                    {
+                        uint16_t src_x = mx * jpeg_info.m_MCUWidth + lx;
+                        uint16_t src_y = my * jpeg_info.m_MCUHeight + ly;
+
+                        uint16_t dst_x = src_x / scale_x;
+                        uint16_t dst_y = src_y / scale_y;
+
+                        if (dst_x >= output_size || dst_y >= output_size)
+                            continue;
+
+                        uint16_t idx = ly * jpeg_info.m_MCUWidth + lx;
+
+                        uint8_t r = jpeg_info.m_pMCUBufR[idx];
+                        uint8_t g = jpeg_info.m_pMCUBufG[idx];
+                        uint8_t b = jpeg_info.m_pMCUBufB[idx];
+
+                        uint16_t rgb565 =
+                            ((r & 0xF8) << 8) |
+                            ((g & 0xFC) << 3) |
+                            (b >> 3);
+
+                        img_buffer[dst_y * IMG_WIDTH + dst_x] = rgb565;
+                    }
+                }
+            }
+            if (status == PJPG_NO_MORE_BLOCKS)
+            {
+                break;
+            }
+        }
+    }
+out:
+    f_close(&fil);
+}
+
+////////////////////IMAGE////////////////////////////
 
 /* ##########################################################
 JUKEBOX: MAIN PLAY LOOP
@@ -972,7 +1264,12 @@ void jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
 
     uint16_t stereo_bit = sampleSpeed & 1;     // LSB indicates mono or stereo (not exactly sure what but this is pretty much always 1)
     uint16_t base_rate = sampleSpeed & 0xFFFE; // sampling speed in upper 15 bits
-
+    album_art_ready = false;
+    if (track->album_art_size > 0 && visualizer == 0)
+    {
+        process_image(track, filename, 160); // fills frame_buffer
+        album_art_ready = true;
+    }
     uint32_t start = find_audio_start(&fil);
     f_lseek(&fil, start);
     absolute_time_t last_skip_time = get_absolute_time();
@@ -1045,6 +1342,33 @@ void jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
                 dac_decrease_volume(3);
                 printf("\r\nVolume down!\r\n");
                 break;
+            case 'v':
+            case 'V':
+                visualizer = (visualizer + 1) % num_visualizations;
+                if (visualizer == 0 && !album_art_ready && track->album_art_size > 0)
+                {
+                    process_image(track, filename, 160);
+                    album_art_ready = true;
+                }
+                switch (visualizer)
+                {
+                case 0:
+                    printf("\r\nAlbum Art Visualization\r\n");
+                    break;
+                case 1:
+                    printf("\r\nScope Visualization\r\n");
+                    break;
+                case 2:
+                    printf("\r\nSpectrum Analyzer Visualization\r\n");
+                    break;
+                case 3:
+                    printf("\r\nLissajous Visualization\r\n");
+                    break;
+                case 4:
+                    printf("\r\nMandala Visualization\r\n");
+                    break;
+                }
+                break;
             case 'i':
             case 'I':
                 printf("\r\n\rNOW PLAYING:\r\n");
@@ -1054,6 +1378,8 @@ void jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
                 printf("  Bitrate : %d Kbps\r\n", track->bitrate);
                 printf("  Sample rate : %d Hz\r\n", track->samplespeed);
                 printf("  Channels : %s\r\n", track->channels == 1 ? "Mono" : "Stereo");
+                printf("  Album Art Size: %lu\r\n", (unsigned long)track->album_art_size);
+                printf("  Mime Type: %s\r\n", track->mime_type);
                 printf("  Header: %X\r\n", track->header);
                 break;
             case 's':
@@ -1072,6 +1398,7 @@ void jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
                 warp_target = 0.0f;
                 warp_duration = PAUSE_WARP_US;
                 warping = true;
+                album_art_ready = false;
                 printf("Stopping...\r\n");
                 break;
                 if (paused)
