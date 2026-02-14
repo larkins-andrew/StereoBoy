@@ -153,6 +153,21 @@ void fast_drawline(int x, int y1, int y2, uint16_t color)
 
 void sb_hw_init(vs1053_t *player, st7789_t *display)
 {
+
+    // set SPI0 for codec and SD card
+    gpio_set_function(PIN_SCK,  GPIO_FUNC_SPI);
+    gpio_set_function(PIN_MOSI, GPIO_FUNC_SPI);
+    gpio_set_function(PIN_MISO, GPIO_FUNC_SPI);
+
+    // set I2C0 for DAC at 400KHz
+    i2c_init(i2c0, 400 * 1000);
+    gpio_set_function(PIN_I2C0_SCL, GPIO_FUNC_I2C);
+    gpio_set_function(PIN_I2C0_SDA, GPIO_FUNC_I2C);
+    gpio_pull_up(PIN_I2C0_SCL);
+    gpio_pull_up(PIN_I2C0_SDA);
+
+    printf("SPI0 and I2C0 initialized.\r\n");
+    
     if (!sd_init_driver())
     {
         while (1)
