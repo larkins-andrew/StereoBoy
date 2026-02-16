@@ -1218,6 +1218,12 @@ out:
 /* ##########################################################
 JUKEBOX: MAIN PLAY LOOP
 ########################################################## */
+// --- MODULAR EQ SETTINGS ---
+#define NUM_EQ_BANDS 6
+#define MAX_GAIN_DB 12.0f
+#define MIN_GAIN_DB -12.0f
+#define GAIN_STEP 1.0f
+
 
 bool paused = false;
 bool warping = false;
@@ -1274,6 +1280,11 @@ void jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
     f_lseek(&fil, start);
     absolute_time_t last_skip_time = get_absolute_time();
 
+    static int selected_band = 0;
+
+    dac_eq_init(sampleSpeed); //init with default sample rate 
+
+
     // This while loop continuously scans for key inputs while playing audio.
     // Warping is achieved by continuously sending audio bytes after pause point until warp duration is met.
     while (1)
@@ -1288,6 +1299,24 @@ void jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
             // bool headphonesIn = dac_read(0, 0x43) & 0x20;
             // printf("Headphone prescence: %d\r\n", headphonesIn);
             absolute_time_t now = get_absolute_time();
+            
+            //EQ START 
+            // Select the band (keys 0-5)
+            if (c >= '0' && c <= '5') {
+                selected_band = c - '0';
+                printf("\nSelected Band: %d Hz\n", dac_eq_get_freq(selected_band));
+            }
+            
+            // Adjust the band (+ or -)
+            if (c == '+' || c == '=') {
+                dac_eq_adjust(selected_band, 1.0f, sampleSpeed); // Boost
+                printf("Band %d Gain: %.1f dB\n", selected_band, dac_eq_get_gain(selected_band));
+            }
+            if (c == '-' || c == "_") {
+                dac_eq_adjust(selected_band, -1.0f, sampleSpeed); // Cut
+                printf("Band %d Gain: %.1f dB\n", selected_band, dac_eq_get_gain(selected_band));
+            }
+            //EQ END
             switch (c)
             {
             case 'p':

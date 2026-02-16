@@ -47,4 +47,10 @@ void dac_decrease_volume(uint8_t step);
 uint8_t dac_get_volume();
 void dac_interrupt_init(void);
 
+//EQ functions:
+void dac_eq_init(float sampleRate);            
+void dac_eq_adjust(int band, float step_db, float sampleRate); 
+float dac_eq_get_gain(int band);   
+int dac_eq_get_freq(int band);    
+
 #endif

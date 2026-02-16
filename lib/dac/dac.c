@@ -27,6 +27,11 @@
 #define MAX_16BIT 32767 //2^15 - 1 (16 bits, 2's comp)
 #define MIN_16BIT -32768
 
+//Constants for chaning eq
+#define NUM_EQ_BANDS 6
+#define MAX_GAIN_DB 12.0f
+#define MIN_GAIN_DB -12.0f
+
 
 static uint8_t dac_volume = 0x20; // default DAC volume
 
@@ -127,14 +132,16 @@ void floatToHex16(double value, uint8_t *hexBuffer) {
 }
 
 
-
+// Frequencies (Spotity)
+static const float eq_frequencies[NUM_EQ_BANDS] = {60, 150, 400, 1000, 2400, 15000};
+// Current Gain State
+static float eq_gains[NUM_EQ_BANDS] = {0};
 
 // filterSlot: 0 to 5, 1 for each filter in PRB_P2
 // freqHz: Target frequency (e.g., 60, 150, 1000)
 // gaindB: Amount to boost/cut (e.g., +3.0 or -5.0)
 // Q: Width of the bell curve (1.0 is standard)
 void setEQBand(int filterSlot, float freqHz, float gaindB, float Q, float sampleRate) {
-
 
     // --- MATH SECTION (Standard RBJ Formulas) ---
     double A = pow(10, gaindB / 40.0);
@@ -143,7 +150,6 @@ void setEQBand(int filterSlot, float freqHz, float gaindB, float Q, float sample
     double cs = cos(omega);
     double alpha = sn / (2.0 * Q);
 
-
     double b0 = 1 + (alpha * A);
     double b1 = -2 * cs;
     double b2 = 1 - (alpha * A);
@@ -151,14 +157,11 @@ void setEQBand(int filterSlot, float freqHz, float gaindB, float Q, float sample
     double a1 = -2 * cs;
     double a2 = 1 - (alpha / A);
 
-
     // Normalize
     b0 /= a0; b1 /= a0; b2 /= a0; a1 /= a0; a2 /= a0;
 
-
     // Negate a1/a2 for TI Hardware
     a1 = -a1; a2 = -a2;
-
 
     // --- CONVERSION SECTION (Float -> 2 Bytes) ---
     uint8_t n0[2], n1[2], n2[2], d1[2], d2[2];
@@ -169,46 +172,29 @@ void setEQBand(int filterSlot, float freqHz, float gaindB, float Q, float sample
     floatToHex16(a1, d1);
     floatToHex16(a2, d2);
 
-
     //WRITE TO MEMORY SECTION:
-   
     // Calculate start register based on the filter
     // Filter 0 -> 2, Filter 1 -> 12, Filter 2 -> 22, etc.
     uint8_t base = 2 + (filterSlot * 10);
 
-
     //Write Coefficients sequentially (LEFT)
-   
     // N0 (Registers base, base+1)
     dac_write(8, base + 0, n0[0]);
     dac_write(8, base + 1, n0[1]);
-
-
     // N1 (Registers base+2, base+3)
     dac_write(8, base + 2, n1[0]);
     dac_write(8, base + 3, n1[1]);
-
-
     // N2 (Registers base+4, base+5)
     dac_write(8, base + 4, n2[0]);
     dac_write(8, base + 5, n2[1]);
-
-
     // D1 (Registers base+6, base+7)
     dac_write(8, base + 6, d1[0]);
     dac_write(8, base + 7, d1[1]);
-
-
     // D2 (Registers base+8, base+9)
     dac_write(8, base + 8, d2[0]);
     dac_write(8, base + 9, d2[1]);
 
-
-
-
     //REPEAT FOR RIGHT CHANNEL
-
-
     // N0
     dac_write(12, base + 0, n0[0]);
     dac_write(12, base + 1, n0[1]);
@@ -226,8 +212,36 @@ void setEQBand(int filterSlot, float freqHz, float gaindB, float Q, float sample
     dac_write(12, base + 9, d2[1]);
 }
 
+void dac_eq_init(float sampleRate) {
+    // Init all bands to 0
+    for(int i=0; i<NUM_EQ_BANDS; i++) {
+        eq_gains[i] = 0.0f;
+        setEQBand(i, eq_frequencies[i], 0.0f, 1.0f, sampleRate);
+    }
+}
 
+void dac_eq_adjust(int band, float step_db, float sampleRate) {
+    if (band < 0 || band >= NUM_EQ_BANDS) return;
 
+    eq_gains[band] += step_db;
+
+    // prevent going above or below limits
+    if (eq_gains[band] > MAX_GAIN_DB) eq_gains[band] = MAX_GAIN_DB;
+    if (eq_gains[band] < MIN_GAIN_DB) eq_gains[band] = MIN_GAIN_DB;
+
+    //update registers
+    setEQBand(band, eq_frequencies[band], eq_gains[band], 1.0f, sampleRate);
+}
+
+//Geters for variables
+float dac_eq_get_gain(int band) {
+    if (band < 0 || band >= NUM_EQ_BANDS) return 0.0f;
+    return eq_gains[band];
+}
+int dac_eq_get_freq(int band) {
+    if (band < 0 || band >= NUM_EQ_BANDS) return 0;
+    return (int)eq_frequencies[band];
+}
 
 void dac_init() {
     // 1. Hardware Reset
@@ -243,14 +257,10 @@ void dac_init() {
     dac_write(0, 0x01, 0x01);
     sleep_ms(10);
 
-
     // Enable PRB_P2 (for EQ)
     dac_write(0, 60, 0x02);
     //Enable adaptive filtering (so eq can change in real time)
     dac_write(8, 1, 0x01);
-
-
-
 
     // 3. Interface Control (I2S, 16-bit)
     // Reg 0x1B: 0x00 = I2S, 16bit
