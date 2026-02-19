@@ -132,7 +132,7 @@ void floatToHex16(double value, uint8_t *hexBuffer) {
 }
 
 
-// Frequencies (Spotity)
+// Frequencies 
 static const float eq_frequencies[NUM_EQ_BANDS] = {60, 150, 400, 1000, 2400, 15000};
 // Current Gain State
 static float eq_gains[NUM_EQ_BANDS] = {0};
@@ -143,7 +143,7 @@ static float eq_gains[NUM_EQ_BANDS] = {0};
 // Q: Width of the bell curve (1.0 is standard)
 void setEQBand(int filterSlot, float freqHz, float gaindB, float Q, float sampleRate) {
 
-    // --- MATH SECTION (Standard RBJ Formulas) ---
+// --- MATH SECTION (Standard RBJ Formulas) ---
     double A = pow(10, gaindB / 40.0);
     double omega = 2.0 * M_PI * freqHz / sampleRate;
     double sn = sin(omega);
@@ -160,7 +160,15 @@ void setEQBand(int filterSlot, float freqHz, float gaindB, float Q, float sample
     // Normalize
     b0 /= a0; b1 /= a0; b2 /= a0; a1 /= a0; a2 /= a0;
 
-    // Negate a1/a2 for TI Hardware
+    //    TI HARDWARE SCALING
+    // Prevent coefficients from exceeding 1.0 and clamping
+    b0 /= 2.0; 
+    b1 /= 2.0; 
+    b2 /= 2.0; 
+    a1 /= 2.0; 
+    a2 /= 2.0;
+
+    // Negate a1/a2 for TI Hardware architecture
     a1 = -a1; a2 = -a2;
 
     // --- CONVERSION SECTION (Float -> 2 Bytes) ---
@@ -260,7 +268,7 @@ void dac_init() {
     // Enable PRB_P2 (for EQ)
     dac_write(0, 60, 0x02);
     //Enable adaptive filtering (so eq can change in real time)
-    dac_write(8, 1, 0x01);
+    dac_write(8, 1, 0x04);
 
     // 3. Interface Control (I2S, 16-bit)
     // Reg 0x1B: 0x00 = I2S, 16bit
