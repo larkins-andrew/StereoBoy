@@ -20,6 +20,17 @@ typedef struct st7789_t {
     uint gpio_bl;
 } st7789_t;
 
+
+#define BLACK   0x0000
+#define RED     0xF800
+#define GREEN   0x07E0
+#define BLUE    0x001F
+#define WHITE   0xFFFF
+#define YELLOW  0xFFE0
+#define CYAN    0x07FF
+#define MAGENTA 0xF81F
+
+
 void st7789_init(const st7789_t* config, uint16_t width, uint16_t height);
 void st7789_write(const void* data, size_t len);
 void st7789_put(uint16_t pixel);

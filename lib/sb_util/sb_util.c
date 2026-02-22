@@ -11,6 +11,7 @@
 #include "../display/display.h"
 #include "../display/picojpeg.h"
 #include "pico/multicore.h"
+#include "lib/font/font.h"
 
 #define MAX_FILENAME_LEN 256 // max filaname character length
 #define MAX_TRACKS 64        // max number of mp3 files in sd card
@@ -70,13 +71,12 @@ static int dma_chan = -1;
 static dma_channel_config dcc;
 
 /*******************visualizations not scope*******************/
-
 #define HISTORY_SIZE 256
 volatile cplx audio_history_l[HISTORY_SIZE];
 volatile cplx audio_history_r[HISTORY_SIZE];
 int history_index = 0;
-int visualizer = 0;
-int num_visualizations = 5;
+int visualizer = 5;
+int num_visualizations = 6;
 bool album_art_ready = false;
 /*******************visualizations not scope*******************/
 
@@ -92,9 +92,67 @@ static void get_mp3_metadata(const char *filename, track_info_t *track);
 static int compare_filenames(const void *a, const void *b);
 static void jukebox(vs1053_t *player, track_info_t *track, st7789_t *display);
 
+/* Text Display Stuff */
+mutex_t text_buff_mtx;
+semaphore_t text_sem;
+
+char text_buff[30];
+
+
+/* Text Display Stuff */
+
 /* =========================================================
    PUBLIC API
    ========================================================= */
+
+void set_pixel(uint16_t x, uint16_t y, uint16_t color) {
+    frame_buffer[y * SCREEN_WIDTH + x] = color;
+}
+
+void lcd_draw_char(uint16_t x, uint16_t y, char c, uint16_t color) {
+    const struct Font * f = find_font_char(c);
+    if (!f) return;
+    for (uint8_t row = 0; row < 7; row++) {
+        for (uint8_t col = 0; col < 5; col++) {
+            if (f->code[row][col] == '1') {
+                set_pixel(x + col, y + row, color);
+            }
+            else{
+                set_pixel(x+col, y+row, BLACK);
+            }
+        }
+    }
+}
+
+void st7789_draw_string(uint16_t x, uint16_t y, const char *text, uint16_t color) {
+    uint16_t start_x = x;
+    uint16_t start_y = y;
+
+    for (int i = 0; text[i] != '\0' && i < 30; i++) {
+        // if (text[i] == '\n' || text[i] == '\r') {
+        //     start_x = x;
+        //     start_y += 10;
+        // }
+        if (start_x < SCREEN_WIDTH-5 && start_y < SCREEN_HEIGHT-7) {
+            lcd_draw_char(start_x, y, text[i], color);
+            start_x += 6;
+        }
+    }
+}
+
+void dprint(char * str, ...)
+{
+    mutex_enter_blocking(&text_buff_mtx);
+    va_list argptr;
+    va_start(argptr,str);
+    sprintf(text_buff, str, &argptr);
+    va_end(argptr);
+    strcpy(text_buff, str);
+    sem_release(&text_sem);
+    mutex_exit(&text_buff_mtx);
+    sleep_ms(20);
+    return;
+}
 
 // This is the main loop for Core 1
 void core1_entry()
@@ -141,9 +199,9 @@ void core1_entry()
             }
             break;
         case 1:
-            update_visualizer_core1();
+            update_scope_core1();
             break;
-        default:
+        case 0:
             if (album_art_ready)
             {
                 album_art_centered();
@@ -152,6 +210,26 @@ void core1_entry()
                 spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
                 spi_write16_blocking(spi0, frame_buffer, 240 * 240);
             }
+            break;
+        case 5:
+            if (sem_acquire_timeout_us(&text_sem, 5)) {
+                memmove(frame_buffer, frame_buffer+SCREEN_WIDTH*10, sizeof(uint16_t)*(SCREEN_WIDTH)*(SCREEN_HEIGHT-10));
+                memset(frame_buffer + SCREEN_WIDTH*(SCREEN_HEIGHT-10),0, sizeof(uint16_t) * (SCREEN_WIDTH) * (10));
+                mutex_enter_blocking(&text_buff_mtx);
+                st7789_draw_string(1, 239-15, text_buff, WHITE);
+                mutex_exit(&text_buff_mtx);
+                spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
+                spi_write16_blocking(spi0, frame_buffer, 240 * 240);
+                
+            }
+            // if (sem_acquire_timeout_ms(&text_sem, 10)) {
+            //     memmove(frame_buffer, frame_buffer+SCREEN_WIDTH*10, sizeof(uint16_t)*(SCREEN_WIDTH)*(SCREEN_HEIGHT-10));
+            //     memset(frame_buffer, 9, sizeof(frame_buffer));
+            //     st7789_draw_string(1, SCREEN_WIDTH-1-10, text_buff, WHITE);
+            //     spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
+            //     spi_write16_blocking(spi0, frame_buffer, 240 * 240);
+            // }
+
             break;
         }
     }
@@ -171,58 +249,10 @@ void fast_drawline(int x, int y1, int y2, uint16_t color)
     }
 }
 
-void sb_hw_init(vs1053_t *player, st7789_t *display)
-{
-
-    // set SPI0 for codec and SD card
-    gpio_set_function(PIN_SCK,  GPIO_FUNC_SPI);
-    gpio_set_function(PIN_MOSI, GPIO_FUNC_SPI);
-    gpio_set_function(PIN_MISO, GPIO_FUNC_SPI);
-
-    // set I2C0 for DAC at 400KHz
-    i2c_init(i2c0, 400 * 1000);
-    gpio_set_function(PIN_I2C0_SCL, GPIO_FUNC_I2C);
-    gpio_set_function(PIN_I2C0_SDA, GPIO_FUNC_I2C);
-    gpio_pull_up(PIN_I2C0_SCL);
-    gpio_pull_up(PIN_I2C0_SDA);
-
-    printf("SPI0 and I2C0 initialized.\r\n");
-    
-    if (!sd_init_driver())
-    {
-        while (1)
-        {
-            printf("SD init failed\r\n");
-        }
-    }
-    else
-    {
-        printf("SD card initialized!\r\n");
-    }
-
-    FRESULT fr = f_mount(&fs, "0:", 1);
-    if (fr != FR_OK)
-    {
-        while (1)
-        {
-            printf("SD Mount failed: %d\n", fr);
-        }
-    }
-    else
-    {
-        printf("SD card mounted!\r\n");
-    }
-
+void sb_display_init(st7789_t *display){
     st7789_init(display, SCREEN_WIDTH, SCREEN_HEIGHT);
     printf("Display initialized!\r\n");
 
-    multicore_launch_core1(core1_entry);
-    printf("CORE 1 LAUNCHED!\r\n");
-
-    adc_init();        // Inside sb_hw_init
-    adc_gpio_init(45); // Left
-    adc_gpio_init(44); // Right
-    adc_select_input(ADC_CH);
     // Setup DMA for super-fast draw routines
     dma_chan = dma_claim_unused_channel(true);
     dcc = dma_channel_get_default_config(dma_chan);
@@ -250,24 +280,94 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
         true                           // Start now!
     );
     sleep_ms(500);
-    printf("Oscope ADC and DMA initialized!\r\n");
+
+    multicore_launch_core1(core1_entry);
+    printf("CORE 1 LAUNCHED!\r\n");
+}
+
+void sb_hw_init(vs1053_t *player, st7789_t *display)
+{
+    mutex_init(&text_buff_mtx);
+    sem_init(&text_sem, 0, 1);
+
+
+    // set SPI1 for codec and SD card
+    gpio_set_function(PIN_SCK,  GPIO_FUNC_SPI);
+    gpio_set_function(PIN_MOSI, GPIO_FUNC_SPI);
+    gpio_set_function(PIN_MISO, GPIO_FUNC_SPI);
+
+    // set I2C0 for DAC at 400KHz
+    i2c_init(i2c0, 400 * 1000);
+    gpio_set_function(PIN_I2C0_SCL, GPIO_FUNC_I2C);
+    gpio_set_function(PIN_I2C0_SDA, GPIO_FUNC_I2C);
+    gpio_pull_up(PIN_I2C0_SCL);
+    gpio_pull_up(PIN_I2C0_SDA);
+
+    dprint("SPI0 and I2C0 initialized.");
+    printf("SPI0 and I2C0 initialized.\r\n");
+    
+    if (!sd_init_driver())
+    {
+        while (1)
+        {
+            dprint("SD init failed");
+            printf("SD init failed\r\n");
+        }
+    }
+    else
+    {
+        dprint("SD card initialized!");
+        printf("SD card initialized!\r\n");
+    }
+
+
+    FRESULT fr = f_mount(&fs, "0:", 1);
+    if (fr != FR_OK)
+    {
+        while (1)
+        {
+            dprint("SD Mount failed: %d", fr);
+            printf("SD Mount failed: %d\n", fr);
+        }
+    }
+    else
+    {
+        dprint("SD card mounted!");
+        printf("SD card mounted!\r\n");
+    }
+
+    adc_init();        // Inside sb_hw_init
+    adc_gpio_init(45); // Left
+    adc_gpio_init(44); // Right
+    adc_select_input(ADC_CH);
+    
+    printf("Oscope ADC initialized!\r\n");
+    dprint("Oscope ADC initialized!");
+
+    sb_display_init(display);
 
     // initialize DAC
     dac_init(i2c0);
     dac_interrupt_init();
     printf("DAC intialized.\r\n");
+    dprint("DAC intialized.");
 
     vs1053_init(player);
     printf("VS1053 initialized.\r\n");
+    dprint("VS1053 initialized.");
     vs1053_set_volume(player, 0x00, 0x00);
     printf("VS1053 volume set to max!\r\n");
+    dprint("VS1053 volume set to max!");
 
     // Enable I2S output
     vs1053_enable_i2s(player);
     printf("VS1053 I2S enabled.\r\n");
+    dprint("VS1053 I2S enabled.");
 
     printf("Audio init complete.\r\n");
+    dprint("Audio init complete.");
     printf("\r\nScanning directory...\r\n");
+    dprint("Finished sb_hw_init");
 }
 
 int sb_scan_tracks(track_info_t *tracks, int max_tracks)
@@ -703,7 +803,7 @@ static int compare_filenames(const void *a, const void *b)
     return strcasecmp(ta->filename, tb->filename);
 }
 
-void update_visualizer_core1()
+void update_scope_core1()
 {
     static int x = 0;
     static int last_y_l = OFFSET_L;
@@ -1366,6 +1466,10 @@ void jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
                     break;
                 case 4:
                     printf("\r\nMandala Visualization\r\n");
+                    break;
+                case 5:
+                    dprint("Text Display");
+                    printf("\r\nText Display\r\n");
                     break;
                 }
                 break;

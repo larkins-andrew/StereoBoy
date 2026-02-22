@@ -44,7 +44,6 @@ struct st7789_t display = {
 
 #define LCD_WIDTH  240
 #define LCD_HEIGHT 240
-
 int main()
 {
 
@@ -58,14 +57,22 @@ int main()
     int count = sb_scan_tracks(tracks, MAX_TRACKS);
 
     // --- Print menu ---
+    dprint("Example %s", "thing");
     while(1) {
+        dprint("Available tracks:");
         printf("\r\nAvailable tracks:\r\n");
         for (int i = 0; i < count; i++) {
+            // dprint("[%d] %s - %s", i + 1, tracks[i].artist, tracks[i].title);
             printf("\r\n[%d] %s - %s\r\n", i + 1, tracks[i].artist, tracks[i].title);
+            // dprint("     Album: %s", tracks[i].album);
             printf("     Album: %s\r\n", tracks[i].album);
+            // dprint("     Bit Rate: %d Kbps", tracks[i].bitrate);
             printf("     Bit Rate: %d Kbps\r\n", tracks[i].bitrate);
+            // dprint("     Sample Rate: %d Hz", tracks[i].samplespeed);
             printf("     Sample Rate: %d Hz\r\n", tracks[i].samplespeed);
+            // dprint("     Channels : %s", tracks[i].channels == 1 ? "Mono" : "Stereo");
             printf("     Channels : %s\r\n", tracks[i].channels == 1 ? "Mono" : "Stereo");
+            // dprint("     Header: %X", tracks[i].header);
             printf("     Header: %X\r\n", tracks[i].header);
         }
 
@@ -73,6 +80,7 @@ int main()
         int choice = 0;
 
         while (choice < 1 || choice > count) {
+            dprint("Select track (1-%d): ", count);
             printf("\r\nSelect track (1-%d): ", count);
 
             int idx = 0;
@@ -81,6 +89,7 @@ int main()
             while (1) {
                 int c = getchar(); // blocking read
                 if (c == '\r' || c == '\n') { // Enter pressed
+                    dprint("");
                     printf("\r\n");
                     break;
                 }
@@ -92,22 +101,32 @@ int main()
 
             choice = atoi(input);
             if (choice < 1 || choice > count)
+                dprint("Invalid. Try again.");
                 printf("Invalid. Try again.");
         }
 
         track_info_t *track = &tracks[choice - 1];
 
+        dprint("NOW PLAYING:");
         printf("\r\n\rNOW PLAYING:\r\n");
+        dprint("  Title : %s", track->title);
         printf("  Title : %s\r\n", track->title);
+        dprint("  Artist: %s", track->artist);
         printf("  Artist: %s\r\n", track->artist);
+        dprint("  Album : %s", track->album);
         printf("  Album : %s\r\n", track->album);
+        dprint("  Bitrate : %d Kbps", track->bitrate);
         printf("  Bitrate : %d Kbps\r\n", track->bitrate);
+        dprint("  Sample rate : %d Hz", track->samplespeed);
         printf("  Sample rate : %d Hz\r\n", track->samplespeed);
+        dprint("  Channels : %s", track->channels == 1 ? "Mono" : "Stereo");
         printf("  Channels : %s\r\n", track->channels == 1 ? "Mono" : "Stereo");
+        dprint("  Header: %X", track->header);
         printf("  Header: %X\r\n", track->header);
 
         sb_play_track(&player, track, &display);
 
+        dprint("Playback finished!");
         printf("\r\nPlayback finished!\r\n");
     }
 }

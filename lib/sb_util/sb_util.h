@@ -4,7 +4,8 @@
 #include "pico/stdlib.h"
 #include "ff.h"
 #include "lib/codec/vs1053.h"
-#include "../display/display.h"
+#include "lib/display/display.h"
+// #include "lib/font/font.h"
 
 
 #include <complex.h>
@@ -44,10 +45,10 @@ void sb_print_track(track_info_t *t);
 void sb_play_track(vs1053_t *player, track_info_t *track, st7789_t *display);
 
 /* ========= Display ========= */
-void fast_drawline(int x, int y1, int y2, uint16_t color);
+void fast_drawline(int x, int y1, int y2, uint16_t color); // Unused?
 
 // ADD THIS LINE HERE:
-void update_visualizer_core1(void);
+void update_scope_core1(void);
 
 
 #ifndef PI
@@ -56,6 +57,7 @@ void update_visualizer_core1(void);
 
 typedef float complex cplx;
 
+void dprint(char * str, ...);
 void bit_reverse(cplx buf[], int n);
 void fft_optimized(cplx buf[], int n);
 void draw_bins(int n);
