@@ -120,15 +120,17 @@ uint8_t dac_get_volume() {
 void floatToHex16(double value, uint8_t *hexBuffer) {
     // 1. Scale the float
     int32_t fixedPoint = (int32_t)(value * SCALE_FACTOR_16);
-   
-    // 2. Clamp to 16-bit range (0x7FFF to 0x8000)
+    
+    // 2. Clamp to 16-bit range
     if (fixedPoint > MAX_16BIT) fixedPoint = MAX_16BIT;
     if (fixedPoint < MIN_16BIT) fixedPoint = MIN_16BIT;
 
+    // 3. Force to unsigned to prevent C compiler shifting anomalies
+    uint16_t unsigned_val = (uint16_t)fixedPoint;
 
-    // 3. Store as Big Endian (MSB first, as per your Table 6-121)
-    hexBuffer[0] = (fixedPoint >> 8) & 0xFF; // Upper 8 bits (e.g., Reg 2)
-    hexBuffer[1] = fixedPoint & 0xFF;        // Lower 8 bits (e.g., Reg 3)
+    // 4. Store as Big Endian
+    hexBuffer[0] = (unsigned_val >> 8) & 0xFF; // Upper 8 bits
+    hexBuffer[1] = unsigned_val & 0xFF;        // Lower 8 bits
 }
 
 
@@ -136,110 +138,121 @@ void floatToHex16(double value, uint8_t *hexBuffer) {
 static const float eq_frequencies[NUM_EQ_BANDS] = {60, 150, 400, 1000, 2400, 15000};
 // Current Gain State
 static float eq_gains[NUM_EQ_BANDS] = {0};
+// Current Buffer
 
-// filterSlot: 0 to 5, 1 for each filter in PRB_P2
-// freqHz: Target frequency (e.g., 60, 150, 1000)
-// gaindB: Amount to boost/cut (e.g., +3.0 or -5.0)
-// Q: Width of the bell curve (1.0 is standard)
-void setEQBand(int filterSlot, float freqHz, float gaindB, float Q, float sampleRate) {
+// --- INTERNAL HARDWARE UPDATER ---
+// This function calculates ALL 6 bands, writes them to the INACTIVE memory, and swaps.
+// --- INTERNAL HARDWARE UPDATER ---
+static void dac_apply_eq(float sampleRate) {
+    
+    // 1. Ask the chip which buffer is currently SAFE to write to
+    // Read Page 8, Register 1 (Table 6-120)
+    uint8_t status = dac_read(8, 1);
+    uint8_t targetPage;
 
-// --- MATH SECTION (Standard RBJ Formulas) ---
-    double A = pow(10, gaindB / 40.0);
-    double omega = 2.0 * M_PI * freqHz / sampleRate;
-    double sn = sin(omega);
-    double cs = cos(omega);
-    double alpha = sn / (2.0 * Q);
+    // Check Bit 1 (DAC Adaptive Filter Buffer Control Flag)
+    if ((status & 0x02) == 0) { 
+        // Flag is 0: DSP is reading Buffer A (Page 8). We must write to Buffer B (Page 12).
+        targetPage = 12;
+    } else {
+        // Flag is 1: DSP is reading Buffer B (Page 12). We must write to Buffer A (Page 8).
+        targetPage = 8;
+    }
 
-    double b0 = 1 + (alpha * A);
-    double b1 = -2 * cs;
-    double b2 = 1 - (alpha * A);
-    double a0 = 1 + (alpha / A);
-    double a1 = -2 * cs;
-    double a2 = 1 - (alpha / A);
+    // 2. Calculate and write all 6 bands to the target page
+    for (int band = 0; band < NUM_EQ_BANDS; band++) {
 
-    // Normalize
-    b0 /= a0; b1 /= a0; b2 /= a0; a1 /= a0; a2 /= a0;
+        float freqHz = eq_frequencies[band];
+        float gaindB = eq_gains[band];
+        float Q = 1.0f;
 
-    //    TI HARDWARE SCALING
-    // Prevent coefficients from exceeding 1.0 and clamping
-    b0 /= 2.0; 
-    b1 /= 2.0; 
-    b2 /= 2.0; 
-    a1 /= 2.0; 
-    a2 /= 2.0;
+       // --- MATH SECTION ---
+        double A = pow(10, gaindB / 40.0);
+        double omega = 2.0 * M_PI * freqHz / sampleRate;
+        double sn = sin(omega);
+        double cs = cos(omega);
+        double alpha = sn / (2.0 * Q);
 
-    // Negate a1/a2 for TI Hardware architecture
-    a1 = -a1; a2 = -a2;
+        // Standard RBJ Biquad Calculations
+        double b0 = 1 + (alpha * A);
+        double b1 = -2 * cs;
+        double b2 = 1 - (alpha * A);
+        double a0 = 1 + (alpha / A);
+        double a1 = -2 * cs;
+        double a2 = 1 - (alpha / A);
 
-    // --- CONVERSION SECTION (Float -> 2 Bytes) ---
-    uint8_t n0[2], n1[2], n2[2], d1[2], d2[2];
-   
-    floatToHex16(b0, n0);
-    floatToHex16(b1, n1);
-    floatToHex16(b2, n2);
-    floatToHex16(a1, d1);
-    floatToHex16(a2, d2);
+        // --- TI HARDWARE MAPPING ---
+        // Numerator (N0, N1, N2)
+        // Notice ONLY b1 is divided by 2
+        double N0_val = b0 / a0;
+        double N1_val = b1 / (a0 * 2.0); 
+        double N2_val = b2 / a0;
 
-    //WRITE TO MEMORY SECTION:
-    // Calculate start register based on the filter
-    // Filter 0 -> 2, Filter 1 -> 12, Filter 2 -> 22, etc.
-    uint8_t base = 2 + (filterSlot * 10);
+        // Denominator (D1, D2)
+        // TI subtracts the feedback, so we negate a1 and a2. 
+        // Notice ONLY a1 is divided by 2.
+        double D1_val = -a1 / (a0 * 2.0);
+        double D2_val = -a2 / a0;
 
-    //Write Coefficients sequentially (LEFT)
-    // N0 (Registers base, base+1)
-    dac_write(8, base + 0, n0[0]);
-    dac_write(8, base + 1, n0[1]);
-    // N1 (Registers base+2, base+3)
-    dac_write(8, base + 2, n1[0]);
-    dac_write(8, base + 3, n1[1]);
-    // N2 (Registers base+4, base+5)
-    dac_write(8, base + 4, n2[0]);
-    dac_write(8, base + 5, n2[1]);
-    // D1 (Registers base+6, base+7)
-    dac_write(8, base + 6, d1[0]);
-    dac_write(8, base + 7, d1[1]);
-    // D2 (Registers base+8, base+9)
-    dac_write(8, base + 8, d2[0]);
-    dac_write(8, base + 9, d2[1]);
+        // --- CONVERSION SECTION ---
+        uint8_t n0[2], n1[2], n2[2], d1[2], d2[2];
+        floatToHex16(N0_val, n0);
+        floatToHex16(N1_val, n1);
+        floatToHex16(N2_val, n2);
+        floatToHex16(D1_val, d1);
+        floatToHex16(D2_val, d2);
 
-    //REPEAT FOR RIGHT CHANNEL
-    // N0
-    dac_write(12, base + 0, n0[0]);
-    dac_write(12, base + 1, n0[1]);
-    // N1
-    dac_write(12, base + 2, n1[0]);
-    dac_write(12, base + 3, n1[1]);
-    // N2
-    dac_write(12, base + 4, n2[0]);
-    dac_write(12, base + 5, n2[1]);
-    // D1
-    dac_write(12, base + 6, d1[0]);
-    dac_write(12, base + 7, d1[1]);
-    // D2
-    dac_write(12, base + 8, d2[0]);
-    dac_write(12, base + 9, d2[1]);
+        // --- WRITE SECTION ---
+        // Use the correct register offsets as seen in Table 6-121
+        uint8_t baseLeft = 2 + (band * 10);
+        uint8_t baseRight = 66 + (band * 10);
+
+        // Write Left Channel to the inactive page
+        dac_write(targetPage, baseLeft + 0, n0[0]); dac_write(targetPage, baseLeft + 1, n0[1]);
+        dac_write(targetPage, baseLeft + 2, n1[0]); dac_write(targetPage, baseLeft + 3, n1[1]);
+        dac_write(targetPage, baseLeft + 4, n2[0]); dac_write(targetPage, baseLeft + 5, n2[1]);
+        dac_write(targetPage, baseLeft + 6, d1[0]); dac_write(targetPage, baseLeft + 7, d1[1]);
+        dac_write(targetPage, baseLeft + 8, d2[0]); dac_write(targetPage, baseLeft + 9, d2[1]);
+
+        // Write Right Channel to the SAME inactive page
+        dac_write(targetPage, baseRight + 0, n0[0]); dac_write(targetPage, baseRight + 1, n0[1]);
+        dac_write(targetPage, baseRight + 2, n1[0]); dac_write(targetPage, baseRight + 3, n1[1]);
+        dac_write(targetPage, baseRight + 4, n2[0]); dac_write(targetPage, baseRight + 5, n2[1]);
+        dac_write(targetPage, baseRight + 6, d1[0]); dac_write(targetPage, baseRight + 7, d1[1]);
+        dac_write(targetPage, baseRight + 8, d2[0]); dac_write(targetPage, baseRight + 9, d2[1]);
+    }
+
+    // 3. Trigger the Buffer Swap
+    // Write 0x05 (0b00000101) to keep Adaptive Filtering enabled (Bit 2) 
+    // and trigger the switch at the next frame boundary (Bit 0).
+    dac_write(8, 1, 0x05); 
 }
 
+// --- PUBLIC API ---
 void dac_eq_init(float sampleRate) {
-    // Init all bands to 0
+    // Tell DAC to use Buffer A to start
+    
+    // Reset all gains to flat
     for(int i=0; i<NUM_EQ_BANDS; i++) {
         eq_gains[i] = 0.0f;
-        setEQBand(i, eq_frequencies[i], 0.0f, 1.0f, sampleRate);
     }
+    
+    // Push the flat EQ to memory
+    dac_apply_eq(sampleRate);
 }
 
 void dac_eq_adjust(int band, float step_db, float sampleRate) {
     if (band < 0 || band >= NUM_EQ_BANDS) return;
 
+    // Update state
     eq_gains[band] += step_db;
-
-    // prevent going above or below limits
     if (eq_gains[band] > MAX_GAIN_DB) eq_gains[band] = MAX_GAIN_DB;
     if (eq_gains[band] < MIN_GAIN_DB) eq_gains[band] = MIN_GAIN_DB;
 
-    //update registers
-    setEQBand(band, eq_frequencies[band], eq_gains[band], 1.0f, sampleRate);
+    // Recalculate and push to hardware
+    dac_apply_eq(sampleRate);
 }
+
 
 //Geters for variables
 float dac_eq_get_gain(int band) {
@@ -310,8 +323,11 @@ void dac_init() {
 
     // 9. DAC Volume (Page 0)
     dac_write(0, 0x40, 0x00); // Unmute
-    dac_write(0, 0x41, 00);   // Left Vol (0dB is usually 0, 18 is +9dB depending on mapping)
-    dac_write(0, 0x42, 00);   // Right Vol
+    //to prevent clipping from eq
+    dac_write(0, 0x41, 0xE8); // Left Vol -12dB (E8) -20dB -> (D8)
+    dac_write(0, 0x42, 0xE8); // Right Vol -12dB
+    // dac_write(0, 0x41, 00);   // Left Vol (0dB is usually 0, 18 is +9dB depending on mapping)
+    // dac_write(0, 0x42, 00);   // Right Vol
 
 
     // 10. Headphone & Speaker Setup (Page 1)

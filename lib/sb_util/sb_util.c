@@ -1299,7 +1299,7 @@ void jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
             // bool headphonesIn = dac_read(0, 0x43) & 0x20;
             // printf("Headphone prescence: %d\r\n", headphonesIn);
             absolute_time_t now = get_absolute_time();
-            
+
             //EQ START 
             // Select the band (keys 0-5)
             if (c >= '0' && c <= '5') {

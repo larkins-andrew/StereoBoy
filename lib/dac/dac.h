@@ -52,5 +52,6 @@ void dac_eq_init(float sampleRate);
 void dac_eq_adjust(int band, float step_db, float sampleRate); 
 float dac_eq_get_gain(int band);   
 int dac_eq_get_freq(int band);    
+static void dac_apply_eq(float sampleRate);
 
 #endif
