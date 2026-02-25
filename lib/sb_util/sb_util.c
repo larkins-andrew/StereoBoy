@@ -175,7 +175,7 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
 {
 
     // set SPI0 for codec and SD card
-    gpio_set_function(PIN_SCK,  GPIO_FUNC_SPI);
+    gpio_set_function(PIN_SCK, GPIO_FUNC_SPI);
     gpio_set_function(PIN_MOSI, GPIO_FUNC_SPI);
     gpio_set_function(PIN_MISO, GPIO_FUNC_SPI);
 
@@ -187,7 +187,7 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
     gpio_pull_up(PIN_I2C0_SDA);
 
     printf("SPI0 and I2C0 initialized.\r\n");
-    
+
     if (!sd_init_driver())
     {
         while (1)
@@ -1155,12 +1155,13 @@ void process_image(track_info_t *track, const char *filename, float output_size)
 
         if (status)
         {
-            memset(img_buffer, 0, sizeof(img_buffer)); 
+            memset(img_buffer, 0, sizeof(img_buffer));
             goto out;
         }
+        printf("\nDimensions: %d,%d,%d,%d\n", jpeg_info.m_MCUWidth, jpeg_info.m_MCUHeight, jpeg_info.m_width, jpeg_info.m_height);
 
-        float scale_x = (float)jpeg_info.m_width / output_size;
-        float scale_y = (float)jpeg_info.m_height / output_size;
+        // float scale_x = (float)jpeg_info.m_width / output_size;
+        // float scale_y = (float)jpeg_info.m_height / output_size;
 
         for (uint16_t my = 0; my < jpeg_info.m_MCUSPerCol; my++)
         {
@@ -1172,7 +1173,8 @@ void process_image(track_info_t *track, const char *filename, float output_size)
                 {
                     break;
                 }
-                if (status) {
+                if (status)
+                {
                     goto out;
                 }
                 for (uint16_t ly = 0; ly < jpeg_info.m_MCUHeight; ly++)
@@ -1182,10 +1184,21 @@ void process_image(track_info_t *track, const char *filename, float output_size)
                         uint16_t src_x = mx * jpeg_info.m_MCUWidth + lx;
                         uint16_t src_y = my * jpeg_info.m_MCUHeight + ly;
 
-                        uint16_t dst_x = src_x / scale_x;
-                        uint16_t dst_y = src_y / scale_y;
+                        // 🔥 CRITICAL FIX
+                        if (src_x >= jpeg_info.m_width || src_y >= jpeg_info.m_height)
+                            continue;
+
+                        uint32_t dst_x = (uint32_t)src_x * output_size / jpeg_info.m_width;
+                        uint32_t dst_y = (uint32_t)src_y * output_size / jpeg_info.m_height;
 
                         if (dst_x >= output_size || dst_y >= output_size)
+                            continue;
+
+                        // Prevent overwrite artifacts
+                        uint32_t prev_dst_x = (uint32_t)(src_x - 1) * output_size / jpeg_info.m_width;
+                        uint32_t prev_dst_y = (uint32_t)(src_y - 1) * output_size / jpeg_info.m_height;
+
+                        if (dst_x == prev_dst_x && dst_y == prev_dst_y)
                             continue;
 
                         uint16_t idx = ly * jpeg_info.m_MCUWidth + lx;
@@ -1223,7 +1236,6 @@ JUKEBOX: MAIN PLAY LOOP
 #define MAX_GAIN_DB 12.0f
 #define MIN_GAIN_DB -12.0f
 #define GAIN_STEP 1.0f
-
 
 bool paused = false;
 bool warping = false;
@@ -1282,8 +1294,7 @@ void jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
 
     static int selected_band = 0;
 
-    dac_eq_init(sampleSpeed); //init with default sample rate 
-
+    dac_eq_init(sampleSpeed); // init with default sample rate
 
     // This while loop continuously scans for key inputs while playing audio.
     // Warping is achieved by continuously sending audio bytes after pause point until warp duration is met.
@@ -1300,23 +1311,26 @@ void jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
             // printf("Headphone prescence: %d\r\n", headphonesIn);
             absolute_time_t now = get_absolute_time();
 
-            //EQ START 
-            // Select the band (keys 0-5)
-            if (c >= '0' && c <= '5') {
+            // EQ START
+            //  Select the band (keys 0-5)
+            if (c >= '0' && c <= '5')
+            {
                 selected_band = c - '0';
                 printf("\nSelected Band: %d Hz\n", dac_eq_get_freq(selected_band));
             }
-            
+
             // Adjust the band (+ or -)
-            if (c == '+' || c == '=') {
+            if (c == '+' || c == '=')
+            {
                 dac_eq_adjust(selected_band, 1.0f, sampleSpeed); // Boost
                 printf("Band %d Gain: %.1f dB\n", selected_band, dac_eq_get_gain(selected_band));
             }
-            if (c == '-' || c == "_") {
+            if (c == '-' || c == '_')
+            {
                 dac_eq_adjust(selected_band, -1.0f, sampleSpeed); // Cut
                 printf("Band %d Gain: %.1f dB\n", selected_band, dac_eq_get_gain(selected_band));
             }
-            //EQ END
+            // EQ END
             switch (c)
             {
             case 'p':
