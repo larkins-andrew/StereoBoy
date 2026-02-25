@@ -56,6 +56,7 @@ int main()
     gpio_set_function(PIN_SCK,  GPIO_FUNC_SPI);
     gpio_set_function(PIN_MOSI, GPIO_FUNC_SPI);
     gpio_set_function(PIN_MISO, GPIO_FUNC_SPI);
+    gpio_set_dir(3, GPIO_IN); // DAC INT pin
 
     // set I2C0 for DAC at 400KHz
     i2c_init(i2c0, 400 * 1000);
@@ -109,6 +110,7 @@ int main()
                 printf("Invalid. Try again.");
         }
 
+        // choice = 18;
         track_info_t *track = &tracks[choice - 1];
 
         printf("\r\n\rNOW PLAYING:\r\n");

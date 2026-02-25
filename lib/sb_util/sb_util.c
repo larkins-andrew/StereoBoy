@@ -108,8 +108,11 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
     }
 
     st7789_init(display, SCREEN_WIDTH, SCREEN_HEIGHT);
+    // 2. Set the display window to the full screen
+    st7789_set_cursor(0, 0);
+    st7789_ramwr();
     printf("Display initialized!\r\n");
-
+    sleep_ms(150);
     multicore_launch_core1(core1_entry);
     printf("CORE 1 LAUNCHED!\r\n");
     
@@ -125,10 +128,7 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
     // 1. Fill the entire buffer with zeros (Black) instantly
     // Each pixel is 2 bytes, so total size is 240 * 240 * 2
     memset(frame_buffer, 0, sizeof(frame_buffer));
-
-    // 2. Set the display window to the full screen
-    st7789_set_cursor(0, 0);
-    st7789_ramwr();
+    sleep_ms(150);
 
     // 3. Ensure SPI is in 16-bit mode for the DMA transfer
     spi_set_format(display->spi, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
