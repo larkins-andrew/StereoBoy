@@ -67,4 +67,9 @@ void draw_lissajous_connected();
 void album_art_centered();
 void process_image(track_info_t *track, const char *filename, float output_size);
 
+struct Node {
+    struct Node * next;
+    char str[30];
+};
+
 #endif

@@ -1,7 +1,10 @@
 #include "sb_util.h"
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <math.h>
+
 #include "sd_card.h"
 #include "hw_config.h"
 #include "lib/dac/dac.h"
@@ -72,8 +75,8 @@ static dma_channel_config dcc;
 
 /*******************visualizations not scope*******************/
 #define HISTORY_SIZE 256
-volatile cplx audio_history_l[HISTORY_SIZE];
-volatile cplx audio_history_r[HISTORY_SIZE];
+cplx audio_history_l[HISTORY_SIZE];
+cplx audio_history_r[HISTORY_SIZE];
 int history_index = 0;
 int visualizer = 5;
 int num_visualizations = 6;
@@ -96,8 +99,16 @@ static void jukebox(vs1053_t *player, track_info_t *track, st7789_t *display);
 mutex_t text_buff_mtx;
 semaphore_t text_sem;
 
-char text_buff[30];
+char text_buff_temp[120];
+struct Node * head = NULL;
 
+void printLL(){
+    struct Node * n = head;
+    while (n != NULL){
+        printf("%p: %s", n, n -> str);
+        n = n -> next;
+    }
+}
 
 /* Text Display Stuff */
 
@@ -140,17 +151,37 @@ void st7789_draw_string(uint16_t x, uint16_t y, const char *text, uint16_t color
     }
 }
 
-void dprint(char * str, ...)
-{
+void app_node(char * str){
     mutex_enter_blocking(&text_buff_mtx);
-    va_list argptr;
-    va_start(argptr,str);
-    sprintf(text_buff, str, &argptr);
-    va_end(argptr);
-    strcpy(text_buff, str);
-    sem_release(&text_sem);
+
+    struct Node * n = calloc(1, sizeof(struct Node));
+    n -> next = NULL;
+    strncpy(n -> str, str, sizeof(n->str));
+
+    if (head == NULL){
+        head = n;
+    }
+    else {
+        struct Node * prev = head;
+        while(prev -> next != NULL){
+            prev = prev -> next;
+        }
+        prev -> next = n;
+    }
     mutex_exit(&text_buff_mtx);
-    sleep_ms(20);
+    return;
+}
+
+void dprint(char * fmt, ...)
+{
+    va_list args;
+    va_start(args,fmt);
+    vsprintf(text_buff_temp, fmt, args);
+    va_end(args);
+    app_node(text_buff_temp);
+    sem_release(&text_sem);
+    printf("dprint: Sem count: %d\r\n", sem_available(&text_sem));
+    printf("dprint: \'%s\'\r\n", text_buff_temp);
     return;
 }
 
@@ -212,23 +243,31 @@ void core1_entry()
             }
             break;
         case 5:
-            if (sem_acquire_timeout_us(&text_sem, 5)) {
+            if (sem_acquire_timeout_ms(&text_sem, 10)) {
+                printf(" core1: aquired lock\r\n");
                 memmove(frame_buffer, frame_buffer+SCREEN_WIDTH*10, sizeof(uint16_t)*(SCREEN_WIDTH)*(SCREEN_HEIGHT-10));
                 memset(frame_buffer + SCREEN_WIDTH*(SCREEN_HEIGHT-10),0, sizeof(uint16_t) * (SCREEN_WIDTH) * (10));
                 mutex_enter_blocking(&text_buff_mtx);
-                st7789_draw_string(1, 239-15, text_buff, WHITE);
+                
+                if (head == NULL){
+                    printf("Err! Core 1 head is NULL");
+                    mutex_exit(&text_buff_mtx);
+                    continue;
+                }
+                printf("core 1: %s | %d\r\n", head -> str, strlen(text_buff_temp));
+                st7789_draw_string(1, 239-15, head -> str, WHITE);
+                struct Node * n = head;
+                head = head -> next;
+                if (n != NULL){
+                    free(n);
+                }                
                 mutex_exit(&text_buff_mtx);
                 spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
                 spi_write16_blocking(spi0, frame_buffer, 240 * 240);
+                sleep_us(10);
+                printf(" core 1 finished print\r\n");
                 
             }
-            // if (sem_acquire_timeout_ms(&text_sem, 10)) {
-            //     memmove(frame_buffer, frame_buffer+SCREEN_WIDTH*10, sizeof(uint16_t)*(SCREEN_WIDTH)*(SCREEN_HEIGHT-10));
-            //     memset(frame_buffer, 9, sizeof(frame_buffer));
-            //     st7789_draw_string(1, SCREEN_WIDTH-1-10, text_buff, WHITE);
-            //     spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
-            //     spi_write16_blocking(spi0, frame_buffer, 240 * 240);
-            // }
 
             break;
         }
@@ -288,7 +327,7 @@ void sb_display_init(st7789_t *display){
 void sb_hw_init(vs1053_t *player, st7789_t *display)
 {
     mutex_init(&text_buff_mtx);
-    sem_init(&text_sem, 0, 1);
+    sem_init(&text_sem, 0, 255);
 
 
     // set SPI1 for codec and SD card
@@ -367,7 +406,9 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
     printf("Audio init complete.\r\n");
     dprint("Audio init complete.");
     printf("\r\nScanning directory...\r\n");
+    dprint("Scanning directory...");
     dprint("Finished sb_hw_init");
+    printf("\r\nFinished sb_hw_init\r\n");
 }
 
 int sb_scan_tracks(track_info_t *tracks, int max_tracks)

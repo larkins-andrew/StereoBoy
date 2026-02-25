@@ -58,8 +58,9 @@ int main()
 
     // --- Print menu ---
     dprint("Example %s", "thing");
+    printf("Example %s\r\n", "thing");
     while(1) {
-        dprint("Available tracks:");
+        dprint("    Available tracks:");
         printf("\r\nAvailable tracks:\r\n");
         for (int i = 0; i < count; i++) {
             // dprint("[%d] %s - %s", i + 1, tracks[i].artist, tracks[i].title);

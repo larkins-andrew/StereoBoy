@@ -1,61 +1,65 @@
-/**
- * Copyright (c) 2020 Raspberry Pi (Trading) Ltd.
- *
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
+#include "lib/sb_util/sb_util.h"
 #include <stdio.h>
-#include <math.h>
-
-#include "pico/stdlib.h"
-#include "hardware/pio.h"
-#include "hardware/gpio.h"
-#include "hardware/interp.h"
-
-#include "lib/font/font.h"
+#include <string.h>
+#include <stdlib.h>
+#include "hw_config.h"
+#include "hardware/i2c.h"
 #include "lib/display/display.h"
 
-#include "main.pio.h"
-#include "lib/images/raspberry_256x256_rgb565.h"
+#define MAX_FILENAME_LEN 256 // max filaname character length
+#define MAX_TRACKS 64 // max number of mp3 files in sd card
 
-uint16_t framebuffer[SCREEN_WIDTH * SCREEN_HEIGHT] = {0};  // Each element is one pixel (RGB565)
+// SPI1 configuration for codec & sd card
+#define PIN_SCK  30
+#define PIN_MOSI 28
+#define PIN_MISO 31
+#define PIN_CS   32
 
+// Codec control signals
+#define PIN_DCS  33
+#define PIN_DREQ 29
+#define PIN_RST  27
 
+// I2C0 for DAC
+#define PIN_I2C0_SCL 21
+#define PIN_I2C0_SDA 20
 
+vs1053_t player = {
+    .spi = spi1,
+    .cs = PIN_CS,
+    .dcs = PIN_DCS,
+    .dreq = PIN_DREQ,
+    .rst = PIN_RST
+};
 
-int main() {
+struct st7789_t display = {
+    .spi      = spi0,
+    .gpio_din = 35,
+    .gpio_clk = 34,
+    .gpio_cs  = 37,
+    .gpio_dc  = 39,
+    .gpio_rst = 4,
+    .gpio_bl  = 5,
+};
+
+#define LCD_WIDTH  240
+#define LCD_HEIGHT 240
+int main()
+{
+
     stdio_init_all();
 
-    PIO pio = pio0;
-    uint sm = 0;
-    uint offset = pio_add_program(pio, &st7789_lcd_program);
-    st7789_lcd_program_init(pio, sm, offset, PIN_DIN, PIN_CLK, SERIAL_CLK_DIV);
+    sleep_ms(3000);
 
-    gpio_init(PIN_CS);
-    gpio_init(PIN_DC);
-    gpio_init(PIN_RESET);
-    gpio_init(PIN_BL);
-    gpio_set_dir(PIN_CS, GPIO_OUT);
-    gpio_set_dir(PIN_DC, GPIO_OUT);
-    gpio_set_dir(PIN_RESET, GPIO_OUT);
-    gpio_set_dir(PIN_BL, GPIO_OUT);
+    sb_hw_init(&player, &display);
 
-    gpio_put(PIN_CS, 1);
-    gpio_put(PIN_RESET, 1);
-    lcd_init(pio, sm, st7789_init_seq);
-    gpio_put(PIN_BL, 1);
+    // track_info_t tracks[MAX_TRACKS];
+    // int count = sb_scan_tracks(tracks, MAX_TRACKS);
 
-    
-    // lcd_draw_rect(pio, sm, 0, 0, 240, 240, WHITE);
-    // lcd_draw_rect(pio, sm, 0, 0, 60, 60, rgbto565(GRAY));
-    lcd_draw_circle(120,120, 16, GREEN, framebuffer);
-    lcd_draw_circle_fill(120, 180, 33, rgbto565(0xFF3399), framebuffer);
-    lcd_draw_string(80, 80, "Shubham Was Here", BLUE, framebuffer);
-    lcd_draw_char(10, 10, 'B', CYAN, framebuffer);
-    lcd_update(pio, sm, framebuffer);
-    lcd_draw_progress_bar(pio, sm, 200, 46, framebuffer);
-    
-    while (1) {
-        
-    }
+    // --- Print menu ---
+    dprint("Example %s", "thing");
+    sleep_ms(1000);
+    dprint("hihi, %s", "thing");
+
+    printLL();
 }
