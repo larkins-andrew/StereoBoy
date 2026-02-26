@@ -259,7 +259,8 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
 
     vs1053_init(player);
     printf("VS1053 initialized.\r\n");
-    vs1053_set_volume(player, 0x00, 0x00);
+    
+    vs1053_set_volume(player, 0x01, 0x01); //chnged from 0 (0x00) to -12dB (0x0202) to -6dB (0x0101)
     printf("VS1053 volume set to max!\r\n");
 
     // Enable I2S output
@@ -1218,11 +1219,6 @@ out:
 /* ##########################################################
 JUKEBOX: MAIN PLAY LOOP
 ########################################################## */
-// --- MODULAR EQ SETTINGS ---
-#define NUM_EQ_BANDS 6
-#define MAX_GAIN_DB 12.0f
-#define MIN_GAIN_DB -12.0f
-#define GAIN_STEP 1.0f
 
 
 bool paused = false;
@@ -1309,11 +1305,11 @@ void jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
             
             // Adjust the band (+ or -)
             if (c == '+' || c == '=') {
-                dac_eq_adjust(selected_band, 1.0f, sampleSpeed); // Boost
+                dac_eq_adjust(selected_band, 0.5f, sampleSpeed); // Boost
                 printf("Band %d Gain: %.1f dB\n", selected_band, dac_eq_get_gain(selected_band));
             }
             if (c == '-' || c == "_") {
-                dac_eq_adjust(selected_band, -1.0f, sampleSpeed); // Cut
+                dac_eq_adjust(selected_band, -0.5f, sampleSpeed); // Cut
                 printf("Band %d Gain: %.1f dB\n", selected_band, dac_eq_get_gain(selected_band));
             }
             //EQ END

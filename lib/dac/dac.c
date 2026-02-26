@@ -29,8 +29,8 @@
 
 //Constants for chaning eq
 #define NUM_EQ_BANDS 6
-#define MAX_GAIN_DB 12.0f
-#define MIN_GAIN_DB -12.0f
+#define MAX_GAIN_DB 6.0f
+#define MIN_GAIN_DB -6.0f
 
 
 static uint8_t dac_volume = 0x20; // default DAC volume
@@ -134,8 +134,10 @@ void floatToHex16(double value, uint8_t *hexBuffer) {
 }
 
 
-// Frequencies 
-static const float eq_frequencies[NUM_EQ_BANDS] = {60, 150, 400, 1000, 2400, 15000};
+// Frequencies SPOTIFY:
+// static const float eq_frequencies[NUM_EQ_BANDS] = {60, 150, 400, 1000, 2400, 15000};
+// person frequency band
+static const float eq_frequencies[NUM_EQ_BANDS] = {100, 250, 1000, 3000, 6000, 12000};
 // Current Gain State
 static float eq_gains[NUM_EQ_BANDS] = {0};
 // Current Buffer
@@ -324,8 +326,8 @@ void dac_init() {
     // 9. DAC Volume (Page 0)
     dac_write(0, 0x40, 0x00); // Unmute
     //to prevent clipping from eq
-    dac_write(0, 0x41, 0xE8); // Left Vol -12dB (E8) -20dB -> (D8)
-    dac_write(0, 0x42, 0xE8); // Right Vol -12dB
+    dac_write(0, 0x41, 0x00); // Left Vol -12dB (E8) -20dB -> (D8)
+    dac_write(0, 0x42, 0x00); // Right Vol -12dB
     // dac_write(0, 0x41, 00);   // Left Vol (0dB is usually 0, 18 is +9dB depending on mapping)
     // dac_write(0, 0x42, 00);   // Right Vol
 
