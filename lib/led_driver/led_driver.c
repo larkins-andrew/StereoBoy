@@ -1,6 +1,7 @@
 #include "led_driver.h"
 #include "pico/stdlib.h"
 #include <math.h>
+#include <stdlib.h>
 
 /* Registers */
 #define MODE1      0x00
@@ -112,4 +113,67 @@ void pca9685_write_microseconds(pca9685_t *dev, uint8_t channel, uint16_t us) {
 
     double ticks = us / pulse_len;
     pca9685_set_pwm(dev, channel, 0, (uint16_t)ticks);
+}
+
+#define NUM_LEDS_PER_CH 8
+#define ADC_CENTER 806
+#define MAX_AMPLITUDE 800.0f // Adjust for sensitivity
+
+// State variables for peak smoothing (prevents fast flickering)
+static float peak_l = 0.0f;
+static float peak_r = 0.0f;
+static const float PEAK_DECAY = 0.05f; // How fast the LEDs fall back down
+
+void pca9685_update_vu(pca9685_t *dev, uint16_t adc_left, uint16_t adc_right) {
+    // 1. Calculate absolute amplitude
+    float amp_l = (float)abs((int)adc_left - ADC_CENTER);
+    float amp_r = (float)abs((int)adc_right - ADC_CENTER);
+
+    // 2. Normalize to a 0.0 to 1.0 scale
+    float level_l = fminf(amp_l / MAX_AMPLITUDE, 1.0f);
+    float level_r = fminf(amp_r / MAX_AMPLITUDE, 1.0f);
+
+    // Optional: Apply Logarithmic curve so quiet sounds still light up the bottom LEDs
+    // level_l = log10f(1.0f + 9.0f * level_l); 
+    // level_r = log10f(1.0f + 9.0f * level_r);
+
+    // 3. Peak Tracking (Instantly rise, slowly fall)
+    if (level_l > peak_l) peak_l = level_l;
+    else peak_l -= PEAK_DECAY;
+    if (peak_l < 0.0f) peak_l = 0.0f;
+
+    if (level_r > peak_r) peak_r = level_r;
+    else peak_r -= PEAK_DECAY;
+    if (peak_r < 0.0f) peak_r = 0.0f;
+
+    // 4. Update Left LEDs (Channels 0 to 7)
+    for (int i = 0; i < NUM_LEDS_PER_CH; i++) {
+        float threshold = (float)(i + 1) / NUM_LEDS_PER_CH;
+        float prev_threshold = (float)i / NUM_LEDS_PER_CH;
+
+        if (peak_l >= threshold) {
+            pca9685_set_pin(dev, i, 4095, false); // Fully ON
+        } else if (peak_l > prev_threshold) {
+            // Smoothly fade the top active LED
+            float fraction = (peak_l - prev_threshold) * NUM_LEDS_PER_CH;
+            pca9685_set_pin(dev, i, (uint16_t)(fraction * 4095), false);
+        } else {
+            pca9685_set_pin(dev, i, 0, false); // Fully OFF
+        }
+    }
+
+    // 5. Update Right LEDs (Channels 8 to 15)
+    for (int i = 0; i < NUM_LEDS_PER_CH; i++) {
+        float threshold = (float)(i + 1) / NUM_LEDS_PER_CH;
+        float prev_threshold = (float)i / NUM_LEDS_PER_CH;
+
+        if (peak_r >= threshold) {
+            pca9685_set_pin(dev, i + 8, 4095, false); 
+        } else if (peak_r > prev_threshold) {
+            float fraction = (peak_r - prev_threshold) * NUM_LEDS_PER_CH;
+            pca9685_set_pin(dev, i + 8, (uint16_t)(fraction * 4095), false);
+        } else {
+            pca9685_set_pin(dev, i + 8, 0, false); 
+        }
+    }
 }

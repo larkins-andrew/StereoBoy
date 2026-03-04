@@ -11,6 +11,7 @@
 #include "../display/display.h"
 #include "../display/picojpeg.h"
 #include "pico/multicore.h"
+#include "lib/led_driver/led_driver.h"
 
 #define MAX_FILENAME_LEN 256 // max filaname character length
 #define MAX_TRACKS 64        // max number of mp3 files in sd card
@@ -31,6 +32,10 @@ static FATFS fs;
 // I2C0 for DAC
 #define PIN_I2C0_SCL 21
 #define PIN_I2C0_SDA 20
+
+// I2C1 for LED Driver
+#define PIN_I2C1_SDA 42
+#define PIN_I2C1_SCL 43
 
 // Display and oscope stuff
 #define SCREEN_WIDTH 240
@@ -68,7 +73,7 @@ static uint16_t img_buffer[IMG_WIDTH * IMG_HEIGHT];
 static uint16_t column_buf[240];
 static int dma_chan = -1;
 static dma_channel_config dcc;
-
+pca9685_t vu_meter;
 /*******************visualizations not scope*******************/
 
 #define HISTORY_SIZE 256
@@ -110,17 +115,26 @@ void core1_entry()
         case 4:
             // 1. CONTINUOUS SAMPLE: Fill the buffer over time
             // To balance bass and treble, we want about 22kHz sampling
+            uint16_t batch_peak_l = ADC_CENTER; //peaks used for LED matrix
+            uint16_t batch_peak_r = ADC_CENTER;
             for (int i = 0; i < 32; i++)
             {
                 adc_select_input(ADC_CH_L);
                 audio_history_l[history_ptr] = (cplx)adc_read();
+                uint16_t raw_l = adc_read();
+
                 adc_select_input(ADC_CH_R);
+                uint16_t raw_r = adc_read();
                 audio_history_r[history_ptr] = (cplx)adc_read();
 
                 history_ptr = (history_ptr + 1) % HISTORY_SIZE;
+                // Track the highest value in this 32-sample batch
+                if (raw_l > batch_peak_l) batch_peak_l = raw_l;
+                if (raw_r > batch_peak_r) batch_peak_r = raw_r;
+
                 sleep_us(20);
             }
-
+            pca9685_update_vu(&vu_meter, batch_peak_l, batch_peak_r);
             if (visualizer == 2)
             {
                 draw_lissajous_connected();
@@ -185,9 +199,24 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
     gpio_set_function(PIN_I2C0_SDA, GPIO_FUNC_I2C);
     gpio_pull_up(PIN_I2C0_SCL);
     gpio_pull_up(PIN_I2C0_SDA);
-
     printf("SPI0 and I2C0 initialized.\r\n");
+
+
+    // set I2C1 for PCA9685 at 400KHz
+    i2c_init(i2c1, 400 * 1000);
+    gpio_set_function(PIN_I2C1_SDA, GPIO_FUNC_I2C);
+    gpio_set_function(PIN_I2C1_SCL, GPIO_FUNC_I2C);
+    gpio_pull_up(PIN_I2C1_SDA);
+    gpio_pull_up(PIN_I2C1_SCL);
+    printf("I2C1 initialized.\r\n");
     
+    // LED driver init
+    if (pca9685_init(&vu_meter, i2c0, 0x40)) {
+        printf("PCA9685 LED Driver initialized!\r\n");
+    } else {
+        printf("WARNING: PCA9685 Init Failed!\r\n");
+    }
+
     if (!sd_init_driver())
     {
         while (1)
@@ -218,6 +247,8 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
 
     multicore_launch_core1(core1_entry);
     printf("CORE 1 LAUNCHED!\r\n");
+
+
 
     adc_init();        // Inside sb_hw_init
     adc_gpio_init(45); // Left
@@ -709,6 +740,7 @@ void update_visualizer_core1()
     static int x = 0;
     static int last_y_l = OFFSET_L;
     static int last_y_r = OFFSET_R;
+    static int led_throttle = 0;
 
     // 1. Sample Channels
     adc_select_input(ADC_CH_L);
@@ -716,6 +748,10 @@ void update_visualizer_core1()
     adc_select_input(ADC_CH_R);
     uint16_t raw_r = adc_read();
 
+    //ensures that LED do not use too many cycles
+    if (led_throttle++ % 8 == 0) {
+        pca9685_update_vu(&vu_meter, raw_l, raw_r);
+    }
     // 2. Map to Split Offsets
     // Left Channel centered at 150
     int dev_l = (int)raw_l - ADC_BIAS_CENTER;

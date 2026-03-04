@@ -7,6 +7,9 @@
 
 #define PCA9685_I2C_ADDR 0x40
 #define PCA9685_OSC_FREQ 25000000
+#define NUM_LEDS_PER_CH 8
+#define ADC_CENTER 806
+#define MAX_AMPLITUDE 800.0f
 
 typedef struct {
     i2c_inst_t *i2c;
@@ -24,5 +27,5 @@ void pca9685_set_pwm_freq(pca9685_t *dev, float freq);
 void pca9685_set_pwm(pca9685_t *dev, uint8_t channel, uint16_t on, uint16_t off);
 void pca9685_set_pin(pca9685_t *dev, uint8_t channel, uint16_t value, bool invert);
 void pca9685_write_microseconds(pca9685_t *dev, uint8_t channel, uint16_t us);
-
+void pca9685_update_vu(pca9685_t *dev, uint16_t adc_left, uint16_t adc_right);
 #endif
