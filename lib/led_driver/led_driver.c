@@ -37,6 +37,7 @@ bool pca9685_init(pca9685_t *dev, i2c_inst_t *i2c, uint8_t addr) {
     sleep_ms(10);
 
     pca9685_set_pwm_freq(dev, 1000);
+    // pca9685_wakeup(dev);
     return true;
 }
 
@@ -116,20 +117,20 @@ void pca9685_write_microseconds(pca9685_t *dev, uint8_t channel, uint16_t us) {
 }
 
 #define NUM_LEDS_PER_CH 8
-#define ADC_CENTER 806
+#define ADC_CENTER 1526 //4096 * (1.23/3.3) where 1.23 is the DC bais from the codec to the audio signal
 #define MAX_AMPLITUDE 800.0f // Adjust for sensitivity
 
-// State variables for peak smoothing (prevents fast flickering)
+// State variables for peak smoothing 
 static float peak_l = 0.0f;
 static float peak_r = 0.0f;
 static const float PEAK_DECAY = 0.05f; // How fast the LEDs fall back down
 
 void pca9685_update_vu(pca9685_t *dev, uint16_t adc_left, uint16_t adc_right) {
-    // 1. Calculate absolute amplitude
+    // Remove DC bais from codec
     float amp_l = (float)abs((int)adc_left - ADC_CENTER);
     float amp_r = (float)abs((int)adc_right - ADC_CENTER);
 
-    // 2. Normalize to a 0.0 to 1.0 scale
+    // Scale to a percent
     float level_l = fminf(amp_l / MAX_AMPLITUDE, 1.0f);
     float level_r = fminf(amp_r / MAX_AMPLITUDE, 1.0f);
 
@@ -137,7 +138,7 @@ void pca9685_update_vu(pca9685_t *dev, uint16_t adc_left, uint16_t adc_right) {
     // level_l = log10f(1.0f + 9.0f * level_l); 
     // level_r = log10f(1.0f + 9.0f * level_r);
 
-    // 3. Peak Tracking (Instantly rise, slowly fall)
+    // Peak Tracking (Instantly rise, slowly fall)
     if (level_l > peak_l) peak_l = level_l;
     else peak_l -= PEAK_DECAY;
     if (peak_l < 0.0f) peak_l = 0.0f;

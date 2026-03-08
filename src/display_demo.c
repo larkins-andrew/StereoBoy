@@ -1,61 +1,50 @@
-/**
- * Copyright (c) 2020 Raspberry Pi (Trading) Ltd.
- *
- * SPDX-License-Identifier: BSD-3-Clause
- */
-
 #include <stdio.h>
-#include <math.h>
-
 #include "pico/stdlib.h"
-#include "hardware/pio.h"
-#include "hardware/gpio.h"
-#include "hardware/interp.h"
+#include "hardware/i2c.h"
+#include "lib/led_driver/led_driver.h" 
 
-#include "lib/font/font.h"
-#include "lib/display/display.h"
-
-#include "main.pio.h"
-#include "lib/images/raspberry_256x256_rgb565.h"
-
-uint16_t framebuffer[SCREEN_WIDTH * SCREEN_HEIGHT] = {0};  // Each element is one pixel (RGB565)
-
-
-
+// I2C1 for LED Driver (PCA9685) on RP2350
+#define PIN_I2C1_SDA 42
+#define PIN_I2C1_SCL 43
 
 int main() {
     stdio_init_all();
+    sleep_ms(2000); // Give USB serial time to connect so you can see printfs
+    printf("\n--- StereoBoy LED Subsystem Test ---\n");
 
-    PIO pio = pio0;
-    uint sm = 0;
-    uint offset = pio_add_program(pio, &st7789_lcd_program);
-    st7789_lcd_program_init(pio, sm, offset, PIN_DIN, PIN_CLK, SERIAL_CLK_DIV);
+    i2c_init(i2c1, 400 * 1000);
+    gpio_set_function(PIN_I2C1_SDA, GPIO_FUNC_I2C);
+    gpio_set_function(PIN_I2C1_SCL, GPIO_FUNC_I2C);
+    gpio_pull_up(PIN_I2C1_SDA);
+    gpio_pull_up(PIN_I2C1_SCL);
+    printf("I2C1 hardware initialized on pins 42/43.\n");
 
-    gpio_init(PIN_CS);
-    gpio_init(PIN_DC);
-    gpio_init(PIN_RESET);
-    gpio_init(PIN_BL);
-    gpio_set_dir(PIN_CS, GPIO_OUT);
-    gpio_set_dir(PIN_DC, GPIO_OUT);
-    gpio_set_dir(PIN_RESET, GPIO_OUT);
-    gpio_set_dir(PIN_BL, GPIO_OUT);
 
-    gpio_put(PIN_CS, 1);
-    gpio_put(PIN_RESET, 1);
-    lcd_init(pio, sm, st7789_init_seq);
-    gpio_put(PIN_BL, 1);
-
-    
-    // lcd_draw_rect(pio, sm, 0, 0, 240, 240, WHITE);
-    // lcd_draw_rect(pio, sm, 0, 0, 60, 60, rgbto565(GRAY));
-    lcd_draw_circle(120,120, 16, GREEN, framebuffer);
-    lcd_draw_circle_fill(120, 180, 33, rgbto565(0xFF3399), framebuffer);
-    lcd_draw_string(80, 80, "Shubham Was Here", BLUE, framebuffer);
-    lcd_draw_char(10, 10, 'B', CYAN, framebuffer);
-    lcd_update(pio, sm, framebuffer);
-    lcd_draw_progress_bar(pio, sm, 200, 46, framebuffer);
-    
-    while (1) {
-        
+    pca9685_t vu_meter;
+    if (pca9685_init(&vu_meter, i2c1, 0x40)) {
+        printf("PCA9685 successfully found at 0x40!\n");
+    } else {
+        printf("ERROR: PCA9685 not responding.\n");
+        while(1); 
     }
+
+    printf("Starting LED sweep animation...\n");
+
+    while (1) {
+        // Sweep ON
+        for (int i = 0; i < 16; i++) {
+            // Channel i, Value 4095 (100% duty cycle), Invert false
+            pca9685_set_pin(&vu_meter, i, 4095, false); 
+            sleep_ms(100); 
+        }
+        
+        // Sweep OFF
+        for (int i = 0; i < 16; i++) {
+            // Channel i, Value 0 (0% duty cycle), Invert false
+            pca9685_set_pin(&vu_meter, i, 0, false); 
+            sleep_ms(100);
+        }
+    }
+
+    return 0;
 }

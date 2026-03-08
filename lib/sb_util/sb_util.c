@@ -211,7 +211,7 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
     printf("I2C1 initialized.\r\n");
     
     // LED driver init
-    if (pca9685_init(&vu_meter, i2c0, 0x40)) {
+    if (pca9685_init(&vu_meter, i2c1, 0x40)) {
         printf("PCA9685 LED Driver initialized!\r\n");
     } else {
         printf("WARNING: PCA9685 Init Failed!\r\n");
