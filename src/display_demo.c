@@ -28,6 +28,14 @@ int main() {
         while(1); 
     }
 
+    if (!pca_check_presence(&vu_meter)) {
+        // Blink rapidly forever
+        while (true) {
+            printf("ERROR");
+            sleep_ms(100);
+        }
+    }
+
     printf("Starting LED sweep animation...\n");
 
     while (1) {
@@ -36,6 +44,7 @@ int main() {
             // Channel i, Value 4095 (100% duty cycle), Invert false
             pca9685_set_pin(&vu_meter, i, 4095, false); 
             sleep_ms(100); 
+            printf("Sweeep on...\n");
         }
         
         // Sweep OFF
@@ -43,6 +52,7 @@ int main() {
             // Channel i, Value 0 (0% duty cycle), Invert false
             pca9685_set_pin(&vu_meter, i, 0, false); 
             sleep_ms(100);
+            printf("Sweeep off...\n");
         }
     }
 

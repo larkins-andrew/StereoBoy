@@ -16,6 +16,8 @@
 
 #define MODE2_OUTDRV 0x04
 
+
+
 static void write8(pca9685_t *dev, uint8_t reg, uint8_t val) {
     uint8_t buf[2] = {reg, val};
     i2c_write_blocking(dev->i2c, dev->addr, buf, 2, false);
@@ -28,33 +30,15 @@ static uint8_t read8(pca9685_t *dev, uint8_t reg) {
     return val;
 }
 
-bool pca9685_init(pca9685_t *dev, i2c_inst_t *i2c, uint8_t addr) {
-    dev->i2c = i2c;
-    dev->addr = addr;
-    dev->osc_freq = PCA9685_OSC_FREQ;
-
-    pca9685_reset(dev);
-    sleep_ms(10);
-
-    pca9685_set_pwm_freq(dev, 1000);
-    // pca9685_wakeup(dev);
-    return true;
-}
-
-void pca9685_reset(pca9685_t *dev) {
-    write8(dev, MODE1, MODE1_RESTART);
-    sleep_ms(10);
+void pca9685_wakeup(pca9685_t *dev) {
+    uint8_t mode = read8(dev, MODE1);
+    write8(dev, MODE1, mode & ~MODE1_SLEEP);
+    sleep_ms(1);
 }
 
 void pca9685_sleep(pca9685_t *dev) {
     uint8_t mode = read8(dev, MODE1);
     write8(dev, MODE1, mode | MODE1_SLEEP);
-    sleep_ms(1);
-}
-
-void pca9685_wakeup(pca9685_t *dev) {
-    uint8_t mode = read8(dev, MODE1);
-    write8(dev, MODE1, mode & ~MODE1_SLEEP);
     sleep_ms(1);
 }
 
@@ -71,6 +55,42 @@ void pca9685_set_pwm_freq(pca9685_t *dev, float freq) {
     write8(dev, MODE1, oldmode);
     sleep_ms(5);
     write8(dev, MODE1, oldmode | MODE1_RESTART | MODE1_AI);
+}
+
+bool pca9685_init(pca9685_t *dev, i2c_inst_t *i2c, uint8_t addr) {
+    dev->i2c = i2c;
+    dev->addr = addr;
+    dev->osc_freq = PCA9685_OSC_FREQ;
+
+    //enter sleep
+    write8(dev, MODE1, MODE1_SLEEP);
+
+    //set Totem-Pole outputs to source current
+    write8(dev, MODE2, MODE2_OUTDRV);
+
+    //Wake up and enable Auto-Increment for the 5-byte block writes
+    write8(dev, MODE1, MODE1_AI);
+    sleep_ms(10); // Required 500us minimum for the oscillator to stabilize
+
+    // flush the PWM counters
+    write8(dev, MODE1, MODE1_AI | MODE1_RESTART);
+
+    // set frequency
+    pca9685_set_pwm_freq(dev, 1000);
+
+    return true;
+}
+
+void pca9685_reset(pca9685_t *dev) {
+    write8(dev, MODE1, MODE1_RESTART);
+    sleep_ms(10);
+}
+
+bool pca_check_presence(pca9685_t *dev) {
+    int result = i2c_write_blocking(dev->i2c, dev->addr, NULL, 0, 0);
+
+    // Hardware I²C returns number of bytes written OR a negative error code
+    return (!result);
 }
 
 void pca9685_set_pwm(pca9685_t *dev, uint8_t channel, uint16_t on, uint16_t off) {
@@ -116,9 +136,6 @@ void pca9685_write_microseconds(pca9685_t *dev, uint8_t channel, uint16_t us) {
     pca9685_set_pwm(dev, channel, 0, (uint16_t)ticks);
 }
 
-#define NUM_LEDS_PER_CH 8
-#define ADC_CENTER 1526 //4096 * (1.23/3.3) where 1.23 is the DC bais from the codec to the audio signal
-#define MAX_AMPLITUDE 800.0f // Adjust for sensitivity
 
 // State variables for peak smoothing 
 static float peak_l = 0.0f;

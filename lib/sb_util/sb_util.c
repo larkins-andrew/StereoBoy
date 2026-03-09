@@ -44,8 +44,6 @@ static FATFS fs;
 #define BG_COLOR 0x0000   // Black
 
 // Center at 0.65V (ADC is 12-bit, 0-3.3V)
-// (0.65 / 3.3) * 4095 = 806
-#define ADC_CENTER 806
 #define ADC_CH 5
 
 // Updated Constants for Split View
@@ -101,71 +99,98 @@ static void jukebox(vs1053_t *player, track_info_t *track, st7789_t *display);
    PUBLIC API
    ========================================================= */
 
+// Helper function to sample audio and update the LEDs
+static void process_audio_batch() {
+    static int history_ptr = 0;
+    uint16_t max_dev_l = 0;
+    uint16_t max_dev_r = 0;
+
+    for (int i = 0; i < 32; i++) {
+        // Read Left ONCE
+        adc_select_input(ADC_CH_L);
+        uint16_t raw_l = adc_read();
+        audio_history_l[history_ptr] = (cplx)raw_l;
+
+        // Read Right ONCE
+        adc_select_input(ADC_CH_R);
+        uint16_t raw_r = adc_read();
+        audio_history_r[history_ptr] = (cplx)raw_r;
+
+        //calculate absolute deviation from the DC bias center
+        uint16_t dev_l = abs((int)raw_l - ADC_BIAS_CENTER);
+        uint16_t dev_r = abs((int)raw_r - ADC_BIAS_CENTER);
+
+        //Onny take max value in each batch
+        if (dev_l > max_dev_l) max_dev_l = dev_l;
+        if (dev_r > max_dev_r) max_dev_r = dev_r;
+
+        history_ptr = (history_ptr + 1) % HISTORY_SIZE;
+        sleep_us(20); 
+    }
+
+    // Re-add the bias so the VU meter math processes the peak correctly
+    pca9685_update_vu(&vu_meter, ADC_BIAS_CENTER + max_dev_l, ADC_BIAS_CENTER + max_dev_r);
+}
+
 // This is the main loop for Core 1
 void core1_entry()
 {
-    static int history_ptr = 0;
-
     while (1)
     {
-        switch (visualizer)
+        switch(visualizer)
         {
-        case 2:
-        case 3:
-        case 4:
-            // 1. CONTINUOUS SAMPLE: Fill the buffer over time
-            // To balance bass and treble, we want about 22kHz sampling
-            uint16_t batch_peak_l = ADC_CENTER; //peaks used for LED matrix
-            uint16_t batch_peak_r = ADC_CENTER;
-            for (int i = 0; i < 32; i++)
-            {
-                adc_select_input(ADC_CH_L);
-                audio_history_l[history_ptr] = (cplx)adc_read();
-                uint16_t raw_l = adc_read();
-
-                adc_select_input(ADC_CH_R);
-                uint16_t raw_r = adc_read();
-                audio_history_r[history_ptr] = (cplx)adc_read();
-
-                history_ptr = (history_ptr + 1) % HISTORY_SIZE;
-                // Track the highest value in this 32-sample batch
-                if (raw_l > batch_peak_l) batch_peak_l = raw_l;
-                if (raw_r > batch_peak_r) batch_peak_r = raw_r;
-
-                sleep_us(20);
-            }
-            pca9685_update_vu(&vu_meter, batch_peak_l, batch_peak_r);
-            if (visualizer == 2)
-            {
-                draw_lissajous_connected();
-            }
-            else if (visualizer == 3)
-            {
-                draw_lissajous();
-            }
-            else
-            {
-                memset(frame_buffer, 0, sizeof(frame_buffer));
-                draw_bins(60);
-
-                st7789_set_cursor(0, 0);
-                st7789_ramwr();
-                spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
-                spi_write16_blocking(spi0, frame_buffer, 240 * 240);
-            }
-            break;
-        case 1:
-            update_visualizer_core1();
-            break;
-        default:
+        case 0: // Album Art
             if (album_art_ready)
             {
+                // Draw art once
                 album_art_centered();
                 st7789_set_cursor(0, 0);
                 st7789_ramwr();
                 spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
                 spi_write16_blocking(spi0, frame_buffer, 240 * 240);
+                
+                // Lock into an LED-only
+                while (visualizer == 0) {
+                    adc_select_input(ADC_CH_L);
+                    uint16_t raw_l = adc_read();
+                    
+                    adc_select_input(ADC_CH_R);
+                    uint16_t raw_r = adc_read();
+                    
+                    pca9685_update_vu(&vu_meter, raw_l, raw_r);
+                    sleep_ms(16); // Throttle to ~60FPS
+                }
             }
+            break;
+
+        case 1: // Oscilloscope
+            update_visualizer_core1();
+            break;
+
+        case 2: // FFT 
+            process_audio_batch();
+            
+            memset(frame_buffer, 0, sizeof(frame_buffer));
+            draw_bins(60);
+
+            st7789_set_cursor(0, 0);
+            st7789_ramwr();
+            spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
+            spi_write16_blocking(spi0, frame_buffer, 240 * 240);
+            break;
+
+        case 3: // Lissajous
+            process_audio_batch();
+            draw_lissajous();
+            break;
+
+        case 4: //Lissajous connected
+            process_audio_batch();
+            draw_lissajous_connected();
+            break;
+
+        default:
+            visualizer = 0;
             break;
         }
     }
@@ -1344,7 +1369,7 @@ void jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
                 dac_eq_adjust(selected_band, 0.5f, sampleSpeed); // Boost
                 printf("Band %d Gain: %.1f dB\n", selected_band, dac_eq_get_gain(selected_band));
             }
-            if (c == '-' || c == "_") {
+            if (c == '-') {
                 dac_eq_adjust(selected_band, -0.5f, sampleSpeed); // Cut
                 printf("Band %d Gain: %.1f dB\n", selected_band, dac_eq_get_gain(selected_band));
             }
