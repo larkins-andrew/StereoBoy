@@ -117,8 +117,8 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
     printf("CORE 1 LAUNCHED!\r\n");
     
     adc_init();// Inside sb_hw_init
-    adc_gpio_init(45); // Left
-    adc_gpio_init(44); // Right
+    adc_gpio_init(46); // Left
+    adc_gpio_init(45); // Right
     adc_select_input(ADC_CH);
     // Setup DMA for super-fast draw routines
     dma_chan = dma_claim_unused_channel(true);
@@ -488,8 +488,8 @@ static int compare_filenames(const void *a, const void *b) {
 #define OFFSET_L        150   // Bottom half-ish
 #define OFFSET_R        90    // Top half-ish
 
-#define ADC_CH_L 5
-#define ADC_CH_R 4
+#define ADC_CH_L 6
+#define ADC_CH_R 5
 
 #define WAVE_L_COLOR 0x04DF
 #define WAVE_R_COLOR 0xF808
