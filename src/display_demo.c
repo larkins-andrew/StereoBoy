@@ -53,13 +53,22 @@ int main()
 
     sb_hw_init(&player, &display);
 
-    // track_info_t tracks[MAX_TRACKS];
-    // int count = sb_scan_tracks(tracks, MAX_TRACKS);
-
     // --- Print menu ---
-    dprint("Example %s", "thing");
+    dprint("Main Print 1");
+    dprint("Main Print %d", 2);
     sleep_ms(1000);
     dprint("hihi, %s", "thing");
 
-    printLL();
+    while(true){
+        sleep_ms(10);
+    }
+    // int i = 0;
+    // while(true){
+    //     dprint("%d", i);
+    //     i++;
+    //     sleep_ms(200);
+
+    // }
+
+    // printLL();
 }

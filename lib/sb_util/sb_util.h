@@ -71,5 +71,8 @@ struct Node {
     struct Node * next;
     char str[30];
 };
+void printLL();
+void pause_core1();
+void resume_core1();
 
 #endif

@@ -14,6 +14,7 @@
 #include "../display/display.h"
 #include "../display/picojpeg.h"
 #include "pico/multicore.h"
+// #include "scripting/output.h"
 #include "lib/font/font.h"
 
 #define MAX_FILENAME_LEN 256 // max filaname character length
@@ -79,6 +80,7 @@ cplx audio_history_l[HISTORY_SIZE];
 cplx audio_history_r[HISTORY_SIZE];
 int history_index = 0;
 int visualizer = 5;
+volatile bool loading_songs = false;
 int num_visualizations = 6;
 bool album_art_ready = false;
 /*******************visualizations not scope*******************/
@@ -116,16 +118,23 @@ void printLL(){
    PUBLIC API
    ========================================================= */
 
+void pause_core1(){
+    loading_songs = true;
+}
+void resume_core1(){
+    loading_songs = false;
+}
+
 void set_pixel(uint16_t x, uint16_t y, uint16_t color) {
     frame_buffer[y * SCREEN_WIDTH + x] = color;
 }
 
 void lcd_draw_char(uint16_t x, uint16_t y, char c, uint16_t color) {
     const struct Font * f = find_font_char(c);
-    if (!f) return;
-    for (uint8_t row = 0; row < 7; row++) {
-        for (uint8_t col = 0; col < 5; col++) {
-            if (f->code[row][col] == '1') {
+    if (f == NULL) return;
+    for (uint8_t row = 0; row < font_height; row++) {
+        for (uint8_t col = 0; col < font_width; col++) {
+            if (f->code[row * font_width + col] == 1) {
                 set_pixel(x + col, y + row, color);
             }
             else{
@@ -134,6 +143,7 @@ void lcd_draw_char(uint16_t x, uint16_t y, char c, uint16_t color) {
         }
     }
 }
+
 
 void st7789_draw_string(uint16_t x, uint16_t y, const char *text, uint16_t color) {
     uint16_t start_x = x;
@@ -144,17 +154,37 @@ void st7789_draw_string(uint16_t x, uint16_t y, const char *text, uint16_t color
         //     start_x = x;
         //     start_y += 10;
         // }
-        if (start_x < SCREEN_WIDTH-5 && start_y < SCREEN_HEIGHT-7) {
-            lcd_draw_char(start_x, y, text[i], color);
-            start_x += 6;
+        if (start_x < SCREEN_WIDTH-font_width && start_y < SCREEN_HEIGHT-font_height) {
+            lcd_draw_char(start_x, start_y, text[i], color);
+            start_x += font_width;
+        }
+        else{
+            break;
         }
     }
 }
 
 void app_node(char * str){
+    if (sem_available(&text_sem) >= 10){
+        return;
+    }
     mutex_enter_blocking(&text_buff_mtx);
 
     struct Node * n = calloc(1, sizeof(struct Node));
+    if (n == NULL){
+        printf("Error using calloc in app_node, freeing LL!");
+        n = head;
+        struct Node * prev = head;
+        while (n != NULL){
+            prev = n;
+            n = n -> next;
+            free(prev);
+        }
+        mutex_exit(&text_buff_mtx);
+        sleep_ms(100000);
+        return;
+    }
+
     n -> next = NULL;
     strncpy(n -> str, str, sizeof(n->str));
 
@@ -169,6 +199,7 @@ void app_node(char * str){
         prev -> next = n;
     }
     mutex_exit(&text_buff_mtx);
+    sem_release(&text_sem);
     return;
 }
 
@@ -179,10 +210,7 @@ void dprint(char * fmt, ...)
     vsprintf(text_buff_temp, fmt, args);
     va_end(args);
     app_node(text_buff_temp);
-    sem_release(&text_sem);
-    printf("dprint: Sem count: %d\r\n", sem_available(&text_sem));
-    printf("dprint: \'%s\'\r\n", text_buff_temp);
-    return;
+    printf("dprint: \'%s\' | strlen:%d sem_avail:%d\r\n", text_buff_temp, strlen(text_buff_temp), sem_available(&text_sem));    return;
 }
 
 // This is the main loop for Core 1
@@ -192,6 +220,11 @@ void core1_entry()
 
     while (1)
     {
+        if (loading_songs == true){
+            sleep_ms(100);
+            printf("Core 1 sleeping\n");
+            continue; // Skip body of main loop
+        }
         switch (visualizer)
         {
         case 2:
@@ -241,12 +274,16 @@ void core1_entry()
                 spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
                 spi_write16_blocking(spi0, frame_buffer, 240 * 240);
             }
+            else{
+                sleep_us(100);
+            }
             break;
         case 5:
             if (sem_acquire_timeout_ms(&text_sem, 10)) {
                 printf(" core1: aquired lock\r\n");
-                memmove(frame_buffer, frame_buffer+SCREEN_WIDTH*10, sizeof(uint16_t)*(SCREEN_WIDTH)*(SCREEN_HEIGHT-10));
-                memset(frame_buffer + SCREEN_WIDTH*(SCREEN_HEIGHT-10),0, sizeof(uint16_t) * (SCREEN_WIDTH) * (10));
+
+                memmove(&frame_buffer, &frame_buffer[SCREEN_WIDTH*(font_height)], sizeof(uint16_t)*(SCREEN_WIDTH)*(SCREEN_HEIGHT-font_height));
+                memset(&frame_buffer[SCREEN_WIDTH*(SCREEN_HEIGHT-font_height)],0, sizeof(uint16_t) * (SCREEN_WIDTH) * (font_height));
                 mutex_enter_blocking(&text_buff_mtx);
                 
                 if (head == NULL){
@@ -255,16 +292,18 @@ void core1_entry()
                     continue;
                 }
                 printf("core 1: %s | %d\r\n", head -> str, strlen(text_buff_temp));
-                st7789_draw_string(1, 239-15, head -> str, WHITE);
+                st7789_draw_string(1, SCREEN_HEIGHT-font_height-5, head -> str, WHITE);
                 struct Node * n = head;
                 head = head -> next;
                 if (n != NULL){
                     free(n);
                 }                
                 mutex_exit(&text_buff_mtx);
+                st7789_set_cursor(0, 0);
+                st7789_ramwr();
                 spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
                 spi_write16_blocking(spi0, frame_buffer, 240 * 240);
-                sleep_us(10);
+                sleep_ms(1000);
                 printf(" core 1 finished print\r\n");
                 
             }
@@ -413,6 +452,7 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
 
 int sb_scan_tracks(track_info_t *tracks, int max_tracks)
 {
+    dprint("start of sb_scan_tracks heartbeat");
     DIR dir;
     FILINFO fno;
     int count = 0;
@@ -429,6 +469,7 @@ int sb_scan_tracks(track_info_t *tracks, int max_tracks)
         {
             get_mp3_metadata(fno.fname, &tracks[count]);
             count++;
+            dprint("Read song %d", count);
         }
     }
 
@@ -443,6 +484,7 @@ int sb_scan_tracks(track_info_t *tracks, int max_tracks)
 
     qsort(tracks, count, sizeof(track_info_t), compare_filenames);
 
+    dprint("end of sb_scan_tracks heartbeat");
     return count;
 }
 
@@ -598,6 +640,7 @@ static uint32_t find_audio_start(FIL *fil)
 
 static void get_mp3_header(FIL *fil, track_info_t *track)
 {
+    dprint("start of get_mp3_header heartbeat");
     UINT br;
     uint8_t header[4];
 
@@ -704,10 +747,12 @@ static void get_mp3_header(FIL *fil, track_info_t *track)
 
     // Channels
     track->channels = (channel_bits >> 1) & 1; // 0 = stereo, 1 = mono
+    dprint("end of get_mp3_header heartbeat");
 }
 
 static void get_mp3_metadata(const char *filename, track_info_t *track)
 {
+    dprint("start of get_mp3_metadata heartbeat");
     strcpy(track->filename, filename);
     strcpy(track->title, "(unknown)");
     strcpy(track->artist, "(unknown)");
@@ -834,6 +879,8 @@ static void get_mp3_metadata(const char *filename, track_info_t *track)
 
 out:
     f_close(&fil);
+
+    dprint("end of get_mp3_metadata heartbeat");
 }
 
 // Helper for qsort

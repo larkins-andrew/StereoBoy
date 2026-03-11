@@ -53,12 +53,16 @@ int main()
 
     sb_hw_init(&player, &display);
 
+    dprint("Starting Track Scan");
+    pause_core1();
     track_info_t tracks[MAX_TRACKS];
     int count = sb_scan_tracks(tracks, MAX_TRACKS);
-
+    resume_core1();
+    
     // --- Print menu ---
-    dprint("Example %s", "thing");
-    printf("Example %s\r\n", "thing");
+    dprint("Debug print test %d", 1); //Trigger Core 2 Print
+    printf("Debug print test %s\r\n", "2");
+    
     while(1) {
         dprint("    Available tracks:");
         printf("\r\nAvailable tracks:\r\n");
