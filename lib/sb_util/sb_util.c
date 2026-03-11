@@ -37,6 +37,10 @@ static FATFS fs;
 #define PIN_I2C0_SCL 21
 #define PIN_I2C0_SDA 20
 
+// I2C1 for LED Driver
+#define PIN_I2C1_SDA 42
+#define PIN_I2C1_SCL 43
+
 // Display and oscope stuff
 #define SCREEN_WIDTH 240
 #define SCREEN_HEIGHT 240
@@ -44,8 +48,6 @@ static FATFS fs;
 #define BG_COLOR 0x0000   // Black
 
 // Center at 0.65V (ADC is 12-bit, 0-3.3V)
-// (0.65 / 3.3) * 4095 = 806
-#define ADC_CENTER 806
 #define ADC_CH 5
 
 // Updated Constants for Split View
@@ -56,8 +58,8 @@ static FATFS fs;
 #define OFFSET_L 150 // Bottom half-ish
 #define OFFSET_R 90  // Top half-ish
 
-#define ADC_CH_L 5
-#define ADC_CH_R 4
+#define ADC_CH_L 6
+#define ADC_CH_R 5
 
 #define WAVE_L_COLOR 0x07E0
 #define WAVE_R_COLOR 0x07FF
@@ -73,7 +75,7 @@ static uint16_t img_buffer[IMG_WIDTH * IMG_HEIGHT];
 static uint16_t column_buf[240];
 static int dma_chan = -1;
 static dma_channel_config dcc;
-
+pca9685_t vu_meter;
 /*******************visualizations not scope*******************/
 #define HISTORY_SIZE 256
 cplx audio_history_l[HISTORY_SIZE];
@@ -213,59 +215,168 @@ void dprint(char * fmt, ...)
     printf("dprint: \'%s\' | strlen:%d sem_avail:%d\r\n", text_buff_temp, strlen(text_buff_temp), sem_available(&text_sem));    return;
 }
 
+// Helper function to sample audio and update the LEDs
+static void process_audio_batch() {
+    static int history_ptr = 0;
+    uint16_t max_dev_l = 0;
+    uint16_t max_dev_r = 0;
+
+    for (int i = 0; i < 32; i++) {
+        // Read Left ONCE
+        adc_select_input(ADC_CH_L);
+        uint16_t raw_l = adc_read();
+        audio_history_l[history_ptr] = (cplx)raw_l;
+
+        // Read Right ONCE
+        adc_select_input(ADC_CH_R);
+        uint16_t raw_r = adc_read();
+        audio_history_r[history_ptr] = (cplx)raw_r;
+
+        //calculate absolute deviation from the DC bias center //find a way to remove this, subtract
+        uint16_t dev_l = abs((int)raw_l - ADC_BIAS_CENTER);
+        uint16_t dev_r = abs((int)raw_r - ADC_BIAS_CENTER);
+
+        //Onny take max value in each batch
+        if (dev_l > max_dev_l) max_dev_l = dev_l;
+        if (dev_r > max_dev_r) max_dev_r = dev_r;
+
+        history_ptr = (history_ptr + 1) % HISTORY_SIZE;
+        sleep_us(10); 
+    }
+
+    // Re-add the bias so the VU meter math processes the peak correctly
+    pca9685_update_vu(&vu_meter, ADC_BIAS_CENTER + max_dev_l, ADC_BIAS_CENTER + max_dev_r);
+}
+
 // This is the main loop for Core 1
 void core1_entry()
 {
-    static int history_ptr = 0;
-
     while (1)
     {
-        if (loading_songs == true){
-            sleep_ms(100);
-            printf("Core 1 sleeping\n");
-            continue; // Skip body of main loop
-        }
-        switch (visualizer)
+        switch(visualizer)
         {
-        case 2:
-        case 3:
-        case 4:
-            // 1. CONTINUOUS SAMPLE: Fill the buffer over time
-            // To balance bass and treble, we want about 22kHz sampling
-            for (int i = 0; i < 32; i++)
+        case 0: // Album Art
+            if (album_art_ready)
             {
-                adc_select_input(ADC_CH_L);
-                audio_history_l[history_ptr] = (cplx)adc_read();
-                adc_select_input(ADC_CH_R);
-                audio_history_r[history_ptr] = (cplx)adc_read();
-
-                history_ptr = (history_ptr + 1) % HISTORY_SIZE;
-                sleep_us(20);
-            }
-
-            if (visualizer == 2)
-            {
-                draw_lissajous_connected();
-            }
-            else if (visualizer == 3)
-            {
-                draw_lissajous();
-            }
-            else
-            {
-                memset(frame_buffer, 0, sizeof(frame_buffer));
-                draw_bins(60);
-
+                // Draw art once
+                album_art_centered();
                 st7789_set_cursor(0, 0);
                 st7789_ramwr();
                 spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
                 spi_write16_blocking(spi0, frame_buffer, 240 * 240);
+                
+                // Lock into an LED-only
+                while (visualizer == 0) {
+                    adc_select_input(ADC_CH_L);
+                    uint16_t raw_l = adc_read();
+                    
+                    adc_select_input(ADC_CH_R);
+                    uint16_t raw_r = adc_read();
+                    
+                    pca9685_update_vu(&vu_meter, raw_l, raw_r);
+                    sleep_ms(16); // Throttle to ~60FPS
+                }
+            }
+            break;
+
+        case 1: // Oscilloscope
+            update_visualizer_core1();
+            break;
+
+        case 2: // FFT 
+            process_audio_batch();
+            
+            memset(frame_buffer, 0, sizeof(frame_buffer));
+            draw_bins(60);
+
+            st7789_set_cursor(0, 0);
+            st7789_ramwr();
+            spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
+            spi_write16_blocking(spi0, frame_buffer, 240 * 240);
+            break;
+
+        case 3: // Lissajous
+            process_audio_batch();
+            draw_lissajous();
+            break;
+
+        case 4: //Lissajous connected
+            process_audio_batch();
+            draw_lissajous_connected();
+            break;
+
+        case 5:
+            if (sem_acquire_timeout_ms(&text_sem, 10)) {
+                printf(" core1: aquired lock\r\n");
+
+                memmove(&frame_buffer, &frame_buffer[SCREEN_WIDTH*(font_height)], sizeof(uint16_t)*(SCREEN_WIDTH)*(SCREEN_HEIGHT-font_height));
+                memset(&frame_buffer[SCREEN_WIDTH*(SCREEN_HEIGHT-font_height)],0, sizeof(uint16_t) * (SCREEN_WIDTH) * (font_height));
+                mutex_enter_blocking(&text_buff_mtx);
+                
+                if (head == NULL){
+                    printf("Err! Core 1 head is NULL");
+                    mutex_exit(&text_buff_mtx);
+                    continue;
+                }
+                printf("core 1: %s | %d\r\n", head -> str, strlen(text_buff_temp));
+                st7789_draw_string(1, SCREEN_HEIGHT-font_height-5, head -> str, WHITE);
+                struct Node * n = head;
+                head = head -> next;
+                if (n != NULL){
+                    free(n);
+                }                
+                mutex_exit(&text_buff_mtx);
+                st7789_set_cursor(0, 0);
+                st7789_ramwr();
+                spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
+                spi_write16_blocking(spi0, frame_buffer, 240 * 240);
+                sleep_ms(1000);
+                printf(" core 1 finished print\r\n");
+                
+            }
+            break;
+
+        default:
+            visualizer = 0;
+            break;
+        }
+    }
+}
+
+// This is the main loop for Core 1
+void core1_entry()
+{
+    while (1)
+    {
+        switch(visualizer)
+        {
+        case 0: // Album Art
+            if (album_art_ready)
+            {
+                // Draw art once
+                album_art_centered();
+                st7789_set_cursor(0, 0);
+                st7789_ramwr();
+                spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
+                spi_write16_blocking(spi0, frame_buffer, 240 * 240);
+                
+                // Lock into an LED-only
+                while (visualizer == 0) {
+                    adc_select_input(ADC_CH_L);
+                    uint16_t raw_l = adc_read();
+                    
+                    adc_select_input(ADC_CH_R);
+                    uint16_t raw_r = adc_read();
+                    
+                    pca9685_update_vu(&vu_meter, raw_l, raw_r);
+                    sleep_ms(16); // Throttle to ~60FPS
+                }
             }
             break;
         case 1:
-            update_scope_core1();
+            update_visualizer_core1();
             break;
-        case 0:
+        default:
             if (album_art_ready)
             {
                 album_art_centered();
@@ -273,9 +384,6 @@ void core1_entry()
                 st7789_ramwr();
                 spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
                 spi_write16_blocking(spi0, frame_buffer, 240 * 240);
-            }
-            else{
-                sleep_us(100);
             }
             break;
         case 5:
@@ -310,20 +418,6 @@ void core1_entry()
 
             break;
         }
-    }
-}
-
-void fast_drawline(int x, int y1, int y2, uint16_t color)
-{
-    if (y1 > y2)
-    {
-        int tmp = y1;
-        y1 = y2;
-        y2 = tmp;
-    }
-    for (int y = y1; y <= y2; y++)
-    {
-        frame_buffer[y * SCREEN_WIDTH + x] = color;
     }
 }
 
@@ -380,10 +474,25 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
     gpio_set_function(PIN_I2C0_SDA, GPIO_FUNC_I2C);
     gpio_pull_up(PIN_I2C0_SCL);
     gpio_pull_up(PIN_I2C0_SDA);
-
     dprint("SPI0 and I2C0 initialized.");
     printf("SPI0 and I2C0 initialized.\r\n");
+
+
+    // set I2C1 for PCA9685 at 400KHz
+    i2c_init(i2c1, 400 * 1000);
+    gpio_set_function(PIN_I2C1_SDA, GPIO_FUNC_I2C);
+    gpio_set_function(PIN_I2C1_SCL, GPIO_FUNC_I2C);
+    gpio_pull_up(PIN_I2C1_SDA);
+    gpio_pull_up(PIN_I2C1_SCL);
+    printf("I2C1 initialized.\r\n");
     
+    // LED driver init
+    if (pca9685_init(&vu_meter, i2c1, 0x40)) {
+        printf("PCA9685 LED Driver initialized!\r\n");
+    } else {
+        printf("WARNING: PCA9685 Init Failed!\r\n");
+    }
+
     if (!sd_init_driver())
     {
         while (1)
@@ -415,8 +524,8 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
     }
 
     adc_init();        // Inside sb_hw_init
-    adc_gpio_init(45); // Left
-    adc_gpio_init(44); // Right
+    adc_gpio_init(46); // Left
+    adc_gpio_init(45); // Right
     adc_select_input(ADC_CH);
     
     printf("Oscope ADC initialized!\r\n");
@@ -433,7 +542,7 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
     vs1053_init(player);
     printf("VS1053 initialized.\r\n");
     dprint("VS1053 initialized.");
-    vs1053_set_volume(player, 0x00, 0x00);
+    vs1053_set_volume(player, 0x01, 0x01); //chnged from 0 (0x00) to -12dB (0x0202) to -6dB (0x0101)
     printf("VS1053 volume set to max!\r\n");
     dprint("VS1053 volume set to max!");
 
@@ -896,6 +1005,7 @@ void update_scope_core1()
     static int x = 0;
     static int last_y_l = OFFSET_L;
     static int last_y_r = OFFSET_R;
+    static int led_throttle = 0;
 
     // 1. Sample Channels
     adc_select_input(ADC_CH_L);
@@ -903,6 +1013,10 @@ void update_scope_core1()
     adc_select_input(ADC_CH_R);
     uint16_t raw_r = adc_read();
 
+    //ensures that LED do not use too many cycles
+    if (led_throttle++ % 8 == 0) {
+        pca9685_update_vu(&vu_meter, raw_l, raw_r);
+    }
     // 2. Map to Split Offsets
     // Left Channel centered at 150
     int dev_l = (int)raw_l - ADC_BIAS_CENTER;
@@ -1407,6 +1521,7 @@ out:
 JUKEBOX: MAIN PLAY LOOP
 ########################################################## */
 
+
 bool paused = false;
 bool warping = false;
 bool stopped = false;
@@ -1462,6 +1577,11 @@ void jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
     f_lseek(&fil, start);
     absolute_time_t last_skip_time = get_absolute_time();
 
+    static int selected_band = 0;
+
+    dac_eq_init(sampleSpeed); //init with default sample rate 
+
+
     // This while loop continuously scans for key inputs while playing audio.
     // Warping is achieved by continuously sending audio bytes after pause point until warp duration is met.
     while (1)
@@ -1476,6 +1596,24 @@ void jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
             // bool headphonesIn = dac_read(0, 0x43) & 0x20;
             // printf("Headphone prescence: %d\r\n", headphonesIn);
             absolute_time_t now = get_absolute_time();
+
+            //EQ START 
+            // Select the band (keys 0-5)
+            if (c >= '0' && c <= '5') {
+                selected_band = c - '0';
+                printf("\nSelected Band: %d Hz\n", dac_eq_get_freq(selected_band));
+            }
+            
+            // Adjust the band (+ or -)
+            if (c == '+' || c == '=') {
+                dac_eq_adjust(selected_band, 0.5f, sampleSpeed); // Boost
+                printf("Band %d Gain: %.1f dB\n", selected_band, dac_eq_get_gain(selected_band));
+            }
+            if (c == '-') {
+                dac_eq_adjust(selected_band, -0.5f, sampleSpeed); // Cut
+                printf("Band %d Gain: %.1f dB\n", selected_band, dac_eq_get_gain(selected_band));
+            }
+            //EQ END
             switch (c)
             {
             case 'p':
