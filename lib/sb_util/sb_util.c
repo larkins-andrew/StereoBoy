@@ -54,8 +54,8 @@ static FATFS fs;
 #define OFFSET_L 150 // Bottom half-ish
 #define OFFSET_R 90  // Top half-ish
 
-#define ADC_CH_L 5
-#define ADC_CH_R 4
+#define ADC_CH_L 6
+#define ADC_CH_R 5
 
 #define WAVE_L_COLOR 0x07E0
 #define WAVE_R_COLOR 0x07FF
@@ -116,7 +116,7 @@ static void process_audio_batch() {
         uint16_t raw_r = adc_read();
         audio_history_r[history_ptr] = (cplx)raw_r;
 
-        //calculate absolute deviation from the DC bias center
+        //calculate absolute deviation from the DC bias center //find a way to remove this, subtract
         uint16_t dev_l = abs((int)raw_l - ADC_BIAS_CENTER);
         uint16_t dev_r = abs((int)raw_r - ADC_BIAS_CENTER);
 
@@ -125,7 +125,7 @@ static void process_audio_batch() {
         if (dev_r > max_dev_r) max_dev_r = dev_r;
 
         history_ptr = (history_ptr + 1) % HISTORY_SIZE;
-        sleep_us(20); 
+        sleep_us(10); 
     }
 
     // Re-add the bias so the VU meter math processes the peak correctly
@@ -276,8 +276,8 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
 
 
     adc_init();        // Inside sb_hw_init
-    adc_gpio_init(45); // Left
-    adc_gpio_init(44); // Right
+    adc_gpio_init(46); // Left
+    adc_gpio_init(45); // Right
     adc_select_input(ADC_CH);
     // Setup DMA for super-fast draw routines
     dma_chan = dma_claim_unused_channel(true);
