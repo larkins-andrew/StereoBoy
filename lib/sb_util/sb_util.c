@@ -16,20 +16,6 @@
 #include "pico/multicore.h"
 // #include "scripting/output.h"
 #include "lib/font/font.h"
-
-#include "sb_util.h"
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include "sd_card.h"
-#include "hw_config.h"
-#include "lib/dac/dac.h"
-#include "hardware/adc.h"
-#include "hardware/dma.h"
-#include "hardware/spi.h"
-#include "../display/display.h"
-#include "../display/picojpeg.h"
-#include "pico/multicore.h"
 #include "lib/led_driver/led_driver.h"
 
 #define MAX_FILENAME_LEN 256 // max filaname character length
