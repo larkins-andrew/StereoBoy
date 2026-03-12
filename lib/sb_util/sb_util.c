@@ -17,6 +17,21 @@
 // #include "scripting/output.h"
 #include "lib/font/font.h"
 
+#include "sb_util.h"
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include "sd_card.h"
+#include "hw_config.h"
+#include "lib/dac/dac.h"
+#include "hardware/adc.h"
+#include "hardware/dma.h"
+#include "hardware/spi.h"
+#include "../display/display.h"
+#include "../display/picojpeg.h"
+#include "pico/multicore.h"
+#include "lib/led_driver/led_driver.h"
+
 #define MAX_FILENAME_LEN 256 // max filaname character length
 #define MAX_TRACKS 64        // max number of mp3 files in sd card
 
@@ -280,7 +295,7 @@ void core1_entry()
             break;
 
         case 1: // Oscilloscope
-            update_visualizer_core1();
+            update_scope_core1();
             break;
 
         case 2: // FFT 
@@ -338,84 +353,6 @@ void core1_entry()
 
         default:
             visualizer = 0;
-            break;
-        }
-    }
-}
-
-// This is the main loop for Core 1
-void core1_entry()
-{
-    while (1)
-    {
-        switch(visualizer)
-        {
-        case 0: // Album Art
-            if (album_art_ready)
-            {
-                // Draw art once
-                album_art_centered();
-                st7789_set_cursor(0, 0);
-                st7789_ramwr();
-                spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
-                spi_write16_blocking(spi0, frame_buffer, 240 * 240);
-                
-                // Lock into an LED-only
-                while (visualizer == 0) {
-                    adc_select_input(ADC_CH_L);
-                    uint16_t raw_l = adc_read();
-                    
-                    adc_select_input(ADC_CH_R);
-                    uint16_t raw_r = adc_read();
-                    
-                    pca9685_update_vu(&vu_meter, raw_l, raw_r);
-                    sleep_ms(16); // Throttle to ~60FPS
-                }
-            }
-            break;
-        case 1:
-            update_visualizer_core1();
-            break;
-        default:
-            if (album_art_ready)
-            {
-                album_art_centered();
-                st7789_set_cursor(0, 0);
-                st7789_ramwr();
-                spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
-                spi_write16_blocking(spi0, frame_buffer, 240 * 240);
-            }
-            break;
-        case 5:
-            if (sem_acquire_timeout_ms(&text_sem, 10)) {
-                printf(" core1: aquired lock\r\n");
-
-                memmove(&frame_buffer, &frame_buffer[SCREEN_WIDTH*(font_height)], sizeof(uint16_t)*(SCREEN_WIDTH)*(SCREEN_HEIGHT-font_height));
-                memset(&frame_buffer[SCREEN_WIDTH*(SCREEN_HEIGHT-font_height)],0, sizeof(uint16_t) * (SCREEN_WIDTH) * (font_height));
-                mutex_enter_blocking(&text_buff_mtx);
-                
-                if (head == NULL){
-                    printf("Err! Core 1 head is NULL");
-                    mutex_exit(&text_buff_mtx);
-                    continue;
-                }
-                printf("core 1: %s | %d\r\n", head -> str, strlen(text_buff_temp));
-                st7789_draw_string(1, SCREEN_HEIGHT-font_height-5, head -> str, WHITE);
-                struct Node * n = head;
-                head = head -> next;
-                if (n != NULL){
-                    free(n);
-                }                
-                mutex_exit(&text_buff_mtx);
-                st7789_set_cursor(0, 0);
-                st7789_ramwr();
-                spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
-                spi_write16_blocking(spi0, frame_buffer, 240 * 240);
-                sleep_ms(1000);
-                printf(" core 1 finished print\r\n");
-                
-            }
-
             break;
         }
     }
