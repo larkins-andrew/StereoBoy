@@ -5,12 +5,13 @@
 #include "ff.h"
 #include "lib/codec/vs1053.h"
 #include "lib/display/display.h"
-// #include "lib/font/font.h"
 
+// #include "lib/font/font.h"
 
 #include <complex.h>
 #include <math.h>
 
+typedef float complex cplx;
 
 #define MAX_TRACKS 64
 #define MAX_FILENAME_LEN 256
@@ -50,18 +51,12 @@ void fast_drawline(int x, int y1, int y2, uint16_t color); // Unused?
 // ADD THIS LINE HERE:
 void update_scope_core1(void);
 
-
 #ifndef PI
 #define PI 3.141592653589793
 #endif
 
-typedef float complex cplx;
-
 void dprint(char * str, ...);
-void bit_reverse(cplx buf[], int n);
-void fft_optimized(cplx buf[], int n);
-void draw_bins(int n);
-void draw_spectrum_bars(int x_start, int width, int h_l, int h_r, int target_l, int target_r);
+
 void draw_lissajous();
 void draw_lissajous_connected();
 void album_art_centered();
@@ -71,6 +66,7 @@ struct Node {
     struct Node * next;
     char str[30];
 };
+
 void printLL();
 void pause_core1();
 void resume_core1();

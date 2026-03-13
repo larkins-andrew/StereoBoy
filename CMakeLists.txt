@@ -140,6 +140,8 @@ add_executable(StereoBoy_FW
     lib/codec/vs1053.c
     lib/dac/dac.c
     lib/display/display.c
+    lib/display/fft.c
+    lib/display/lissajous.c
     lib/display/picojpeg.c
     lib/led_driver/led_driver.c
     # lib/codec/codec.c
