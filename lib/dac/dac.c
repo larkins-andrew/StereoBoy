@@ -1,3 +1,4 @@
+#include "dac.h"
 #include <stdio.h>
 #include "pico/stdlib.h"
 #include "hardware/gpio.h"
@@ -6,7 +7,6 @@
 #include <stdint.h>
 #include "pico/time.h"
 #include <math.h>
-
 
 #define DEBOUNCE_US 1000000  // 1000 ms
 
@@ -266,8 +266,7 @@ int dac_eq_get_freq(int band) {
     return (int)eq_frequencies[band];
 }
 
-void dac_init() {
-    // 1. Hardware Reset
+void dac_init(i2c_inst_t *i2c) {
     gpio_init(TLV_RESET_PIN);
     gpio_set_dir(TLV_RESET_PIN, GPIO_OUT);
     gpio_put(TLV_RESET_PIN, 0);
@@ -363,3 +362,40 @@ void dac_init() {
     dac_set_volume(dac_volume);
 }
 
+// Headphones disconnect interrupt
+void dac_int_callback(uint gpio, uint32_t events)
+{
+    // Read 0x2C to clear the sticky interrupt
+    dac_read(0, 0x2C); // THIS NEEDS TO BE HERE!!!! DO NOT REMOVE THIS LINE
+    // read whether headphone in or out
+    if (dac_read(0, 0x2E) & 0x10)
+    { // Bit 5
+        printf("Headphones plugged in! Paused and switching to stereo headphones.\n");
+        dac_write(1, 0x20, 0b00000110); // shut down speaker driver
+        // pause without warping
+        paused = 1;
+        warping = 0;
+    }
+    else
+    {
+        printf("Headphones pulled out! Paused and switching to mono speakers.\n");
+        dac_write(1, 0x20, 0b10000110); // power up speaker driver
+        // pause without warping
+        paused = 1;
+        warping = 0;
+    }
+}
+
+// ---- Init GPIO interrupt ----
+void dac_interrupt_init(void)
+{
+    gpio_init(15);
+    gpio_set_dir(15, GPIO_IN);
+    gpio_pull_up(15); // INT is usually open-drain
+
+    gpio_set_irq_enabled_with_callback(
+        15,
+        GPIO_IRQ_EDGE_RISE, // active-low interrupt
+        true,
+        &dac_int_callback);
+}

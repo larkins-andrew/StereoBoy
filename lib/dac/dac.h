@@ -37,9 +37,14 @@
 #define DAC_REG_HPR_DRIVER      0x29 // HPR driver
 #define DAC_REG_SPK_DRIVER      0x2A // Class-D driver
 
+
+extern bool paused;
+extern bool warping;
+
+
 uint8_t dac_read(uint8_t page, uint8_t reg);
 void dac_write(uint8_t page, uint8_t reg, uint8_t val);
-uint8_t dac_init(i2c_inst_t *i2c);
+void dac_init(i2c_inst_t *i2c);
 bool dac_begin(i2c_inst_t *i2c);
 void dac_set_volume(uint8_t vol);
 void dac_increase_volume(uint8_t step);
@@ -53,5 +58,10 @@ void dac_eq_adjust(int band, float step_db, float sampleRate);
 float dac_eq_get_gain(int band);   
 int dac_eq_get_freq(int band);    
 static void dac_apply_eq(float sampleRate);
+
+
+void dac_int_callback(uint gpio, uint32_t events);
+void dac_interrupt_init(void);
+
 
 #endif

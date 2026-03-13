@@ -137,6 +137,7 @@ add_executable(StereoBoy_FW
     src/StereoBoy_FW.c
     src/hw_config.c # this is important!!! https://forums.raspberrypi.com/viewtopic.php?t=342315
     lib/sb_util/sb_util.c
+    lib/sb_util/filehelper.c
     lib/codec/vs1053.c
     lib/dac/dac.c
     lib/display/display.c

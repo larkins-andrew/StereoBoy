@@ -57,8 +57,6 @@ void update_scope_core1(void);
 
 void dprint(char * str, ...);
 
-void draw_lissajous();
-void draw_lissajous_connected();
 void album_art_centered();
 void process_image(track_info_t *track, const char *filename, float output_size);
 
