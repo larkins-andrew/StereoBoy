@@ -1,4 +1,4 @@
-##########Disply Demo CMake##########
+##########Button Demo CMake##########
 
 # # Generated Cmake Pico project file
 
@@ -39,8 +39,8 @@
 # # We keep the name StereoBoy_FW so VS Code flashes it automatically, 
 # # but we only give it the demo file and the LED driver.
 # add_executable(StereoBoy_FW
-#     src/display_demo.c 
-#     lib/led_driver/led_driver.c
+#     src/buttons_demo.c 
+#     lib/buttons/buttons.c
 # )
 
 # pico_set_program_name(StereoBoy_FW "StereoBoy_FW")
@@ -145,6 +145,7 @@ add_executable(StereoBoy_FW
     lib/display/lissajous.c
     lib/display/picojpeg.c
     lib/led_driver/led_driver.c
+    lib/buttons/buttons.c
     # lib/codec/codec.c
     )
 

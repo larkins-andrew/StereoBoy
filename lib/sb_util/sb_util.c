@@ -21,6 +21,7 @@
 #include "lib/display/fft.h"
 #include "lib/display/lissajous.h"
 #include "filehelper.h"
+#include "lib/buttons/buttons.h"
 
 #define MAX_FILENAME_LEN 256 // max filaname character length
 #define MAX_TRACKS 64        // max number of mp3 files in sd card
@@ -96,7 +97,7 @@ bool album_art_ready = false;
    PRIVATE HELPERS (static)
    ========================================================= */
 
-static void jukebox(vs1053_t *player, track_info_t *track, st7789_t *display);
+static int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display);
 
 /* Text Display Stuff */
 mutex_t text_buff_mtx;
@@ -472,10 +473,16 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
     printf("VS1053 I2S enabled.\r\n");
     dprint("VS1053 I2S enabled.");
 
+    //what are these doing? I am assuming they shouldnt be here anymore **
     printf("Audio init complete.\r\n");
     dprint("Audio init complete.");
     printf("\r\nScanning directory...\r\n");
     dprint("Scanning directory...");
+
+    //Initialize buttons with a 10ms scan rate
+    buttons_init(10);
+    printf("\r\nButtons intializedr\n");
+
     dprint("Finished sb_hw_init");
     printf("\r\nFinished sb_hw_init\r\n");
 }
@@ -528,10 +535,11 @@ void sb_print_track(track_info_t *t)
            t->channels ? "Mono" : "Stereo");
 }
 
-void sb_play_track(vs1053_t *player, track_info_t *track, st7789_t *display)
+int sb_play_track(vs1053_t *player, track_info_t *track, st7789_t *display)
 {
     album_art_ready = false;
-    jukebox(player, track, display);
+    int exitCode = jukebox(player, track, display);
+    return exitCode;
 }
 
 /* =========================================================
@@ -776,8 +784,8 @@ uint16_t normal_speed = 1; // 1 = normal
 #define RESUME_WARP_US 1200000 // 1.2 seconds for resume
 #define SKIP_INTERVAL_MS 100   // minimum interval between FF/RW jumps
 
-void jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
-{
+int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
+{  
     FIL fil;             // file object
     UINT br;             // pointer to number of bytes read
     uint8_t buffer[512]; // buffer read from file
@@ -786,7 +794,7 @@ void jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
     uint16_t sampleSpeed = track->samplespeed;
     uint16_t bitRate = track->bitrate;
     uint32_t skip_bits = bitRate * 256; // bitrate * 1024 / 4 = approx. 2 seconds
-
+    int exitType = 0;
     sci_write(player, 0x05, sampleSpeed + 1); // initialize codec sampling speed (+1 at the end for stereo)
 
     // status bits for player state and warp effect
@@ -805,7 +813,7 @@ void jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
     if (f_open(&fil, filename, FA_READ) != FR_OK)
     {
         printf("Failed to open %s\r\n", filename);
-        return;
+        return exitType;
     }
 
     uint16_t stereo_bit = sampleSpeed & 1;     // LSB indicates mono or stereo (not exactly sure what but this is pretty much always 1)
@@ -833,6 +841,14 @@ void jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
         // --- 2. MUSIC FEEDING (Priority) ---
         // The rest of your jukebox logic remains here...
         int c = getchar_timeout_us(0); // nonblocking getchar
+
+        //get value from buttons
+        if (c == PICO_ERROR_TIMEOUT) {
+            char btn_char = buttons_map_to_char_jukebox();
+            if (btn_char != 0) 
+                c = (int)btn_char; // Inject the button character into the logic
+        }
+
         if (c != PICO_ERROR_TIMEOUT)
         {
             long pos = f_tell(&fil);
@@ -857,8 +873,28 @@ void jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
                 printf("Band %d Gain: %.1f dB\n", selected_band, dac_eq_get_gain(selected_band));
             }
             //EQ END
+
+
             switch (c)
             {
+            //new **
+            case 'n':
+            case 'N':
+                exitType = 1;
+                vs1053_set_play_speed(player, 0); // hard pause
+                printf("\r\n Going to next song....\r\n");
+                f_close(&fil);
+                vs1053_stop(player);
+                return exitType;
+            case 'o':
+            case 'O':
+                exitType = 2;
+                vs1053_set_play_speed(player, 0); // hard pause
+                printf("\r\n Going to next song....\r\n");
+                f_close(&fil);
+                vs1053_stop(player);
+                return exitType;
+            // not new below
             case 'p':
             case 'P':
                 paused = !paused;                      // set paused flag
@@ -959,11 +995,12 @@ void jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
             case 'S':
                 if (paused)
                 {
+                    exitType = 0;
                     vs1053_set_play_speed(player, 0); // hard pause
                     printf("\r\nStopping....\r\n");
                     f_close(&fil);
                     vs1053_stop(player);
-                    return;
+                    return exitType;
                 }
                 stopped = 1;
                 warp_start_time = get_absolute_time();
@@ -976,11 +1013,12 @@ void jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
                 break;
                 if (paused)
                 {
+                    exitType = 0;
                     vs1053_set_play_speed(player, 0); // hard pause
                     printf("\r\nStopping....\r\n");
                     f_close(&fil);
                     vs1053_stop(player);
-                    return;
+                    return exitType;
                 }
             }
         }
@@ -988,8 +1026,10 @@ void jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
         // Always feed decoder unless fully paused
         if (!paused || warping)
         {
-            if (f_read(&fil, buffer, sizeof(buffer), &br) != FR_OK || br == 0)
+            if (f_read(&fil, buffer, sizeof(buffer), &br) != FR_OK || br == 0){
+                exitType = 0;
                 break;
+            }
 
             vs1053_play_data(player, buffer, br);
         }
@@ -1015,7 +1055,7 @@ void jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
                     printf("\r\nPaused.\r\n");
                     f_close(&fil);
                     vs1053_stop(player);
-                    return;
+                    return 0;
                 }
             }
             else
@@ -1042,5 +1082,6 @@ void jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
     }
 
     f_close(&fil);
+    return exitType;
 }
 

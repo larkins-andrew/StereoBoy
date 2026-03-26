@@ -60,58 +60,63 @@ int main()
     track_info_t tracks[MAX_TRACKS];
     int count = sb_scan_tracks(tracks, MAX_TRACKS);
     resume_core1();
-    
+    int exitCode = 0;
+    int choice = 0;
     // --- Print menu ---
     dprint("Debug print test %d", 1); //Trigger Core 2 Print
     printf("Debug print test %s\r\n", "2");
     
+    
     while(1) {
-        dprint("    Available tracks:");
-        printf("\r\nAvailable tracks:\r\n");
-        for (int i = 0; i < count; i++) {
-            // dprint("[%d] %s - %s", i + 1, tracks[i].artist, tracks[i].title);
-            printf("\r\n[%d] %s - %s\r\n", i + 1, tracks[i].artist, tracks[i].title);
-            // dprint("     Album: %s", tracks[i].album);
-            printf("     Album: %s\r\n", tracks[i].album);
-            // dprint("     Bit Rate: %d Kbps", tracks[i].bitrate);
-            printf("     Bit Rate: %d Kbps\r\n", tracks[i].bitrate);
-            // dprint("     Sample Rate: %d Hz", tracks[i].samplespeed);
-            printf("     Sample Rate: %d Hz\r\n", tracks[i].samplespeed);
-            // dprint("     Channels : %s", tracks[i].channels == 1 ? "Mono" : "Stereo");
-            printf("     Channels : %s\r\n", tracks[i].channels == 1 ? "Mono" : "Stereo");
-            // dprint("     Header: %X", tracks[i].header);
-            printf("     Header: %X\r\n", tracks[i].header);
-        }
+        //Return to main menu with list selection:
+        if (exitCode == 0) {
+            choice = 0;
+            bool confirmed = 0;
+            dprint("    Available tracks:");
+            printf("\r\nAvailable tracks:\r\n");
+            for (int i = 0; i < count; i++) {
+                // dprint("[%d] %s - %s", i + 1, tracks[i].artist, tracks[i].title);
+                printf("\r\n[%d] %s - %s\r\n", i + 1, tracks[i].artist, tracks[i].title);
+                // dprint("     Album: %s", tracks[i].album);
+                printf("     Album: %s\r\n", tracks[i].album);
+                // dprint("     Bit Rate: %d Kbps", tracks[i].bitrate);
+                printf("     Bit Rate: %d Kbps\r\n", tracks[i].bitrate);
+                // dprint("     Sample Rate: %d Hz", tracks[i].samplespeed);
+                printf("     Sample Rate: %d Hz\r\n", tracks[i].samplespeed);
+                // dprint("     Channels : %s", tracks[i].channels == 1 ? "Mono" : "Stereo");
+                printf("     Channels : %s\r\n", tracks[i].channels == 1 ? "Mono" : "Stereo");
+                // dprint("     Header: %X", tracks[i].header);
+                printf("     Header: %X\r\n", tracks[i].header);
+            }
+            char input[8];
 
-        char input[8];
-        int choice = 0;
+            while (choice < 1 || choice > count) {
+                dprint("Select track (1-%d): ", count);
+                printf("\r\nSelect track (1-%d): ", count);
+                
+                int idx = 0;
+                memset(input, 0, sizeof(input));
 
-        while (choice < 1 || choice > count) {
-            dprint("Select track (1-%d): ", count);
-            printf("\r\nSelect track (1-%d): ", count);
-
-            int idx = 0;
-            memset(input, 0, sizeof(input));
-
-            while (1) {
-                int c = getchar(); // blocking read
-                if (c == '\r' || c == '\n') { // Enter pressed
-                    dprint("");
-                    printf("\r\n");
-                    break;
+                while (1) {
+                    int c = getchar(); // blocking read
+                    if (c == '\r' || c == '\n') { // Enter pressed
+                        dprint("");
+                        printf("\r\n");
+                        break;
+                    }
+                    if (idx < sizeof(input)-1) {
+                        input[idx++] = c;
+                        putchar(c); // echo typed char
+                    }
                 }
-                if (idx < sizeof(input)-1) {
-                    input[idx++] = c;
-                    putchar(c); // echo typed char
+
+                choice = atoi(input);
+                if (choice < 1 || choice > count) {
+                    dprint("Invalid. Try again.");
+                    printf("Invalid. Try again.");
                 }
             }
-
-            choice = atoi(input);
-            if (choice < 1 || choice > count)
-                dprint("Invalid. Try again.");
-                printf("Invalid. Try again.");
         }
-
         track_info_t *track = &tracks[choice - 1];
 
         dprint("NOW PLAYING:");
@@ -131,9 +136,26 @@ int main()
         dprint("  Header: %X", track->header);
         printf("  Header: %X\r\n", track->header);
 
-        sb_play_track(&player, track, &display);
+        exitCode = sb_play_track(&player, track, &display);
 
-        dprint("Playback finished!");
-        printf("\r\nPlayback finished!\r\n");
+        if (exitCode == 1){
+            if (choice + 1 > count)
+                choice = 1;
+            else
+                choice += 1;
+            printf("\r\n Next song!\r\n");
+            dprint("Next song!");
+        }
+        if (exitCode == 2){
+            if (choice - 1 < 1)
+                choice = count;
+            else
+                choice -= 1;
+            dprint("Prev Song!");
+            printf("\r\nPrev Song!\r\n");
+        }
+
+        // dprint("Playback finished!");
+        // printf("\r\nPlayback finished!\r\n");
     }
 }

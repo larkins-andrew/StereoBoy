@@ -43,7 +43,7 @@ int  sb_scan_tracks(track_info_t *tracks, int max_tracks);
 void sb_print_track(track_info_t *t);
 
 /* ========= Playback ========= */
-void sb_play_track(vs1053_t *player, track_info_t *track, st7789_t *display);
+int sb_play_track(vs1053_t *player, track_info_t *track, st7789_t *display);
 
 /* ========= Display ========= */
 void fast_drawline(int x, int y1, int y2, uint16_t color); // Unused?
