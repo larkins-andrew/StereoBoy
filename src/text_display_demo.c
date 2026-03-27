@@ -52,7 +52,7 @@ int main()
     sleep_ms(3000);
 
     sb_hw_init(&player, &display);
-
+    set_visualizer(5);
     // --- Print menu ---
     dprint("Main Print 1");
     dprint("Main Print %d", 2);
@@ -62,13 +62,3 @@ int main()
     while(true){
         sleep_ms(10);
     }
-    // int i = 0;
-    // while(true){
-    //     dprint("%d", i);
-    //     i++;
-    //     sleep_ms(200);
-
-    // }
-
-    // printLL();
-}
