@@ -1,4 +1,3 @@
-#include "dac.h"
 #include <stdio.h>
 #include "pico/stdlib.h"
 #include "hardware/gpio.h"
@@ -8,10 +7,11 @@
 #include "pico/time.h"
 #include <math.h>
 
+
 #define DEBOUNCE_US 1000000  // 1000 ms
 
 
-#define TLV_RESET_PIN 5
+#define TLV_RESET_PIN 1
 #define DAC_I2C_ADDR 0x18
 
 
@@ -19,9 +19,7 @@
 #define DAC_VOL_MAX   0x60
 #define DAC_VOL_STEP  3      // 1.5 dB step
 
-
-#define DAC_INT_GPIO 15   // Pico pin connected to TLV320 GPIO1/INT1
-
+#define DAC_INT_GPIO 3   // Pico pin connected to TLV320 GPIO1/INT1
 
 #define SCALE_FACTOR_16 32768.0
 #define MAX_16BIT 32767 //2^15 - 1 (16 bits, 2's comp)
@@ -266,7 +264,8 @@ int dac_eq_get_freq(int band) {
     return (int)eq_frequencies[band];
 }
 
-void dac_init(i2c_inst_t *i2c) {
+void dac_init() {
+    // 1. Hardware Reset
     gpio_init(TLV_RESET_PIN);
     gpio_set_dir(TLV_RESET_PIN, GPIO_OUT);
     gpio_put(TLV_RESET_PIN, 0);
@@ -274,13 +273,13 @@ void dac_init(i2c_inst_t *i2c) {
     gpio_put(TLV_RESET_PIN, 1);
     sleep_ms(10);
 
-
     // 2. Software Reset (Page 0, Reg 1)
     dac_write(0, 0x01, 0x01);
     sleep_ms(10);
 
-    // Enable PRB_P2 (for EQ)
-    dac_write(0, 60, 0x02);
+    // Enable PRB_P2 (best for EQ)
+    dac_write(0, 60, 0b00000001);
+    printf("asdf\r\n");
     //Enable adaptive filtering (so eq can change in real time)
     dac_write(8, 1, 0x04);
 
@@ -325,10 +324,10 @@ void dac_init(i2c_inst_t *i2c) {
     // 9. DAC Volume (Page 0)
     dac_write(0, 0x40, 0x00); // Unmute
     //to prevent clipping from eq
-    dac_write(0, 0x41, 0x00); // Left Vol -12dB (E8) -20dB -> (D8)
-    dac_write(0, 0x42, 0x00); // Right Vol -12dB
-    // dac_write(0, 0x41, 00);   // Left Vol (0dB is usually 0, 18 is +9dB depending on mapping)
-    // dac_write(0, 0x42, 00);   // Right Vol
+    // dac_write(0, 0x41, 0xE8); // Left Vol -12dB (E8) -20dB -> (D8)
+    // dac_write(0, 0x42, 0xE8); // Right Vol -12dB
+    dac_write(0, 0x41, 00);   // Left Vol (0dB is usually 0, 18 is +9dB depending on mapping)
+    dac_write(0, 0x42, 00);   // Right Vol
 
 
     // 10. Headphone & Speaker Setup (Page 1)
@@ -336,9 +335,9 @@ void dac_init(i2c_inst_t *i2c) {
     dac_write(1, 0x1F, 0xC0);
     // Reg 0x24/0x25: HPL/R Gain (0x06 = 6dB approx)
     // ADJUST THESE VALUES FOR VOLUME CONTROL IN MAIN FIRMWARE!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    dac_write(1, 0x24, 0x10);
-    dac_write(1, 0x25, 0x10);
-    dac_write(1, 0x26, 0x10);
+    dac_write(1, 0x24, 0x05);
+    dac_write(1, 0x25, 0x05);
+    dac_write(1, 0x26, 0x05);
     // Reg 0x28/0x29: HPL/R Driver unmute
     dac_write(1, 0x28, 0x06);
     dac_write(1, 0x29, 0x06);
@@ -362,40 +361,3 @@ void dac_init(i2c_inst_t *i2c) {
     dac_set_volume(dac_volume);
 }
 
-// Headphones disconnect interrupt
-void dac_int_callback(uint gpio, uint32_t events)
-{
-    // Read 0x2C to clear the sticky interrupt
-    dac_read(0, 0x2C); // THIS NEEDS TO BE HERE!!!! DO NOT REMOVE THIS LINE
-    // read whether headphone in or out
-    if (dac_read(0, 0x2E) & 0x10)
-    { // Bit 5
-        printf("Headphones plugged in! Paused and switching to stereo headphones.\n");
-        dac_write(1, 0x20, 0b00000110); // shut down speaker driver
-        // pause without warping
-        paused = 1;
-        warping = 0;
-    }
-    else
-    {
-        printf("Headphones pulled out! Paused and switching to mono speakers.\n");
-        dac_write(1, 0x20, 0b10000110); // power up speaker driver
-        // pause without warping
-        paused = 1;
-        warping = 0;
-    }
-}
-
-// ---- Init GPIO interrupt ----
-void dac_interrupt_init(void)
-{
-    gpio_init(15);
-    gpio_set_dir(15, GPIO_IN);
-    gpio_pull_up(15); // INT is usually open-drain
-
-    gpio_set_irq_enabled_with_callback(
-        15,
-        GPIO_IRQ_EDGE_RISE, // active-low interrupt
-        true,
-        &dac_int_callback);
-}

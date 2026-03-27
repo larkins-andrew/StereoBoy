@@ -24,7 +24,7 @@
 #include "lib/buttons/buttons.h"
 
 #define MAX_FILENAME_LEN 256 // max filaname character length
-#define MAX_TRACKS 64        // max number of mp3 files in sd card
+#define MAX_TRACKS 128        // max number of mp3 files in sd card
 
 // SPI1 configuration for codec & sd card
 #define PIN_SCK 30
@@ -76,6 +76,8 @@ static FATFS fs;
 #define IMG_WIDTH 160
 #define IMG_HEIGHT 160
 
+uint16_t num_tracks = 0; // number of tracks in current directory
+
 uint16_t frame_buffer[240 * 240];
 static uint16_t img_buffer[IMG_WIDTH * IMG_HEIGHT];
 static uint16_t column_buf[240];
@@ -87,7 +89,7 @@ pca9685_t vu_meter;
 cplx audio_history_l[HISTORY_SIZE];
 cplx audio_history_r[HISTORY_SIZE];
 int history_index = 0;
-int visualizer = 5;
+int visualizer = 1;
 volatile bool loading_songs = false;
 int num_visualizations = 6;
 bool album_art_ready = false;
@@ -330,7 +332,7 @@ void core1_entry()
                 st7789_ramwr();
                 spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
                 spi_write16_blocking(spi0, frame_buffer, 240 * 240);
-                sleep_ms(1000);
+                // sleep_ms(1000);
                 printf(" core 1 finished print\r\n");
                 
             }
@@ -384,7 +386,6 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
     mutex_init(&text_buff_mtx);
     sem_init(&text_sem, 0, 255);
 
-
     // set SPI1 for codec and SD card
     gpio_set_function(PIN_SCK,  GPIO_FUNC_SPI);
     gpio_set_function(PIN_MOSI, GPIO_FUNC_SPI);
@@ -394,18 +395,17 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
     i2c_init(i2c0, 400 * 1000);
     gpio_set_function(PIN_I2C0_SCL, GPIO_FUNC_I2C);
     gpio_set_function(PIN_I2C0_SDA, GPIO_FUNC_I2C);
-    gpio_pull_up(PIN_I2C0_SCL);
-    gpio_pull_up(PIN_I2C0_SDA);
+    // gpio_pull_up(PIN_I2C0_SCL);
+    // gpio_pull_up(PIN_I2C0_SDA);
     dprint("SPI0 and I2C0 initialized.");
     printf("SPI0 and I2C0 initialized.\r\n");
-
 
     // set I2C1 for PCA9685 at 400KHz
     i2c_init(i2c1, 400 * 1000);
     gpio_set_function(PIN_I2C1_SDA, GPIO_FUNC_I2C);
     gpio_set_function(PIN_I2C1_SCL, GPIO_FUNC_I2C);
-    gpio_pull_up(PIN_I2C1_SDA);
-    gpio_pull_up(PIN_I2C1_SCL);
+    // gpio_pull_up(PIN_I2C1_SDA);
+    // gpio_pull_up(PIN_I2C1_SCL);
     printf("I2C1 initialized.\r\n");
     
     // LED driver init
@@ -455,12 +455,6 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
 
     sb_display_init(display);
 
-    // initialize DAC
-    dac_init(i2c0);
-    dac_interrupt_init();
-    printf("DAC intialized.\r\n");
-    dprint("DAC intialized.");
-
     vs1053_init(player);
     printf("VS1053 initialized.\r\n");
     dprint("VS1053 initialized.");
@@ -473,7 +467,12 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
     printf("VS1053 I2S enabled.\r\n");
     dprint("VS1053 I2S enabled.");
 
-    //what are these doing? I am assuming they shouldnt be here anymore **
+    // initialize DAC
+    dac_init(i2c0);
+    dac_interrupt_init();
+    printf("DAC intialized.\r\n");
+    dprint("DAC intialized.");
+
     printf("Audio init complete.\r\n");
     dprint("Audio init complete.");
     printf("\r\nScanning directory...\r\n");
@@ -1085,3 +1084,40 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
     return exitType;
 }
 
+// Headphones disconnect interrupt
+void dac_int_callback(uint gpio, uint32_t events)
+{
+    // Read 0x2C to clear the sticky interrupt
+    dac_read(0, 0x2C); // THIS NEEDS TO BE HERE!!!! DO NOT REMOVE THIS LINE
+    // read whether headphone in or out
+    if (dac_read(0, 0x2E) & 0x10)
+    { // Bit 5
+        printf("Headphones plugged in! Paused and switching to stereo headphones.\n");
+        dac_write(1, 0x20, 0b00000110); // shut down speaker driver
+        // pause without warping
+        paused = 1;
+        warping = 0;
+    }
+    else
+    {
+        printf("Headphones pulled out! Paused and switching to mono speakers.\n");
+        dac_write(1, 0x20, 0b10000110); // power up speaker driver
+        // pause without warping
+        paused = 1;
+        warping = 0;
+    }
+}
+
+// ---- Init GPIO interrupt ----
+void dac_interrupt_init(void)
+{
+    gpio_init(3);
+    gpio_set_dir(3, GPIO_IN);
+    gpio_pull_up(3); // INT is usually open-drain
+
+    gpio_set_irq_enabled_with_callback(
+        3,
+        GPIO_IRQ_EDGE_RISE, // active-low interrupt
+        true,
+        &dac_int_callback);
+}

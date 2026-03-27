@@ -13,7 +13,7 @@
 
 typedef float complex cplx;
 
-#define MAX_TRACKS 64
+#define MAX_TRACKS 128
 #define MAX_FILENAME_LEN 256
 
 typedef struct {
