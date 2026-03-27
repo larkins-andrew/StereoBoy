@@ -69,5 +69,6 @@ void printLL();
 void pause_core1();
 void resume_core1();
 void set_visualizer(int num);
+void clear_framebuffer();
 
 #endif

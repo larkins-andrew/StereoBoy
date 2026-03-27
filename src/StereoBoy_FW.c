@@ -6,6 +6,7 @@
 #include "hardware/i2c.h"
 #include "lib/display/display.h"
 #include "lib/led_driver/led_driver.h"
+#include "lib/buttons/buttons.h"
 
 // #define DEBUG // print all dprints to terminal
 
@@ -75,12 +76,13 @@ int main()
     sleep_ms(750); // pause for dramatic effect
 
     dprint("Starting Track Scan");
-    pause_core1();
+    // pause_core1();
     track_info_t tracks[MAX_TRACKS];
     int count = sb_scan_tracks(tracks, MAX_TRACKS);
-    resume_core1();
+    // resume_core1();
     int exitCode = 0;
     int choice = 0;
+    int prev_choice = 0;
     // --- Print menu ---
     dprint("Debug print test %d", 1); //Trigger Core 2 Print
     printf("Debug print test %s\r\n", "2");
@@ -89,9 +91,9 @@ int main()
     while(1) {
         //Return to main menu with list selection:
         if (exitCode == 0) {
+            set_visualizer(5);
             choice = 0;
             bool confirmed = 0;
-            dprint("    Available tracks:");
             printf("\r\nAvailable tracks:\r\n");
             for (int i = 0; i < count; i++) {
                 // dprint("[%d] %s - %s", i + 1, tracks[i].artist, tracks[i].title);
@@ -107,33 +109,33 @@ int main()
                 // dprint("     Header: %X", tracks[i].header);
                 printf("     Header: %X\r\n", tracks[i].header);
             }
-            char input[8];
 
-            while (choice < 1 || choice > count) {
-                dprint("Select track (1-%d): ", count);
-                printf("\r\nSelect track (1-%d): ", count);
+            clear_framebuffer();
+            dprint("Song %d/%d: ", choice, count);
+            printf("\r\nSong %d/%d: ", choice, count);
+
+            dprint("%s", tracks[choice].title);
+            dprint("%s", tracks[choice].artist);
+            prev_choice = choice;
+            while (true) {
+                uint8_t pressed = buttons_get_just_pressed();
+                if (pressed > 0){
+                    if (pressed & BTN_R)      choice = (choice + 1) % count;
+                    if (pressed & BTN_L)      choice = (choice - 1) % count;
+                    if (pressed & BTN_U)      choice = (choice + 10) % count;
+                    if (pressed & BTN_D)      choice = (choice - 10) % count;
+                }
+                if (prev_choice != choice){
+                    clear_framebuffer();
+                    dprint("Song %d/%d: ", choice, count);
+                    printf("\r\nSong %d/%d: ", choice, count);
+
+                    dprint("%s", tracks[choice].title);
+                    dprint("%s", tracks[choice].artist);
+                    prev_choice = choice;
+                }
                 
-                int idx = 0;
-                memset(input, 0, sizeof(input));
-
-                while (1) {
-                    int c = getchar(); // blocking read
-                    if (c == '\r' || c == '\n') { // Enter pressed
-                        dprint("");
-                        printf("\r\n");
-                        break;
-                    }
-                    if (idx < sizeof(input)-1) {
-                        input[idx++] = c;
-                        putchar(c); // echo typed char
-                    }
-                }
-
-                choice = atoi(input);
-                if (choice < 1 || choice > count) {
-                    dprint("Invalid. Try again.");
-                    printf("Invalid. Try again.");
-                }
+                sleep_ms(10);
             }
         }
         track_info_t *track = &tracks[choice - 1];

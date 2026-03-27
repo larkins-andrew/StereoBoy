@@ -121,6 +121,11 @@ void printLL(){
 /* =========================================================
    PUBLIC API
    ========================================================= */
+void clear_framebuffer(){
+    mutex_enter_blocking(&text_buff_mtx);
+    memset(frame_buffer, 0, sizeof(frame_buffer));
+    mutex_exit(&text_buff_mtx);
+}
 
 void set_visualizer(int num){
     visualizer = num;
