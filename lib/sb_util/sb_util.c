@@ -189,7 +189,7 @@ void app_node(char * str){
             free(prev);
         }
         mutex_exit(&text_buff_mtx);
-        sleep_ms(100000);
+        // sleep_ms(100000);
         return;
     }
 
@@ -283,7 +283,7 @@ void core1_entry()
                     uint16_t raw_r = adc_read();
                     
                     pca9685_update_vu(&vu_meter, raw_l, raw_r);
-                    sleep_ms(16); // Throttle to ~60FPS
+                    // sleep_ms(16); // Throttle to ~60FPS
                 }
             }
             break;
@@ -382,7 +382,7 @@ void sb_display_init(st7789_t *display){
         240 * 240,                     // Count: Total number of 16-bit pixels
         true                           // Start now!
     );
-    sleep_ms(500);
+    // sleep_ms(500);
 
     multicore_launch_core1(core1_entry);
     printf("CORE 1 LAUNCHED!\r\n");
@@ -565,11 +565,6 @@ void update_scope_core1()
     uint16_t raw_l = adc_read();
     adc_select_input(ADC_CH_R);
     uint16_t raw_r = adc_read();
-
-    //ensures that LED do not use too many cycles
-    if (led_throttle++ % 8 == 0) {
-        pca9685_update_vu(&vu_meter, raw_l, raw_r);
-    }
     // 2. Map to Split Offsets
     // Left Channel centered at 150
     int dev_l = (int)raw_l - ADC_BIAS_CENTER;
@@ -623,6 +618,9 @@ void update_scope_core1()
         st7789_ramwr();
         spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
         spi_write16_blocking(spi0, frame_buffer, 240 * 240);
+        //ensures that LED do not use too many cycles
+        // if (led_throttle++ % 2 == 0)
+        pca9685_update_vu(&vu_meter, raw_l, raw_r);
     }
 }
 
