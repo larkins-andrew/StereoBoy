@@ -7,6 +7,8 @@
 #include "lib/display/display.h"
 #include "lib/led_driver/led_driver.h"
 
+// #define DEBUG // print all dprints to terminal
+
 #define MAX_FILENAME_LEN 256 // max filaname character length
 #define MAX_TRACKS 128 // max number of mp3 files in sd card
 

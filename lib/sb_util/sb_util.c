@@ -218,7 +218,10 @@ void dprint(char * fmt, ...)
     vsprintf(text_buff_temp, fmt, args);
     va_end(args);
     app_node(text_buff_temp);
-    printf("dprint: \'%s\' | strlen:%d sem_avail:%d\r\n", text_buff_temp, strlen(text_buff_temp), sem_available(&text_sem));    return;
+    #ifdef DEBUG
+        printf("dprint: \'%s\' | strlen:%d sem_avail:%d\r\n", text_buff_temp, strlen(text_buff_temp), sem_available(&text_sem));
+    #endif
+    return;
 }
 
 // Helper function to sample audio and update the LEDs
