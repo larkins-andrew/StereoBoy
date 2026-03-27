@@ -8,7 +8,7 @@
 #include "lib/led_driver/led_driver.h"
 
 #define MAX_FILENAME_LEN 256 // max filaname character length
-#define MAX_TRACKS 64 // max number of mp3 files in sd card
+#define MAX_TRACKS 128 // max number of mp3 files in sd card
 
 // SPI1 configuration for codec & sd card
 #define PIN_SCK  30
@@ -54,6 +54,24 @@ int main()
     sleep_ms(3000);
 
     sb_hw_init(&player, &display);
+
+    sleep_ms(1000);
+
+    // Boot-up banner
+
+    sleep_ms(250);
+
+    printf("\033c"); // clear screen
+    printf(R"(
+       _____ __                       ____             
+      / ___// /____  ________  ____  / __ )____  __  __ 
+      \__ \/ __/ _ \/ ___/ _ \/ __ \/ __  / __ \/ / / /
+     ___/ / /_/  __/ /  /  __/ /_/ / /_/ / /_/ / /_/ / 
+    /____/\__/\___/_/   \___/\____/_____/\____/\__, /  
+     MODULAR SUPER HI-FI STEREO SYSTEM        /____/
+     ENGINEERING PROTOTYPE UNIT 001)
+    ");
+    printf("\r\n\r\n");
 
     dprint("Starting Track Scan");
     pause_core1();
@@ -112,6 +130,7 @@ int main()
                 printf("Invalid. Try again.");
         }
 
+        // int choice = 36;
         track_info_t *track = &tracks[choice - 1];
 
         dprint("NOW PLAYING:");

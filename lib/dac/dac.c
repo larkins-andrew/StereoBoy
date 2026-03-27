@@ -11,7 +11,7 @@
 #define DEBOUNCE_US 1000000  // 1000 ms
 
 
-#define TLV_RESET_PIN 5
+#define TLV_RESET_PIN 1
 #define DAC_I2C_ADDR 0x18
 
 
@@ -20,7 +20,7 @@
 #define DAC_VOL_STEP  3      // 1.5 dB step
 
 
-#define DAC_INT_GPIO 15   // Pico pin connected to TLV320 GPIO1/INT1
+#define DAC_INT_GPIO 3   // Pico pin connected to TLV320 GPIO1/INT1
 
 
 #define SCALE_FACTOR_16 32768.0
@@ -275,13 +275,13 @@ void dac_init() {
     gpio_put(TLV_RESET_PIN, 1);
     sleep_ms(10);
 
-
     // 2. Software Reset (Page 0, Reg 1)
     dac_write(0, 0x01, 0x01);
     sleep_ms(10);
 
-    // Enable PRB_P2 (for EQ)
-    dac_write(0, 60, 0x02);
+    // Enable PRB_P2 (best for EQ)
+    dac_write(0, 60, 0b00000001);
+    printf("asdf\r\n");
     //Enable adaptive filtering (so eq can change in real time)
     dac_write(8, 1, 0x04);
 
@@ -326,10 +326,10 @@ void dac_init() {
     // 9. DAC Volume (Page 0)
     dac_write(0, 0x40, 0x00); // Unmute
     //to prevent clipping from eq
-    dac_write(0, 0x41, 0x00); // Left Vol -12dB (E8) -20dB -> (D8)
-    dac_write(0, 0x42, 0x00); // Right Vol -12dB
-    // dac_write(0, 0x41, 00);   // Left Vol (0dB is usually 0, 18 is +9dB depending on mapping)
-    // dac_write(0, 0x42, 00);   // Right Vol
+    // dac_write(0, 0x41, 0xE8); // Left Vol -12dB (E8) -20dB -> (D8)
+    // dac_write(0, 0x42, 0xE8); // Right Vol -12dB
+    dac_write(0, 0x41, 00);   // Left Vol (0dB is usually 0, 18 is +9dB depending on mapping)
+    dac_write(0, 0x42, 00);   // Right Vol
 
 
     // 10. Headphone & Speaker Setup (Page 1)
@@ -337,9 +337,9 @@ void dac_init() {
     dac_write(1, 0x1F, 0xC0);
     // Reg 0x24/0x25: HPL/R Gain (0x06 = 6dB approx)
     // ADJUST THESE VALUES FOR VOLUME CONTROL IN MAIN FIRMWARE!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    dac_write(1, 0x24, 0x10);
-    dac_write(1, 0x25, 0x10);
-    dac_write(1, 0x26, 0x10);
+    dac_write(1, 0x24, 0x05);
+    dac_write(1, 0x25, 0x05);
+    dac_write(1, 0x26, 0x05);
     // Reg 0x28/0x29: HPL/R Driver unmute
     dac_write(1, 0x28, 0x06);
     dac_write(1, 0x29, 0x06);

@@ -11,19 +11,17 @@
 #include <complex.h>
 #include <math.h>
 
-
-#define MAX_TRACKS 64
 #define MAX_FILENAME_LEN 256
 
 typedef struct {
     uint32_t album_art_size;
+    uint8_t album_art_type;
     uint32_t album_art_offset;
     uint32_t header;
     uint16_t bitrate;
     uint16_t samplespeed;
     uint8_t mpegID;
     uint8_t channels;
-    uint8_t album_art_type;
     char mime_type[32];
     char filename[256];
     char title[128];

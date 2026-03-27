@@ -19,7 +19,6 @@
 #include "lib/led_driver/led_driver.h"
 
 #define MAX_FILENAME_LEN 256 // max filaname character length
-#define MAX_TRACKS 64        // max number of mp3 files in sd card
 
 // SPI1 configuration for codec & sd card
 #define PIN_SCK 30
@@ -42,10 +41,12 @@ static FATFS fs;
 #define PIN_I2C1_SDA 42
 #define PIN_I2C1_SCL 43
 
+// Backlight for LCD
+#define BACKLIGHT_PIN 5
+
 // Display and oscope stuff
 #define SCREEN_WIDTH 240
 #define SCREEN_HEIGHT 240
-#define WAVE_COLOR 0x07E0 // Bright Green
 #define BG_COLOR 0x0000   // Black
 
 // Center at 0.65V (ADC is 12-bit, 0-3.3V)
@@ -62,8 +63,8 @@ static FATFS fs;
 #define ADC_CH_L 6
 #define ADC_CH_R 5
 
-#define WAVE_L_COLOR 0x07E0
-#define WAVE_R_COLOR 0x07FF
+#define WAVE_L_COLOR 0xb818 // purple
+#define WAVE_R_COLOR 0x055f // blue
 #define FFT_L_COLOR_DARK 0x0600
 #define FFT_R_COLOR_DARK 0x05FF
 #define FFT_L_COLOR_LIGHT 0x8FF1
@@ -82,7 +83,7 @@ pca9685_t vu_meter;
 cplx audio_history_l[HISTORY_SIZE];
 cplx audio_history_r[HISTORY_SIZE];
 int history_index = 0;
-int visualizer = 5;
+int visualizer = 1;
 volatile bool loading_songs = false;
 int num_visualizations = 6;
 bool album_art_ready = false;
@@ -242,7 +243,7 @@ static void process_audio_batch() {
         if (dev_r > max_dev_r) max_dev_r = dev_r;
 
         history_ptr = (history_ptr + 1) % HISTORY_SIZE;
-        sleep_us(10); 
+        // sleep_us(10); 
     }
 
     // Re-add the bias so the VU meter math processes the peak correctly
@@ -306,7 +307,7 @@ void core1_entry()
             draw_lissajous_connected();
             break;
 
-        case 5:
+        case 5: // debug mode
             if (sem_acquire_timeout_ms(&text_sem, 10)) {
                 printf(" core1: aquired lock\r\n");
 
@@ -331,7 +332,7 @@ void core1_entry()
                 st7789_ramwr();
                 spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
                 spi_write16_blocking(spi0, frame_buffer, 240 * 240);
-                sleep_ms(1000);
+                // sleep_ms(1000);
                 printf(" core 1 finished print\r\n");
                 
             }
@@ -346,6 +347,12 @@ void core1_entry()
 
 void sb_display_init(st7789_t *display){
     st7789_init(display, SCREEN_WIDTH, SCREEN_HEIGHT);
+
+    // turn LCD backlight to MAX
+    gpio_init(BACKLIGHT_PIN);
+    gpio_set_dir(BACKLIGHT_PIN, GPIO_OUT);
+    gpio_put(BACKLIGHT_PIN, 1);
+
     printf("Display initialized!\r\n");
 
     // Setup DMA for super-fast draw routines
@@ -380,11 +387,35 @@ void sb_display_init(st7789_t *display){
     printf("CORE 1 LAUNCHED!\r\n");
 }
 
+// Helper function to clear a stuck I2C bus
+void i2c_bus_clear(uint sda_pin, uint scl_pin) {
+    gpio_init(sda_pin);
+    gpio_init(scl_pin);
+    gpio_set_dir(sda_pin, GPIO_IN);
+    gpio_set_dir(scl_pin, GPIO_OUT);
+
+    // If SDA is low, the slave is holding it. Pulse SCL until it lets go.
+    for (int i = 0; i < 10; i++) {
+        gpio_put(scl_pin, 1);
+        sleep_us(5);
+        gpio_put(scl_pin, 0);
+        sleep_us(5);
+    }
+    
+    // Send a STOP condition manually: SDA low->high while SCL is high
+    gpio_set_dir(sda_pin, GPIO_OUT);
+    gpio_put(sda_pin, 0);
+    sleep_us(5);
+    gpio_put(scl_pin, 1);
+    sleep_us(5);
+    gpio_put(sda_pin, 1);
+    sleep_us(5);
+}
+
 void sb_hw_init(vs1053_t *player, st7789_t *display)
 {
     mutex_init(&text_buff_mtx);
     sem_init(&text_sem, 0, 255);
-
 
     // set SPI1 for codec and SD card
     gpio_set_function(PIN_SCK,  GPIO_FUNC_SPI);
@@ -392,21 +423,21 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
     gpio_set_function(PIN_MISO, GPIO_FUNC_SPI);
 
     // set I2C0 for DAC at 400KHz
-    i2c_init(i2c0, 400 * 1000);
+    i2c_bus_clear(PIN_I2C0_SDA, PIN_I2C0_SCL);
+    i2c_init(i2c0, 100 * 1000);
     gpio_set_function(PIN_I2C0_SCL, GPIO_FUNC_I2C);
     gpio_set_function(PIN_I2C0_SDA, GPIO_FUNC_I2C);
-    gpio_pull_up(PIN_I2C0_SCL);
-    gpio_pull_up(PIN_I2C0_SDA);
+    // gpio_pull_up(PIN_I2C0_SCL);
+    // gpio_pull_up(PIN_I2C0_SDA);
     dprint("SPI0 and I2C0 initialized.");
     printf("SPI0 and I2C0 initialized.\r\n");
-
 
     // set I2C1 for PCA9685 at 400KHz
     i2c_init(i2c1, 400 * 1000);
     gpio_set_function(PIN_I2C1_SDA, GPIO_FUNC_I2C);
     gpio_set_function(PIN_I2C1_SCL, GPIO_FUNC_I2C);
-    gpio_pull_up(PIN_I2C1_SDA);
-    gpio_pull_up(PIN_I2C1_SCL);
+    // gpio_pull_up(PIN_I2C1_SDA);
+    // gpio_pull_up(PIN_I2C1_SCL);
     printf("I2C1 initialized.\r\n");
     
     // LED driver init
@@ -456,12 +487,6 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
 
     sb_display_init(display);
 
-    // initialize DAC
-    dac_init(i2c0);
-    dac_interrupt_init();
-    printf("DAC intialized.\r\n");
-    dprint("DAC intialized.");
-
     vs1053_init(player);
     printf("VS1053 initialized.\r\n");
     dprint("VS1053 initialized.");
@@ -473,6 +498,12 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
     vs1053_enable_i2s(player);
     printf("VS1053 I2S enabled.\r\n");
     dprint("VS1053 I2S enabled.");
+
+    // initialize DAC
+    dac_init(i2c0);
+    dac_interrupt_init();
+    printf("DAC intialized.\r\n");
+    dprint("DAC intialized.");
 
     printf("Audio init complete.\r\n");
     dprint("Audio init complete.");
@@ -497,7 +528,7 @@ int sb_scan_tracks(track_info_t *tracks, int max_tracks)
             continue;
 
         char *ext = strrchr(fno.fname, '.');
-        if (ext && !strcasecmp(ext, ".mp3") && count < MAX_TRACKS)
+        if (ext && !strcasecmp(ext, ".mp3") && count < max_tracks)
         {
             get_mp3_metadata(fno.fname, &tracks[count]);
             count++;
@@ -682,26 +713,33 @@ static void get_mp3_header(FIL *fil, track_info_t *track)
         if (f_read(fil, &header[0], 1, &br) != FR_OK || br != 1)
             return;
 
-        // First 8 sync bits must be all ones
         if (header[0] != 0xFF)
             continue;
 
         if (f_read(fil, &header[1], 1, &br) != FR_OK || br != 1)
             return;
 
-        // Next 3 bits must also be ones (111xxxxx)
         if ((header[1] & 0xE0) != 0xE0)
         {
-            // Not a real sync → rewind 1 byte so we don't skip potential syncs
             f_lseek(fil, f_tell(fil) - 1);
             continue;
         }
 
-        // We now have a valid 11-bit sync → read remaining 2 bytes
         if (f_read(fil, &header[2], 2, &br) != FR_OK || br != 2)
             return;
 
-        break; // Valid frame header found
+        uint8_t version_bits = (header[1] >> 3) & 0x03;
+        uint8_t layer_bits   = (header[1] >> 1) & 0x03;
+        uint8_t bitrate_bits = (header[2] >> 4) & 0x0F;
+        uint8_t sr_bits      = (header[2] >> 2) & 0x03;
+
+        // FULL VALIDATION
+        if (version_bits == 1) continue;      // reserved
+        if (layer_bits == 0) continue;        // reserved
+        if (bitrate_bits == 0 || bitrate_bits == 15) continue;
+        if (sr_bits == 3) continue;           // reserved
+
+        break; // Valid header
     }
 
     track->header =
@@ -744,7 +782,7 @@ static void get_mp3_header(FIL *fil, track_info_t *track)
     track->samplespeed = samplespeeds[version_bits][samplespeed_bits];
 
     // Bitrate tables
-    const uint16_t v1_bitrates[4][16] = {
+    static const uint16_t v1_bitrates[4][16] = {
         // Layer 0 (should never happen)
         {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
         // V1 L3
@@ -754,7 +792,7 @@ static void get_mp3_header(FIL *fil, track_info_t *track)
         // V1 L1
         {0, 32, 64, 96, 128, 160, 192, 224, 256, 288, 320, 352, 384, 416, 448, 0}};
 
-    const uint16_t v2_bitrates[4][16] = {
+    static const uint16_t v2_bitrates[4][16] = {
         // Layer 0 (should never happen)
         {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
         // V2, L3
@@ -764,9 +802,9 @@ static void get_mp3_header(FIL *fil, track_info_t *track)
         // V2 L1
         {0, 32, 48, 56, 64, 80, 96, 112, 128, 144, 160, 176, 192, 224, 256, 0}};
 
-    if (track->mpegID == 2)
+    if (track->mpegID == 2 || track->mpegID == 0)
     {
-        track->bitrate = v2_bitrates[layer_bits][bitrate_bits]; // if MPEG Version 2
+        track->bitrate = v2_bitrates[layer_bits][bitrate_bits]; // if MPEG Version 2 or 2.5
     }
     else if (track->mpegID == 1)
     {
@@ -936,10 +974,6 @@ void update_scope_core1()
     adc_select_input(ADC_CH_R);
     uint16_t raw_r = adc_read();
 
-    //ensures that LED do not use too many cycles
-    if (led_throttle++ % 8 == 0) {
-        pca9685_update_vu(&vu_meter, raw_l, raw_r);
-    }
     // 2. Map to Split Offsets
     // Left Channel centered at 150
     int dev_l = (int)raw_l - ADC_BIAS_CENTER;
@@ -993,6 +1027,10 @@ void update_scope_core1()
         st7789_ramwr();
         spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
         spi_write16_blocking(spi0, frame_buffer, 240 * 240);
+        // ensures that LED do not use too many cycles
+        if (led_throttle++ % 8 == 0) {
+            pca9685_update_vu(&vu_meter, raw_l, raw_r);
+        }
     }
 }
 
@@ -1751,12 +1789,12 @@ void dac_int_callback(uint gpio, uint32_t events)
 // ---- Init GPIO interrupt ----
 void dac_interrupt_init(void)
 {
-    gpio_init(15);
-    gpio_set_dir(15, GPIO_IN);
-    gpio_pull_up(15); // INT is usually open-drain
+    gpio_init(3);
+    gpio_set_dir(3, GPIO_IN);
+    gpio_pull_up(3); // INT is usually open-drain
 
     gpio_set_irq_enabled_with_callback(
-        15,
+        3,
         GPIO_IRQ_EDGE_RISE, // active-low interrupt
         true,
         &dac_int_callback);
