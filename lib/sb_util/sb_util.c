@@ -122,6 +122,10 @@ void printLL(){
    PUBLIC API
    ========================================================= */
 
+void set_visualizer(int num){
+    visualizer = num;
+}
+
 void pause_core1(){
     loading_songs = true;
 }
