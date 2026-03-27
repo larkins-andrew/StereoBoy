@@ -85,8 +85,8 @@ char buttons_map_to_char_jukebox(void) {
 
     if (select_held) {
         // --- Standard actions (just button) ---
-        if (edge & BTN_B)     return 's'; // B = stop
-        if (edge & BTN_A)     return 'p'; // A = Pause
+        if (edge & BTN_B)     return 'p'; // B = pause
+        if (edge & BTN_A)     return 's'; // A = stop
         if (edge & BTN_U)     return 'u'; // Up = Volume Up
         if (edge & BTN_D)     return 'd'; // Down = Volume Down
         if (edge & BTN_L)     return 'n'; // Left = next song
