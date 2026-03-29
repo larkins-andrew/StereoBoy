@@ -83,6 +83,7 @@ int main()
     int exitCode = 0;
     int choice = 0;
     int prev_choice = 0;
+    bool selected = 0;
     // --- Print menu ---
     dprint("Debug print test %d", 1); //Trigger Core 2 Print
     printf("Debug print test %s\r\n", "2");
@@ -111,24 +112,25 @@ int main()
             }
 
             clear_framebuffer();
-            dprint("Song %d/%d: ", choice, count);
-            printf("\r\nSong %d/%d: ", choice, count);
+            dprint("Song %d/%d: ", choice+1, count);
+            printf("\r\nSong %d/%d: ", choice+1, count);
 
             dprint("%s", tracks[choice].title);
             dprint("%s", tracks[choice].artist);
             prev_choice = choice;
-            while (true) {
+            while (selected == false) {
                 uint8_t pressed = buttons_get_just_pressed();
                 if (pressed > 0){
                     if (pressed & BTN_R)      choice = (choice + 1) % count;
                     if (pressed & BTN_L)      choice = (choice - 1) % count;
                     if (pressed & BTN_U)      choice = (choice + 10) % count;
                     if (pressed & BTN_D)      choice = (choice - 10) % count;
+                    if (pressed & BTN_A)      selected = true; 
                 }
                 if (prev_choice != choice){
                     clear_framebuffer();
-                    dprint("Song %d/%d: ", choice, count);
-                    printf("\r\nSong %d/%d: ", choice, count);
+                    dprint("Song %d/%d: ", choice+1, count);
+                    printf("\r\nSong %d/%d: ", choice+1, count);
 
                     dprint("%s", tracks[choice].title);
                     dprint("%s", tracks[choice].artist);
@@ -138,7 +140,7 @@ int main()
                 sleep_ms(10);
             }
         }
-        track_info_t *track = &tracks[choice - 1];
+        track_info_t *track = &tracks[choice];
 
         dprint("NOW PLAYING:");
         printf("\r\n\rNOW PLAYING:\r\n");
