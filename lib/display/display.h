@@ -29,6 +29,8 @@ typedef struct st7789_t {
 #define YELLOW  0xFFE0
 #define CYAN    0x07FF
 #define MAGENTA 0xF81F
+#define SCREEN_WIDTH 240
+#define SCREEN_HEIGHT 240
 
 
 void st7789_init(const st7789_t* config, uint16_t width, uint16_t height);
@@ -39,5 +41,11 @@ void st7789_ramwr(void);
 void st7789_set_cursor(uint16_t x, uint16_t y);
 void st7789_vertical_scroll(uint16_t row);
 void st7789_set_window(uint16_t xs, uint16_t ys, uint16_t xe, uint16_t ye);
+void set_pixel(uint16_t *frame_buffer, uint16_t x, uint16_t y, uint16_t color);
+void lcd_draw_char(uint16_t *frame_buffer, uint16_t x, uint16_t y, char c, uint16_t color);
+void st7789_draw_string(uint16_t *frame_buffer, uint16_t x, uint16_t y, const char *text, uint16_t color);
+
+
+
 
 #endif

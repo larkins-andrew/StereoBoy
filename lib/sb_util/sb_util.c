@@ -1,10 +1,8 @@
 #include "sb_util.h"
-
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <math.h>
-
 #include "sd_card.h"
 #include "hw_config.h"
 #include "lib/dac/dac.h"
@@ -23,58 +21,7 @@
 #include "filehelper.h"
 #include "lib/buttons/buttons.h"
 
-#define MAX_FILENAME_LEN 256 // max filaname character length
-#define MAX_TRACKS 128        // max number of mp3 files in sd card
-
-// SPI1 configuration for codec & sd card
-#define PIN_SCK 30
-#define PIN_MOSI 28
-#define PIN_MISO 31
-#define PIN_CS 32
-
 static FATFS fs;
-
-// Codec control signals
-#define PIN_DCS 33
-#define PIN_DREQ 29
-#define PIN_RST 27
-
-// I2C0 for DAC
-#define PIN_I2C0_SCL 21
-#define PIN_I2C0_SDA 20
-
-// I2C1 for LED Driver
-#define PIN_I2C1_SDA 42
-#define PIN_I2C1_SCL 43
-
-// Display and oscope stuff
-#define SCREEN_WIDTH 240
-#define SCREEN_HEIGHT 240
-#define WAVE_COLOR 0x07E0 // Bright Green
-#define BG_COLOR 0x0000   // Black
-
-// Center at 0.65V (ADC is 12-bit, 0-3.3V)
-#define ADC_CH 5
-
-// Updated Constants for Split View
-#define ADC_BIAS_CENTER 1551
-#define ADC_RANGE_PKPK 1613
-#define TARGET_HEIGHT 60 // Height of each individual wave (reduced to prevent overlap)
-
-#define OFFSET_L 150 // Bottom half-ish
-#define OFFSET_R 90  // Top half-ish
-
-#define ADC_CH_L 6
-#define ADC_CH_R 5
-
-#define WAVE_L_COLOR 0x07E0
-#define WAVE_R_COLOR 0x07FF
-#define FFT_L_COLOR_DARK 0x0600
-#define FFT_R_COLOR_DARK 0x05FF
-#define FFT_L_COLOR_LIGHT 0x8FF1
-#define FFT_R_COLOR_LIGHT 0xAFFF
-#define IMG_WIDTH 160
-#define IMG_HEIGHT 160
 
 uint16_t num_tracks = 0; // number of tracks in current directory
 
@@ -84,6 +31,7 @@ static uint16_t column_buf[240];
 static int dma_chan = -1;
 static dma_channel_config dcc;
 pca9685_t vu_meter;
+
 /*******************visualizations not scope*******************/
 #define HISTORY_SIZE 256
 cplx audio_history_l[HISTORY_SIZE];
@@ -138,44 +86,44 @@ void resume_core1(){
     loading_songs = false;
 }
 
-void set_pixel(uint16_t x, uint16_t y, uint16_t color) {
-    frame_buffer[y * SCREEN_WIDTH + x] = color;
-}
+// void set_pixel(uint16_t x, uint16_t y, uint16_t color) {
+//     frame_buffer[y * SCREEN_WIDTH + x] = color;
+// }
 
-void lcd_draw_char(uint16_t x, uint16_t y, char c, uint16_t color) {
-    const struct Font * f = find_font_char(c);
-    if (f == NULL) return;
-    for (uint8_t row = 0; row < font_height; row++) {
-        for (uint8_t col = 0; col < font_width; col++) {
-            if (f->code[row * font_width + col] == 1) {
-                set_pixel(x + col, y + row, color);
-            }
-            else{
-                set_pixel(x+col, y+row, BLACK);
-            }
-        }
-    }
-}
+// void lcd_draw_char(uint16_t x, uint16_t y, char c, uint16_t color) {
+//     const struct Font * f = find_font_char(c);
+//     if (f == NULL) return;
+//     for (uint8_t row = 0; row < font_height; row++) {
+//         for (uint8_t col = 0; col < font_width; col++) {
+//             if (f->code[row * font_width + col] == 1) {
+//                 set_pixel(x + col, y + row, color);
+//             }
+//             else{
+//                 set_pixel(x+col, y+row, BLACK);
+//             }
+//         }
+//     }
+// }
 
 
-void st7789_draw_string(uint16_t x, uint16_t y, const char *text, uint16_t color) {
-    uint16_t start_x = x;
-    uint16_t start_y = y;
+// void st7789_draw_string(uint16_t x, uint16_t y, const char *text, uint16_t color) {
+//     uint16_t start_x = x;
+//     uint16_t start_y = y;
 
-    for (int i = 0; text[i] != '\0' && i < 30; i++) {
-        // if (text[i] == '\n' || text[i] == '\r') {
-        //     start_x = x;
-        //     start_y += 10;
-        // }
-        if (start_x < SCREEN_WIDTH-font_width && start_y < SCREEN_HEIGHT-font_height) {
-            lcd_draw_char(start_x, start_y, text[i], color);
-            start_x += font_width;
-        }
-        else{
-            break;
-        }
-    }
-}
+//     for (int i = 0; text[i] != '\0' && i < 30; i++) {
+//         // if (text[i] == '\n' || text[i] == '\r') {
+//         //     start_x = x;
+//         //     start_y += 10;
+//         // }
+//         if (start_x < SCREEN_WIDTH-font_width && start_y < SCREEN_HEIGHT-font_height) {
+//             lcd_draw_char(start_x, start_y, text[i], color);
+//             start_x += font_width;
+//         }
+//         else{
+//             break;
+//         }
+//     }
+// }
 
 void app_node(char * str){
     if (sem_available(&text_sem) >= 10){
@@ -270,6 +218,7 @@ void core1_entry()
         switch(visualizer)
         {
         case 0: // Album Art
+            printf("\r\nAlbum Art Visualization\r\n");
             if (album_art_ready)
             {
                 // Draw art once
@@ -294,10 +243,12 @@ void core1_entry()
             break;
 
         case 1: // Oscilloscope
+            printf("\r\nScope Visualization\r\n");
             update_scope_core1();
             break;
 
         case 2: // FFT 
+            printf("\r\nSpectrum Analyzer Visualization\r\n");
             process_audio_batch();
             
             memset(frame_buffer, 0, sizeof(frame_buffer));
@@ -310,16 +261,20 @@ void core1_entry()
             break;
 
         case 3: // Lissajous
+            printf("\r\nLissajous Visualization\r\n");
             process_audio_batch();
             draw_lissajous();
             break;
 
         case 4: //Lissajous connected
+            printf("\r\nMandala Visualization\r\n");
             process_audio_batch();
             draw_lissajous_connected();
             break;
 
         case 5:
+            dprint("Text Display");
+            printf("\r\nText Display\r\n");
             if (sem_acquire_timeout_ms(&text_sem, 10)) {
                 printf(" core1: aquired lock\r\n");
 
@@ -333,7 +288,7 @@ void core1_entry()
                     continue;
                 }
                 printf("core 1: %s | %d\r\n", head -> str, strlen(text_buff_temp));
-                st7789_draw_string(1, SCREEN_HEIGHT-font_height-5, head -> str, WHITE);
+                st7789_draw_string(frame_buffer, 1, SCREEN_HEIGHT-font_height-5, head -> str, WHITE);
                 struct Node * n = head;
                 head = head -> next;
                 if (n != NULL){
@@ -552,11 +507,6 @@ int sb_play_track(vs1053_t *player, track_info_t *track, st7789_t *display)
     int exitCode = jukebox(player, track, display);
     return exitCode;
 }
-
-/* =========================================================
-   COPY YOUR EXISTING FUNCTIONS BELOW
-   (unchanged, just made static)
-   ========================================================= */
 
 void update_scope_core1()
 {
@@ -963,28 +913,6 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
                 {
                     process_image(track, filename, 160);
                     album_art_ready = true;
-                }
-                switch (visualizer)
-                {
-                case 0:
-                    printf("\r\nAlbum Art Visualization\r\n");
-                    break;
-                case 1:
-                    printf("\r\nScope Visualization\r\n");
-                    break;
-                case 2:
-                    printf("\r\nSpectrum Analyzer Visualization\r\n");
-                    break;
-                case 3:
-                    printf("\r\nLissajous Visualization\r\n");
-                    break;
-                case 4:
-                    printf("\r\nMandala Visualization\r\n");
-                    break;
-                case 5:
-                    dprint("Text Display");
-                    printf("\r\nText Display\r\n");
-                    break;
                 }
                 break;
             case 'i':

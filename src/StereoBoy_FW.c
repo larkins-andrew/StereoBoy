@@ -13,20 +13,20 @@
 #define MAX_FILENAME_LEN 256 // max filaname character length
 #define MAX_TRACKS 128 // max number of mp3 files in sd card
 
-// SPI1 configuration for codec & sd card
-#define PIN_SCK  30
-#define PIN_MOSI 28
-#define PIN_MISO 31
-#define PIN_CS   32
+// // SPI1 configuration for codec & sd card
+// #define PIN_SCK  30
+// #define PIN_MOSI 28
+// #define PIN_MISO 31
+// #define PIN_CS   32
 
 // Codec control signals
 #define PIN_DCS  33
 #define PIN_DREQ 29
 #define PIN_RST  27
 
-// I2C0 for DAC
-#define PIN_I2C0_SCL 21
-#define PIN_I2C0_SDA 20
+// // I2C0 for DAC
+// #define PIN_I2C0_SCL 21
+// #define PIN_I2C0_SDA 20
 
 vs1053_t player = {
     .spi = spi1,
@@ -47,8 +47,9 @@ struct st7789_t display = {
 };
 
 
-#define LCD_WIDTH  240
-#define LCD_HEIGHT 240
+// #define LCD_WIDTH  240
+// #define LCD_HEIGHT 240
+
 int main()
 {
 

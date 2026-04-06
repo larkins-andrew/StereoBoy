@@ -10,6 +10,7 @@
 #include "pico/stdlib.h"
 #include "hardware/gpio.h"
 #include "display.h"
+#include "lib/font/font.h"
 
 struct st7789_t st7789_cfg;
 static uint16_t st7789_width;
@@ -230,3 +231,44 @@ void st7789_set_window(uint16_t xs, uint16_t ys, uint16_t xe, uint16_t ye) {
     st7789_caset(xs, xe);
     st7789_raset(ys, ye);
 }
+
+void set_pixel(uint16_t *frame_buffer, uint16_t x, uint16_t y, uint16_t color) {
+    frame_buffer[y * SCREEN_WIDTH + x] = color;
+}
+
+void lcd_draw_char(uint16_t *frame_buffer, uint16_t x, uint16_t y, char c, uint16_t color) {
+    const struct Font * f = find_font_char(c);
+    if (f == NULL) return;
+    for (uint8_t row = 0; row < font_height; row++) {
+        for (uint8_t col = 0; col < font_width; col++) {
+            if (f->code[row * font_width + col] == 1) {
+                set_pixel(x + col, y + row, color);
+            }
+            else{
+                set_pixel(frame_buffer, x+col, y+row, BLACK);
+            }
+        }
+    }
+}
+
+void st7789_draw_string(uint16_t *frame_buffer, uint16_t x, uint16_t y, const char *text, uint16_t color) {
+
+    uint16_t start_x = x;
+    uint16_t start_y = y;
+
+    for (int i = 0; text[i] != '\0' && i < 30; i++) {
+        // if (text[i] == '\n' || text[i] == '\r') {
+        //     start_x = x;
+        //     start_y += 10;
+        // }
+        if (start_x < SCREEN_WIDTH-font_width && start_y < SCREEN_HEIGHT-font_height) {
+            lcd_draw_char(frame_buffer, start_x, start_y, text[i], color);
+            start_x += font_width;
+        }
+        else{
+            break;
+        }
+    }
+}
+
+
