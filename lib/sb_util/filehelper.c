@@ -7,7 +7,7 @@ uint32_t syncsafe_to_uint(const uint8_t *b)
     return (b[0] << 21) | (b[1] << 14) | (b[2] << 7) | b[3];
 }
 
- void read_text_frame(FIL *fil, uint32_t frame_size, char *out, size_t out_size)
+void read_text_frame(FIL *fil, uint32_t frame_size, char *out, size_t out_size)
 {
     UINT br;
     uint8_t encoding;
@@ -110,7 +110,7 @@ uint32_t syncsafe_to_uint(const uint8_t *b)
     f_lseek(fil, f_tell(fil) + frame_size);
 }
 
- uint32_t find_audio_start(FIL *fil)
+uint32_t find_audio_start(FIL *fil)
 {
     UINT br;
     uint8_t header[10];
@@ -130,7 +130,7 @@ uint32_t syncsafe_to_uint(const uint8_t *b)
     return 0;
 }
 
- void get_mp3_header(FIL *fil, track_info_t *track)
+void get_mp3_header(FIL *fil, track_info_t *track)
 {
     dprint("start of get_mp3_header heartbeat");
     UINT br;
@@ -160,6 +160,8 @@ uint32_t syncsafe_to_uint(const uint8_t *b)
         // We now have a valid 11-bit sync → read remaining 2 bytes
         if (f_read(fil, &header[2], 2, &br) != FR_OK || br != 2)
             return;
+
+        track->audio_start = f_tell(fil) - 4;
 
         break; // Valid frame header found
     }
@@ -242,7 +244,7 @@ uint32_t syncsafe_to_uint(const uint8_t *b)
     dprint("end of get_mp3_header heartbeat");
 }
 
- void get_mp3_metadata(const char *filename, track_info_t *track)
+void get_mp3_metadata(const char *filename, track_info_t *track)
 {
     dprint("start of get_mp3_metadata heartbeat");
     strcpy(track->filename, filename);
@@ -368,6 +370,22 @@ uint32_t syncsafe_to_uint(const uint8_t *b)
         bytes_read += size;
     }
     get_mp3_header(&fil, track);
+    uint32_t file_size = f_size(&fil); // Get total file size
+    track->audio_end = file_size;      // Default to end of file
+
+    // Check for a 128-byte ID3v1 tag at the end of the file
+    if (file_size > 128)
+    {
+        uint8_t tag_buf[3];
+        f_lseek(&fil, file_size - 128);
+        if (f_read(&fil, tag_buf, 3, &br) == FR_OK && br == 3)
+        {
+            if (memcmp(tag_buf, "TAG", 3) == 0)
+            {
+                track->audio_end = file_size - 128; // Audio ends before the ID3v1 tag
+            }
+        }
+    }
 
 out:
     f_close(&fil);
@@ -382,4 +400,3 @@ int compare_filenames(const void *a, const void *b)
     const track_info_t *tb = (const track_info_t *)b;
     return strcasecmp(ta->filename, tb->filename);
 }
-

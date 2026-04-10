@@ -166,6 +166,8 @@ int main()
         printf("  Channels : %s\r\n", track->channels == 1 ? "Mono" : "Stereo");
         dprint("  Header: %X", track->header);
         printf("  Header: %X\r\n", track->header);
+        printf("  Start: %X\r\n", track->audio_start);
+        printf("  Start: %X\r\n", track->audio_end);
 
         exitCode = sb_play_track(&player, track, &display);
 

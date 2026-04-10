@@ -19,6 +19,8 @@ typedef float complex cplx;
 typedef struct {
     uint32_t album_art_size;
     uint32_t album_art_offset;
+    uint32_t audio_start; 
+    uint32_t audio_end;   
     uint32_t header;
     uint16_t bitrate;
     uint16_t samplespeed;

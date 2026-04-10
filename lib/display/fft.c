@@ -109,7 +109,7 @@ void draw_bins(int n)
             target_r = (log10f(peak_r + 1e-9f) - log10f(adaptive_gate)) * sens;
 
         // Smoothing
-        float decay = 4.0f - (ratio * 2.0f);
+        float decay = 4.0f - (ratio * 3.0f);
         if (target_l > display_l[b])
             display_l[b] = target_l;
         else

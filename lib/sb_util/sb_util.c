@@ -846,6 +846,10 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
     warping = false;
     stopped = 0;
 
+    // Progress Bar
+    int progress_bar = 0;
+    int prev_progress_bar = 0;
+
     // more warp effect stuff
     float transport = 1.0f;                  // desired speed
     float warp_start_transport = 1.0f;       // start speed for warp
@@ -891,6 +895,42 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
             char btn_char = buttons_map_to_char_jukebox(selected_band);
             if (btn_char != 0)
                 c = (int)btn_char; // Inject the button character into the logic
+        }
+        long song_pos = f_tell(&fil);
+        float progress = (float)(song_pos - track->audio_start) / (float)(track->audio_end - track->audio_start);
+        if (progress < 0.0f)
+            progress = 0.0f;
+        if (progress > 1.0f)
+            progress = 1.0f;
+        prev_progress_bar = progress_bar;
+        progress_bar = 240 * progress;
+        bool update_bar = prev_progress_bar != progress_bar;
+
+        if (visualizer == 0 && update_bar)
+        {
+            // ST7789 uses 16-bit RGB565 colors
+            uint16_t color_red = 0xF800;
+            uint16_t color_gray = 0x8410; // Medium gray
+
+            // Draw the bottom 10 rows (assuming screen height is 240)
+            for (int y = 230; y < 240; y++)
+            {
+                for (int x = 0; x < 240; x++)
+                {
+                    if (x < progress_bar)
+                    {
+                        frame_buffer[y * 240 + x] = color_red; // Played part
+                    }
+                    else
+                    {
+                        frame_buffer[y * 240 + x] = color_gray; // Remaining part
+                    }
+                }
+            }
+            st7789_set_cursor(0, 0);
+            st7789_ramwr();
+            spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
+            spi_write16_blocking(spi0, frame_buffer, 240 * 240);
         }
 
         if (c != PICO_ERROR_TIMEOUT)
