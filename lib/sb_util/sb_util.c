@@ -23,6 +23,8 @@
 #include "filehelper.h"
 #include "lib/buttons/buttons.h"
 
+#include "lib/pot/pot.h"
+
 #define MAX_FILENAME_LEN 256 // max filaname character length
 #define MAX_TRACKS 128       // max number of mp3 files in sd card
 
@@ -77,7 +79,7 @@ static FATFS fs;
 #define IMG_HEIGHT 160
 
 uint16_t num_tracks = 0; // number of tracks in current directory
-
+bool potCheck;
 uint16_t frame_buffer[240 * 240];
 static uint16_t img_buffer[IMG_WIDTH * IMG_HEIGHT];
 static uint16_t column_buf[240];
@@ -530,6 +532,9 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
     buttons_init(10);
     printf("\r\nButtons intializedr\n");
 
+    // pot_init();
+    printf("\r\pot intializedr\n");
+
     dprint("Finished sb_hw_init");
     printf("\r\nFinished sb_hw_init\r\n");
 }
@@ -880,10 +885,29 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
     int currEq = 0;
     dac_eq_init(sampleSpeed); // init with default sample rate
     uint16_t *playStatus;
+    uint8_t current_volume = 0;
+    uint8_t smoothed_adc = 0;
     // This while loop continuously scans for key inputs while playing audio.
     // Warping is achieved by continuously sending audio bytes after pause point until warp duration is met.
     while (1)
     {
+        // //read input
+        // adc_select_input(POT_ADC_CHANNEL);
+        // uint16_t raw_adc = adc_read();
+
+        // //moving average
+        // smoothed_adc = ((smoothed_adc * 7) + raw_adc) / 8;
+
+        // // Squares the ADC value to create an audio curve, then scales to MAX_DAC_VOL
+        // uint32_t adc_squared = (uint32_t)smoothed_adc * smoothed_adc;
+        // uint8_t new_volume = (uint8_t)((adc_squared * MAX_DAC_VOL) / (4095 * 4095));
+        // // Only send an I2C command to the DAC if the volume changed by >1 step.
+        // if (abs(new_volume - current_volume) > 1) {
+        //     current_volume = new_volume;
+        //     dac_set_volume(current_volume);
+        // }
+
+
 
         // --- 2. MUSIC FEEDING (Priority) ---
         // The rest of your jukebox logic remains here...
@@ -988,7 +1012,7 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
                 warp_start_transport = transport;      //
                 warp_target = paused ? 0.0f : 1.0f;
                 warping = true;
-
+                //draw pause ICON for text or album art visualizer
                 if (visualizer == 0 || visualizer == 5)
                 {
                     if (paused)
@@ -1199,6 +1223,7 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
     }
 
     f_close(&fil);
+    // exitType = 0; //plays next song if song just ends
     return exitType;
 }
 

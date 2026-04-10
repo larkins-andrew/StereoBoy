@@ -146,6 +146,7 @@ add_executable(StereoBoy_FW
     lib/display/picojpeg.c
     lib/led_driver/led_driver.c
     lib/buttons/buttons.c
+    lib/pot/pot.c
     # lib/codec/codec.c
     )
 

@@ -169,6 +169,7 @@ int main()
         printf("  Start: %X\r\n", track->audio_start);
         printf("  Start: %X\r\n", track->audio_end);
 
+        set_visualizer(1);
         exitCode = sb_play_track(&player, track, &display);
 
         if (exitCode == 1){

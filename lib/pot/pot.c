@@ -1,0 +1,30 @@
+#include "pot.h"
+
+struct repeating_timer pot_timer;
+
+// State variables for filtering
+static uint16_t smoothed_adc = 0;
+
+
+
+
+bool pot_timer_callback(struct repeating_timer *t) {
+    potCheck = true;
+    return true; 
+}
+
+void pot_init(void) {
+    // Initialize the ADC hardware (might already do this)
+    // adc_init();
+    
+    // Make sure the GPIO is high-impedance, no pullups
+    adc_gpio_init(POT_ADC_PIN);
+
+    // Do an initial read to seed the moving average filter instantly
+    adc_select_input(POT_ADC_CHANNEL);
+    smoothed_adc = adc_read();
+
+    // Start the repeating hardware timer
+    // add_repeating_timer_ms(POLLING_RATE_MS, pot_timer_callback, NULL, &pot_timer);
+    printf("pot init");
+}
