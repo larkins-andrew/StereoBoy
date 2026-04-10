@@ -46,7 +46,8 @@ void buttons_init(int32_t scan_time) {
     gpio_init(PIN_LATCH); gpio_set_dir(PIN_LATCH, GPIO_OUT); gpio_put(PIN_LATCH, 1);
     gpio_init(PIN_CLOCK); gpio_set_dir(PIN_CLOCK, GPIO_OUT); gpio_put(PIN_CLOCK, 0);
     gpio_init(PIN_DATA);  gpio_set_dir(PIN_DATA, GPIO_IN);
-
+    
+    buttons_sync_state();
     // Start Timer (10ms interval)
     // We use a static variable for the timer struct so it persists
     static struct repeating_timer timer;
@@ -56,6 +57,7 @@ void buttons_init(int32_t scan_time) {
 uint8_t buttons_get_raw_state(void) {
     return current_button_states;
 }
+
 
 uint8_t buttons_get_just_pressed(void) {
     // Snapshot volatile state
@@ -84,8 +86,8 @@ char buttons_map_to_char_jukebox(int currentEq) {
 
     if (select_held) {
         // --- Standard actions (just button) ---
-        if (edge & BTN_B)     return 'p'; // B = pause
-        if (edge & BTN_A)     return 's'; // A = stop
+        if (edge & BTN_A)     return 'p'; // B = pause
+        if (edge & BTN_B)     return 's'; // A = stop
         if (edge & BTN_U)     return 'u'; // Up = Volume Up
         if (edge & BTN_D)     return 'd'; // Down = Volume Down
         if (edge & BTN_L)     return 'n'; // Left = next song
@@ -116,3 +118,13 @@ char buttons_map_menu_navigation(void) {
     if (edge & BTN_START) return 'E';
     return 0;
 }
+
+void buttons_sync_state(void) {
+    // 1. Force a manual read of the shift register right now
+    reading_timer_callback(NULL); 
+    
+    // 2. Fast-forward the history so no "edges" are detected
+    // from whatever buttons are currently being held down.
+    last_button_states = current_button_states;
+}
+

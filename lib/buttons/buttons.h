@@ -8,8 +8,8 @@
 // Adjust these if your wiring order is different!
 #define BTN_SELECT (1 << 0)
 #define BTN_START  (1 << 1)
-#define BTN_A      (1 << 2)
-#define BTN_B      (1 << 3)
+#define BTN_B      (1 << 2)
+#define BTN_A      (1 << 3)
 #define BTN_R      (1 << 4)
 #define BTN_D      (1 << 5)
 #define BTN_U      (1 << 6)
@@ -38,5 +38,7 @@ uint8_t buttons_get_just_pressed(void);
 char buttons_map_to_char_jukebox(int currentEq);
 
 char buttons_map_menu_navigation(void);
+
+void buttons_sync_state(void);
 
 #endif // BUTTONS_H

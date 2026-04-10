@@ -24,7 +24,7 @@
 #include "lib/buttons/buttons.h"
 
 #define MAX_FILENAME_LEN 256 // max filaname character length
-#define MAX_TRACKS 128        // max number of mp3 files in sd card
+#define MAX_TRACKS 128       // max number of mp3 files in sd card
 
 // SPI1 configuration for codec & sd card
 #define PIN_SCK 30
@@ -106,13 +106,15 @@ mutex_t text_buff_mtx;
 semaphore_t text_sem;
 
 char text_buff_temp[120];
-struct Node * head = NULL;
+struct Node *head = NULL;
 
-void printLL(){
-    struct Node * n = head;
-    while (n != NULL){
-        printf("%p: %s", n, n -> str);
-        n = n -> next;
+void printLL()
+{
+    struct Node *n = head;
+    while (n != NULL)
+    {
+        printf("%p: %s", n, n->str);
+        n = n->next;
     }
 }
 
@@ -121,76 +123,94 @@ void printLL(){
 /* =========================================================
    PUBLIC API
    ========================================================= */
-void clear_framebuffer(){
+void clear_framebuffer()
+{
     mutex_enter_blocking(&text_buff_mtx);
     memset(frame_buffer, 0, sizeof(frame_buffer));
     mutex_exit(&text_buff_mtx);
 }
 
-void set_visualizer(int num){
+void set_visualizer(int num)
+{
     visualizer = num;
 }
 
-void pause_core1(){
+void pause_core1()
+{
     loading_songs = true;
 }
-void resume_core1(){
+void resume_core1()
+{
     loading_songs = false;
 }
 
-void set_pixel(uint16_t x, uint16_t y, uint16_t color) {
+void set_pixel(uint16_t x, uint16_t y, uint16_t color)
+{
     frame_buffer[y * SCREEN_WIDTH + x] = color;
 }
 
-void lcd_draw_char(uint16_t x, uint16_t y, char c, uint16_t color) {
-    const struct Font * f = find_font_char(c);
-    if (f == NULL) return;
-    for (uint8_t row = 0; row < font_height; row++) {
-        for (uint8_t col = 0; col < font_width; col++) {
-            if (f->code[row * font_width + col] == 1) {
+void lcd_draw_char(uint16_t x, uint16_t y, char c, uint16_t color)
+{
+    const struct Font *f = find_font_char(c);
+    if (f == NULL)
+        return;
+    for (uint8_t row = 0; row < font_height; row++)
+    {
+        for (uint8_t col = 0; col < font_width; col++)
+        {
+            if (f->code[row * font_width + col] == 1)
+            {
                 set_pixel(x + col, y + row, color);
             }
-            else{
-                set_pixel(x+col, y+row, BLACK);
+            else
+            {
+                set_pixel(x + col, y + row, BLACK);
             }
         }
     }
 }
 
-
-void st7789_draw_string(uint16_t x, uint16_t y, const char *text, uint16_t color) {
+void st7789_draw_string(uint16_t x, uint16_t y, const char *text, uint16_t color)
+{
     uint16_t start_x = x;
     uint16_t start_y = y;
 
-    for (int i = 0; text[i] != '\0' && i < 30; i++) {
+    for (int i = 0; text[i] != '\0' && i < 30; i++)
+    {
         // if (text[i] == '\n' || text[i] == '\r') {
         //     start_x = x;
         //     start_y += 10;
         // }
-        if (start_x < SCREEN_WIDTH-font_width && start_y < SCREEN_HEIGHT-font_height) {
+        if (start_x < SCREEN_WIDTH - font_width && start_y < SCREEN_HEIGHT - font_height)
+        {
             lcd_draw_char(start_x, start_y, text[i], color);
             start_x += font_width;
         }
-        else{
+        else
+        {
             break;
         }
     }
 }
 
-void app_node(char * str){
-    if (sem_available(&text_sem) >= 10){
+void app_node(char *str)
+{
+    if (sem_available(&text_sem) >= 10)
+    {
         return;
     }
     mutex_enter_blocking(&text_buff_mtx);
 
-    struct Node * n = calloc(1, sizeof(struct Node));
-    if (n == NULL){
+    struct Node *n = calloc(1, sizeof(struct Node));
+    if (n == NULL)
+    {
         printf("Error using calloc in app_node, freeing LL!");
         n = head;
-        struct Node * prev = head;
-        while (n != NULL){
+        struct Node *prev = head;
+        while (n != NULL)
+        {
             prev = n;
-            n = n -> next;
+            n = n->next;
             free(prev);
         }
         mutex_exit(&text_buff_mtx);
@@ -198,44 +218,49 @@ void app_node(char * str){
         return;
     }
 
-    n -> next = NULL;
-    strncpy(n -> str, str, sizeof(n->str));
+    n->next = NULL;
+    strncpy(n->str, str, sizeof(n->str));
 
-    if (head == NULL){
+    if (head == NULL)
+    {
         head = n;
     }
-    else {
-        struct Node * prev = head;
-        while(prev -> next != NULL){
-            prev = prev -> next;
+    else
+    {
+        struct Node *prev = head;
+        while (prev->next != NULL)
+        {
+            prev = prev->next;
         }
-        prev -> next = n;
+        prev->next = n;
     }
     mutex_exit(&text_buff_mtx);
     sem_release(&text_sem);
     return;
 }
 
-void dprint(char * fmt, ...)
+void dprint(char *fmt, ...)
 {
     va_list args;
-    va_start(args,fmt);
+    va_start(args, fmt);
     vsprintf(text_buff_temp, fmt, args);
     va_end(args);
     app_node(text_buff_temp);
-    #ifdef DEBUG
-        printf("dprint: \'%s\' | strlen:%d sem_avail:%d\r\n", text_buff_temp, strlen(text_buff_temp), sem_available(&text_sem));
-    #endif
+#ifdef DEBUG
+    printf("dprint: \'%s\' | strlen:%d sem_avail:%d\r\n", text_buff_temp, strlen(text_buff_temp), sem_available(&text_sem));
+#endif
     return;
 }
 
 // Helper function to sample audio and update the LEDs
-static void process_audio_batch() {
+static void process_audio_batch()
+{
     static int history_ptr = 0;
     uint16_t max_dev_l = 0;
     uint16_t max_dev_r = 0;
 
-    for (int i = 0; i < 32; i++) {
+    for (int i = 0; i < 32; i++)
+    {
         // Read Left ONCE
         adc_select_input(ADC_CH_L);
         uint16_t raw_l = adc_read();
@@ -246,16 +271,18 @@ static void process_audio_batch() {
         uint16_t raw_r = adc_read();
         audio_history_r[history_ptr] = (cplx)raw_r;
 
-        //calculate absolute deviation from the DC bias center //find a way to remove this, subtract
+        // calculate absolute deviation from the DC bias center //find a way to remove this, subtract
         uint16_t dev_l = abs((int)raw_l - ADC_BIAS_CENTER);
         uint16_t dev_r = abs((int)raw_r - ADC_BIAS_CENTER);
 
-        //Onny take max value in each batch
-        if (dev_l > max_dev_l) max_dev_l = dev_l;
-        if (dev_r > max_dev_r) max_dev_r = dev_r;
+        // Onny take max value in each batch
+        if (dev_l > max_dev_l)
+            max_dev_l = dev_l;
+        if (dev_r > max_dev_r)
+            max_dev_r = dev_r;
 
         history_ptr = (history_ptr + 1) % HISTORY_SIZE;
-        sleep_us(10); 
+        sleep_us(10);
     }
 
     // Re-add the bias so the VU meter math processes the peak correctly
@@ -267,7 +294,7 @@ void core1_entry()
 {
     while (1)
     {
-        switch(visualizer)
+        switch (visualizer)
         {
         case 0: // Album Art
             if (album_art_ready)
@@ -278,15 +305,16 @@ void core1_entry()
                 st7789_ramwr();
                 spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
                 spi_write16_blocking(spi0, frame_buffer, 240 * 240);
-                
+
                 // Lock into an LED-only
-                while (visualizer == 0) {
+                while (visualizer == 0)
+                {
                     adc_select_input(ADC_CH_L);
                     uint16_t raw_l = adc_read();
-                    
+
                     adc_select_input(ADC_CH_R);
                     uint16_t raw_r = adc_read();
-                    
+
                     pca9685_update_vu(&vu_meter, raw_l, raw_r);
                     // sleep_ms(16); // Throttle to ~60FPS
                 }
@@ -297,9 +325,9 @@ void core1_entry()
             update_scope_core1();
             break;
 
-        case 2: // FFT 
+        case 2: // FFT
             process_audio_batch();
-            
+
             memset(frame_buffer, 0, sizeof(frame_buffer));
             draw_bins(60);
 
@@ -314,31 +342,34 @@ void core1_entry()
             draw_lissajous();
             break;
 
-        case 4: //Lissajous connected
+        case 4: // Lissajous connected
             process_audio_batch();
             draw_lissajous_connected();
             break;
 
         case 5:
-            if (sem_acquire_timeout_ms(&text_sem, 10)) {
+            if (sem_acquire_timeout_ms(&text_sem, 10))
+            {
                 printf(" core1: aquired lock\r\n");
 
-                memmove(&frame_buffer, &frame_buffer[SCREEN_WIDTH*(font_height)], sizeof(uint16_t)*(SCREEN_WIDTH)*(SCREEN_HEIGHT-font_height));
-                memset(&frame_buffer[SCREEN_WIDTH*(SCREEN_HEIGHT-font_height)],0, sizeof(uint16_t) * (SCREEN_WIDTH) * (font_height));
+                memmove(&frame_buffer, &frame_buffer[SCREEN_WIDTH * (font_height)], sizeof(uint16_t) * (SCREEN_WIDTH) * (SCREEN_HEIGHT - font_height));
+                memset(&frame_buffer[SCREEN_WIDTH * (SCREEN_HEIGHT - font_height)], 0, sizeof(uint16_t) * (SCREEN_WIDTH) * (font_height));
                 mutex_enter_blocking(&text_buff_mtx);
-                
-                if (head == NULL){
+
+                if (head == NULL)
+                {
                     printf("Err! Core 1 head is NULL");
                     mutex_exit(&text_buff_mtx);
                     continue;
                 }
-                printf("core 1: %s | %d\r\n", head -> str, strlen(text_buff_temp));
-                st7789_draw_string(1, SCREEN_HEIGHT-font_height-5, head -> str, WHITE);
-                struct Node * n = head;
-                head = head -> next;
-                if (n != NULL){
+                printf("core 1: %s | %d\r\n", head->str, strlen(text_buff_temp));
+                st7789_draw_string(1, SCREEN_HEIGHT - font_height - 5, head->str, WHITE);
+                struct Node *n = head;
+                head = head->next;
+                if (n != NULL)
+                {
                     free(n);
-                }                
+                }
                 mutex_exit(&text_buff_mtx);
                 st7789_set_cursor(0, 0);
                 st7789_ramwr();
@@ -346,7 +377,6 @@ void core1_entry()
                 spi_write16_blocking(spi0, frame_buffer, 240 * 240);
                 // sleep_ms(1000);
                 printf(" core 1 finished print\r\n");
-                
             }
             break;
 
@@ -357,7 +387,8 @@ void core1_entry()
     }
 }
 
-void sb_display_init(st7789_t *display){
+void sb_display_init(st7789_t *display)
+{
     st7789_init(display, SCREEN_WIDTH, SCREEN_HEIGHT);
     printf("Display initialized!\r\n");
 
@@ -399,7 +430,7 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
     sem_init(&text_sem, 0, 255);
 
     // set SPI1 for codec and SD card
-    gpio_set_function(PIN_SCK,  GPIO_FUNC_SPI);
+    gpio_set_function(PIN_SCK, GPIO_FUNC_SPI);
     gpio_set_function(PIN_MOSI, GPIO_FUNC_SPI);
     gpio_set_function(PIN_MISO, GPIO_FUNC_SPI);
 
@@ -419,11 +450,14 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
     // gpio_pull_up(PIN_I2C1_SDA);
     // gpio_pull_up(PIN_I2C1_SCL);
     printf("I2C1 initialized.\r\n");
-    
+
     // LED driver init
-    if (pca9685_init(&vu_meter, i2c1, 0x40)) {
+    if (pca9685_init(&vu_meter, i2c1, 0x40))
+    {
         printf("PCA9685 LED Driver initialized!\r\n");
-    } else {
+    }
+    else
+    {
         printf("WARNING: PCA9685 Init Failed!\r\n");
     }
 
@@ -440,7 +474,6 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
         dprint("SD card initialized!");
         printf("SD card initialized!\r\n");
     }
-
 
     FRESULT fr = f_mount(&fs, "0:", 1);
     if (fr != FR_OK)
@@ -461,10 +494,9 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
     adc_gpio_init(46); // Left
     adc_gpio_init(45); // Right
     adc_select_input(ADC_CH);
-    
+
     printf("Oscope ADC initialized!\r\n");
     dprint("Oscope ADC initialized!");
-
 
     sb_display_init(display);
     printf("test point 1");
@@ -474,7 +506,7 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
 
     printf("VS1053 initialized.\r\n");
     dprint("VS1053 initialized.");
-    vs1053_set_volume(player, 0x01, 0x01); //chnged from 0 (0x00) to -12dB (0x0202) to -6dB (0x0101)
+    vs1053_set_volume(player, 0x01, 0x01); // chnged from 0 (0x00) to -12dB (0x0202) to -6dB (0x0101)
     printf("VS1053 volume set to max!\r\n");
     dprint("VS1053 volume set to max!");
 
@@ -494,7 +526,7 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
     printf("\r\nScanning directory...\r\n");
     dprint("Scanning directory...");
 
-    //Initialize buttons with a 10ms scan rate
+    // Initialize buttons with a 10ms scan rate
     buttons_init(10);
     printf("\r\nButtons intializedr\n");
 
@@ -627,8 +659,8 @@ void update_scope_core1()
         st7789_ramwr();
         spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
         spi_write16_blocking(spi0, frame_buffer, 240 * 240);
-        //ensures that LED do not use too many cycles
-        // if (led_throttle++ % 2 == 0)
+        // ensures that LED do not use too many cycles
+        //  if (led_throttle++ % 2 == 0)
         pca9685_update_vu(&vu_meter, raw_l, raw_r);
     }
 }
@@ -677,11 +709,10 @@ void album_art_centered(void)
     const int offset = (SCREEN_WIDTH - 160) / 2;
 
     for (int y = 0; y < 160; y++)
-    {   
+    {
         uint16_t *dst = &frame_buffer[(y + offset) * SCREEN_WIDTH + offset];
         uint16_t *src = &img_buffer[y * 160];
         memcpy(dst, src, 160 * sizeof(uint16_t));
-
     }
 }
 
@@ -721,7 +752,7 @@ void process_image(track_info_t *track, const char *filename, float output_size)
 
         if (status)
         {
-            memset(img_buffer, 0, sizeof(img_buffer)); 
+            memset(img_buffer, 0, sizeof(img_buffer));
             goto out;
         }
 
@@ -738,7 +769,8 @@ void process_image(track_info_t *track, const char *filename, float output_size)
                 {
                     break;
                 }
-                if (status) {
+                if (status)
+                {
                     goto out;
                 }
                 for (uint16_t ly = 0; ly < jpeg_info.m_MCUHeight; ly++)
@@ -785,7 +817,6 @@ out:
 JUKEBOX: MAIN PLAY LOOP
 ########################################################## */
 
-
 bool paused = false;
 bool warping = false;
 bool stopped = false;
@@ -798,7 +829,7 @@ uint16_t normal_speed = 1; // 1 = normal
 #define SKIP_INTERVAL_MS 100   // minimum interval between FF/RW jumps
 
 int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
-{  
+{
     FIL fil;             // file object
     UINT br;             // pointer to number of bytes read
     uint8_t buffer[512]; // buffer read from file
@@ -843,8 +874,8 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
 
     int selected_band = 0;
     int currEq = 0;
-    dac_eq_init(sampleSpeed); //init with default sample rate 
-
+    dac_eq_init(sampleSpeed); // init with default sample rate
+    uint16_t *playStatus;
     // This while loop continuously scans for key inputs while playing audio.
     // Warping is achieved by continuously sending audio bytes after pause point until warp duration is met.
     while (1)
@@ -853,11 +884,12 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
         // --- 2. MUSIC FEEDING (Priority) ---
         // The rest of your jukebox logic remains here...
         int c = getchar_timeout_us(0); // nonblocking getchar
-        
-        //get value from buttons
-        if (c == PICO_ERROR_TIMEOUT) {
+
+        // get value from buttons
+        if (c == PICO_ERROR_TIMEOUT)
+        {
             char btn_char = buttons_map_to_char_jukebox(selected_band);
-            if (btn_char != 0) 
+            if (btn_char != 0)
                 c = (int)btn_char; // Inject the button character into the logic
         }
 
@@ -868,28 +900,30 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
             // printf("Headphone prescence: %d\r\n", headphonesIn);
             absolute_time_t now = get_absolute_time();
 
-            //EQ START 
-            // Select the band (keys 0-5)
-            if (c >= '0' && c <= '5') {
+            // EQ START
+            //  Select the band (keys 0-5)
+            if (c >= '0' && c <= '5')
+            {
                 selected_band = c - '0';
                 printf("\nSelected Band: %d Hz\n", dac_eq_get_freq(selected_band));
             }
-            
+
             // Adjust the band (+ or -)
-            if (c == '+' || c == '=') {
+            if (c == '+' || c == '=')
+            {
                 dac_eq_adjust(selected_band, 0.5f, sampleSpeed); // Boost
                 printf("Band %d Gain: %.1f dB\n", selected_band, dac_eq_get_gain(selected_band));
             }
-            if (c == '-') {
+            if (c == '-')
+            {
                 dac_eq_adjust(selected_band, -0.5f, sampleSpeed); // Cut
                 printf("Band %d Gain: %.1f dB\n", selected_band, dac_eq_get_gain(selected_band));
             }
-            //EQ END
-
+            // EQ END
 
             switch (c)
             {
-            //new **
+            // new **
             case 'n':
             case 'N':
                 exitType = 1;
@@ -914,6 +948,24 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
                 warp_start_transport = transport;      //
                 warp_target = paused ? 0.0f : 1.0f;
                 warping = true;
+
+                if (visualizer == 0 || visualizer == 5)
+                {
+                    if (paused)
+                        playStatus = pause_icon;
+                    else
+                        playStatus = play_icon;
+                    for (int y = 0; y < 20; y++)
+                    {
+                        uint16_t *dst = &frame_buffer[y * SCREEN_WIDTH];
+                        uint16_t *src = &playStatus[y * 20];
+                        memcpy(dst, src, 20 * sizeof(uint16_t));
+                    }
+                    st7789_set_cursor(0, 0);
+                    st7789_ramwr();
+                    spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
+                    spi_write16_blocking(spi0, frame_buffer, 240 * 240);
+                }
 
                 // select duration based on pause/resume
                 warp_duration = paused ? PAUSE_WARP_US : RESUME_WARP_US;
@@ -966,15 +1018,17 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
                 {
                     process_image(track, filename, 160);
                     album_art_ready = true;
-                    uint16_t *playStatus;
-                    
-                    if (paused) playStatus = pause_icon;
-                    else playStatus = play_icon;
+                    printf("changing visualizer");
+                    if (paused)
+                        playStatus = pause_icon;
+                    else
+                        playStatus = play_icon;
 
-                    for (int y = 0; y < 20; y++){
-                    uint16_t *dst = &frame_buffer[y * SCREEN_WIDTH];
-                    uint16_t *src = &playStatus[y * 20];
-                    memcpy(dst, src, 20 * sizeof(uint16_t));
+                    for (int y = 0; y < 20; y++)
+                    {
+                        uint16_t *dst = &frame_buffer[y * SCREEN_WIDTH];
+                        uint16_t *src = &playStatus[y * 20];
+                        memcpy(dst, src, 20 * sizeof(uint16_t));
                     }
                 }
                 switch (visualizer)
@@ -1048,7 +1102,8 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
         // Always feed decoder unless fully paused
         if (!paused || warping)
         {
-            if (f_read(&fil, buffer, sizeof(buffer), &br) != FR_OK || br == 0){
+            if (f_read(&fil, buffer, sizeof(buffer), &br) != FR_OK || br == 0)
+            {
                 exitType = 0;
                 break;
             }

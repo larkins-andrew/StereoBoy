@@ -73,7 +73,7 @@ int main()
    ENGINEERING PROTOTYPE UNIT 001)");
     printf("\r\n\r\n");
 
-    sleep_ms(750); // pause for dramatic effect
+    // sleep_ms(750); // pause for dramatic effect
 
     dprint("Starting Track Scan");
     // pause_core1();
@@ -93,7 +93,7 @@ int main()
         //Return to main menu with list selection:
         if (exitCode == 0) {
             selected = false; 
-            set_visualizer(5);
+            set_visualizer(1);
             choice = 0;
             bool confirmed = 0;
             printf("\r\nAvailable tracks:\r\n");
@@ -125,9 +125,14 @@ int main()
                     if (pressed & BTN_R)      choice = (choice + 1) % count;
                     if (pressed & BTN_L)      choice = (choice - 1 + count) % count; //added roll-over
                     if (pressed & BTN_U)      choice = (choice + 10) % count;
-                    if (pressed & BTN_D)      choice = (choice - 10 + (count * 10)) % count; //added roll-over
-                    if (pressed & BTN_A)      selected = true; 
-                    printf("Current choice: %d", choice);
+                    if (pressed & BTN_D)      {
+                        printf("pressed D");
+                        choice = (choice - 10 + (count * 10)) % count; //added roll-over
+                    }
+                    if (pressed & BTN_A){
+                        selected = true;   
+                        printf("pressed A");
+                    }       
                 }
                 if (prev_choice != choice){
                     clear_framebuffer();
@@ -142,6 +147,7 @@ int main()
                 sleep_ms(10);
             }
         }
+        printf("outside loop");
         track_info_t *track = &tracks[choice];
 
         dprint("NOW PLAYING:");
