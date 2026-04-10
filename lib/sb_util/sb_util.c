@@ -1144,7 +1144,7 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
         {
             if (f_read(&fil, buffer, sizeof(buffer), &br) != FR_OK || br == 0)
             {
-                exitType = 0;
+                exitType = 1; // Default return when no bytes read (end of song)
                 break;
             }
 
