@@ -93,7 +93,7 @@ int main()
         //Return to main menu with list selection:
         if (exitCode == 0) {
             selected = false; 
-            set_visualizer(1);
+            set_visualizer(5);
             choice = 0;
             bool confirmed = 0;
             printf("\r\nAvailable tracks:\r\n");

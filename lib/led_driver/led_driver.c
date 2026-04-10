@@ -145,7 +145,7 @@ static float peak_r = 0.0f;
 static const float PEAK_DECAY = 0.05f; // How fast the LEDs fall back down
 
 void pca9685_update_vu(pca9685_t *dev, uint16_t adc_left, uint16_t adc_right) {
-    int MAX_BRIGHTNESS = 4095;
+    int MAX_BRIGHTNESS = 400;
     // Remove DC bais from codec
     float amp_l = (float)abs((int)adc_left - ADC_CENTER);
     float amp_r = (float)abs((int)adc_right - ADC_CENTER);
@@ -169,8 +169,8 @@ void pca9685_update_vu(pca9685_t *dev, uint16_t adc_left, uint16_t adc_right) {
 
     // 4. Update Left LEDs (Channels 0 to 7)
     for (int i = 0; i < NUM_LEDS_PER_CH; i++) {
-        float threshold = (float)(i + 1) / NUM_LEDS_PER_CH;
-        float prev_threshold = (float)i / NUM_LEDS_PER_CH;
+        float threshold = (float)(NUM_LEDS_PER_CH - i) / NUM_LEDS_PER_CH;
+        float prev_threshold = (float)(NUM_LEDS_PER_CH - i - 1) / NUM_LEDS_PER_CH;
 
         if (peak_l >= threshold) {
             pca9685_set_pin(dev, i, MAX_BRIGHTNESS, true); // Fully ON
@@ -185,8 +185,8 @@ void pca9685_update_vu(pca9685_t *dev, uint16_t adc_left, uint16_t adc_right) {
 
     // 5. Update Right LEDs (Channels 8 to 15)
     for (int i = 0; i < NUM_LEDS_PER_CH; i++) {
-        float threshold = (float)(i + 1) / NUM_LEDS_PER_CH;
-        float prev_threshold = (float)i / NUM_LEDS_PER_CH;
+        float threshold = (float)(NUM_LEDS_PER_CH - i) / NUM_LEDS_PER_CH;
+        float prev_threshold = (float)(NUM_LEDS_PER_CH - i - 1) / NUM_LEDS_PER_CH;
 
         if (peak_r >= threshold) {
             pca9685_set_pin(dev, i + 8, MAX_BRIGHTNESS, true); 

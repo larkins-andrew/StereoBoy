@@ -135,7 +135,7 @@ void st7789_init(const struct st7789_t* config, uint16_t width, uint16_t height)
     // - Line Address Order            = LCD Refresh Top to Bottom
     // - RGB/BGR Order                 = RGB
     // - Display Data Latch Data Order = LCD Refresh Left to Right
-    st7789_cmd(0x36, (uint8_t[]){ 0x00 }, 1);
+    st7789_cmd(0x36, (uint8_t[]){ 0xC0 }, 1);
    
     st7789_caset(0, width);
     st7789_raset(0, height);
@@ -212,7 +212,7 @@ void st7789_fill(uint16_t pixel)
 void st7789_set_cursor(uint16_t x, uint16_t y)
 {
     st7789_caset(x, st7789_width);
-    st7789_raset(y, st7789_height);
+    st7789_raset(y+80, st7789_height+80);
 }
 
 void st7789_vertical_scroll(uint16_t row)

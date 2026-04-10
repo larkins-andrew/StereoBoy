@@ -318,7 +318,7 @@ void dac_init() {
 
     // 8. Routing (Page 1)
     // Reg 0x23: DAC to Mixer
-    dac_write(1, 0x23, 0x44);
+    dac_write(1, 0x23, 0x44); 
 
 
     // 9. DAC Volume (Page 0)
@@ -359,5 +359,83 @@ void dac_init() {
 
 
     dac_set_volume(dac_volume);
+    // --- PASTE THIS BLOCK AT THE VERY END OF dac_init() ---
+    
+    // Give the amp a tiny moment to attempt power-up before checking faults
+    sleep_ms(10); 
+    
+    printf("--- Checking DAC Faults ---\r\n");
+    uint8_t tlv_addr = 0x18; 
+    uint8_t fault_reg = 0;
+    
+    // 1. Set the page register (Register 0) to Page 0
+    uint8_t page_data[2] = {0x00, 0x00};
+    i2c_write_blocking(i2c_default, tlv_addr, page_data, 2, false);
+    
+    // 2. Write the register address we want to read (Reg 44 / 0x2C)
+    uint8_t reg_addr = 44;
+    i2c_write_blocking(i2c_default, tlv_addr, &reg_addr, 1, true); // true = keep master control
+    
+    // 3. Read the byte back
+    i2c_read_blocking(i2c_default, tlv_addr, &fault_reg, 1, false);
+    
+    printf("Sticky Flag Reg (0x2C): 0x%02X\r\n", fault_reg);
+    
+    if (fault_reg & 0b10000000) { 
+        printf("FAULT [Bit 7]: Short Circuit or Overcurrent detected!\r\n");
+    }
+    if (fault_reg & 0b00100000) { 
+        printf("FAULT [Bit 5]: Speaker Amplifier Power-up Incomplete (Brownout)!\r\n");
+    }
+    if (fault_reg == 0x00) {
+        printf("STATUS: No faults detected. Chip thinks it is happy.\r\n");
+    }
+    printf("---------------------------\r\n");
+    // --- END PASTE BLOCK ---
 }
 
+// // Headphones disconnect interrupt
+
+// void dac_int_callback(uint gpio, uint32_t events)
+
+// {
+
+//     // Read 0x2C to clear the sticky interrupt
+
+//     dac_read(0, 0x2C); // THIS NEEDS TO BE HERE!!!! DO NOT REMOVE THIS LINE
+
+//     // read whether headphone in or out
+
+//     if (dac_read(0, 0x2E) & 0x10)
+
+//     { // Bit 5
+
+//         printf("Headphones plugged in! Paused and switching to stereo headphones.\n");
+
+//         dac_write(1, 0x20, 0b00000110); // shut down speaker driver
+
+//         // pause without warping
+
+//         paused = 1;
+
+//         warping = 0;
+
+//     }
+
+//     else
+
+//     {
+
+//         printf("Headphones pulled out! Paused and switching to mono speakers.\n");
+
+//         dac_write(1, 0x20, 0b10000110); // power up speaker driver
+
+//         // pause without warping
+
+//         paused = 1;
+
+//         warping = 0;
+
+//     }
+
+// }
