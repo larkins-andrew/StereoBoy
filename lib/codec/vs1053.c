@@ -1,4 +1,5 @@
 #include "vs1053.h"
+#include <stdio.h>
 
 #define VS_WRITE 0x02
 #define VS_READ  0x03
@@ -47,19 +48,23 @@ bool vs1053_ready(vs1053_t *v) {
 }
 
 void vs1053_init(vs1053_t *v) {
+    printf("test point 2");
     gpio_init(v->cs);   gpio_set_dir(v->cs, GPIO_OUT);  gpio_put(v->cs, 1);
     gpio_init(v->dcs);  gpio_set_dir(v->dcs, GPIO_OUT); gpio_put(v->dcs, 1);
     gpio_init(v->rst);  gpio_set_dir(v->rst, GPIO_OUT); gpio_put(v->rst, 1);
     gpio_init(v->dreq); gpio_set_dir(v->dreq, GPIO_IN);
-
+    printf("test point 3");
     spi_init(v->spi, 1 * 1000 * 1000);
     spi_set_format(v->spi, 8, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
+    
 
+    printf("test point 4");
     vs1053_soft_reset(v);
 
     // Boost clock (datasheet recommended)
     sci_write(v, SCI_CLOCKF, 0x6000);
     sleep_ms(10);
+    printf("test point 5");
 }
 
 void vs1053_soft_reset(vs1053_t *v) {

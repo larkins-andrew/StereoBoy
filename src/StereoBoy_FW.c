@@ -92,6 +92,7 @@ int main()
     while(1) {
         //Return to main menu with list selection:
         if (exitCode == 0) {
+            selected = false; 
             set_visualizer(5);
             choice = 0;
             bool confirmed = 0;
@@ -122,10 +123,11 @@ int main()
                 uint8_t pressed = buttons_get_just_pressed();
                 if (pressed > 0){
                     if (pressed & BTN_R)      choice = (choice + 1) % count;
-                    if (pressed & BTN_L)      choice = (choice - 1) % count;
+                    if (pressed & BTN_L)      choice = (choice - 1 + count) % count; //added roll-over
                     if (pressed & BTN_U)      choice = (choice + 10) % count;
-                    if (pressed & BTN_D)      choice = (choice - 10) % count;
+                    if (pressed & BTN_D)      choice = (choice - 10 + (count * 10)) % count; //added roll-over
                     if (pressed & BTN_A)      selected = true; 
+                    printf("Current choice: %d", choice);
                 }
                 if (prev_choice != choice){
                     clear_framebuffer();

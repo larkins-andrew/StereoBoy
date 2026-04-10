@@ -465,9 +465,13 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
     printf("Oscope ADC initialized!\r\n");
     dprint("Oscope ADC initialized!");
 
+
     sb_display_init(display);
+    printf("test point 1");
 
     vs1053_init(player);
+    printf("test point 2");
+
     printf("VS1053 initialized.\r\n");
     dprint("VS1053 initialized.");
     vs1053_set_volume(player, 0x01, 0x01); //chnged from 0 (0x00) to -12dB (0x0202) to -6dB (0x0101)
@@ -673,11 +677,11 @@ void album_art_centered(void)
     const int offset = (SCREEN_WIDTH - 160) / 2;
 
     for (int y = 0; y < 160; y++)
-    {
+    {   
         uint16_t *dst = &frame_buffer[(y + offset) * SCREEN_WIDTH + offset];
         uint16_t *src = &img_buffer[y * 160];
-
         memcpy(dst, src, 160 * sizeof(uint16_t));
+
     }
 }
 
@@ -837,10 +841,9 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
     f_lseek(&fil, start);
     absolute_time_t last_skip_time = get_absolute_time();
 
-    static int selected_band = 0;
-
+    int selected_band = 0;
+    int currEq = 0;
     dac_eq_init(sampleSpeed); //init with default sample rate 
-
 
     // This while loop continuously scans for key inputs while playing audio.
     // Warping is achieved by continuously sending audio bytes after pause point until warp duration is met.
@@ -850,10 +853,10 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
         // --- 2. MUSIC FEEDING (Priority) ---
         // The rest of your jukebox logic remains here...
         int c = getchar_timeout_us(0); // nonblocking getchar
-
+        
         //get value from buttons
         if (c == PICO_ERROR_TIMEOUT) {
-            char btn_char = buttons_map_to_char_jukebox();
+            char btn_char = buttons_map_to_char_jukebox(selected_band);
             if (btn_char != 0) 
                 c = (int)btn_char; // Inject the button character into the logic
         }
@@ -963,6 +966,16 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
                 {
                     process_image(track, filename, 160);
                     album_art_ready = true;
+                    uint16_t *playStatus;
+                    
+                    if (paused) playStatus = pause_icon;
+                    else playStatus = play_icon;
+
+                    for (int y = 0; y < 20; y++){
+                    uint16_t *dst = &frame_buffer[y * SCREEN_WIDTH];
+                    uint16_t *src = &playStatus[y * 20];
+                    memcpy(dst, src, 20 * sizeof(uint16_t));
+                    }
                 }
                 switch (visualizer)
                 {

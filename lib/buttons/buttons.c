@@ -73,13 +73,12 @@ uint8_t buttons_get_just_pressed(void) {
 
 //CHAT MADE THESE FUNCTIONS BELOW!!!
 //maps buttons to characters for use in jukebox, allows for multibutton presses
-char buttons_map_to_char_jukebox(void) {
+char buttons_map_to_char_jukebox(int currentEq) {
     uint8_t raw = buttons_get_raw_state();       // Is a button HELD
     uint8_t edge = buttons_get_just_pressed();   // Was a button CLICKED
 
     // Identify if the modifier (SELECT) is currently being held
     bool select_held = (raw & BTN_SELECT);
-
     // Process the "Just Pressed" buttons based on the modifier
     if (edge == 0) return 0; // No new press detected
 
@@ -91,10 +90,14 @@ char buttons_map_to_char_jukebox(void) {
         if (edge & BTN_D)     return 'd'; // Down = Volume Down
         if (edge & BTN_L)     return 'n'; // Left = next song
         if (edge & BTN_R)     return 'o'; // right = prev song
+        if (edge & BTN_START) return 'v'; //change visualizer
     } else {
         // --- modifier actions (buton + select) ---
         if (edge & BTN_R) return 'f'; // Select + Right = Fast Forward
         if (edge & BTN_L) return 'r'; // Select + Left = Rewind
+        if (edge & BTN_U) return '+';
+        if (edge & BTN_D) return '-';
+        if (edge & BTN_A) return (char) (((currentEq % 5) + 1) + '0'); //need to check this
     }
     return 0; // No match found
 }

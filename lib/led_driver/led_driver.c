@@ -68,6 +68,9 @@ bool pca9685_init(pca9685_t *dev, i2c_inst_t *i2c, uint8_t addr) {
     //set Totem-Pole outputs to source current
     write8(dev, MODE2, MODE2_OUTDRV);
 
+    // set frequency
+    pca9685_set_pwm_freq(dev, 1000);
+
     //Wake up and enable Auto-Increment for the 5-byte block writes
     write8(dev, MODE1, MODE1_AI);
     sleep_ms(10); // Required 500us minimum for the oscillator to stabilize
@@ -75,8 +78,7 @@ bool pca9685_init(pca9685_t *dev, i2c_inst_t *i2c, uint8_t addr) {
     // flush the PWM counters
     write8(dev, MODE1, MODE1_AI | MODE1_RESTART);
 
-    // set frequency
-    pca9685_set_pwm_freq(dev, 1000);
+    
 
     return true;
 }
@@ -143,6 +145,7 @@ static float peak_r = 0.0f;
 static const float PEAK_DECAY = 0.05f; // How fast the LEDs fall back down
 
 void pca9685_update_vu(pca9685_t *dev, uint16_t adc_left, uint16_t adc_right) {
+    int MAX_BRIGHTNESS = 4095;
     // Remove DC bais from codec
     float amp_l = (float)abs((int)adc_left - ADC_CENTER);
     float amp_r = (float)abs((int)adc_right - ADC_CENTER);
@@ -170,13 +173,13 @@ void pca9685_update_vu(pca9685_t *dev, uint16_t adc_left, uint16_t adc_right) {
         float prev_threshold = (float)i / NUM_LEDS_PER_CH;
 
         if (peak_l >= threshold) {
-            pca9685_set_pin(dev, i, 4095, false); // Fully ON
+            pca9685_set_pin(dev, i, MAX_BRIGHTNESS, true); // Fully ON
         } else if (peak_l > prev_threshold) {
             // Smoothly fade the top active LED
             float fraction = (peak_l - prev_threshold) * NUM_LEDS_PER_CH;
-            pca9685_set_pin(dev, i, (uint16_t)(fraction * 4095), false);
+            pca9685_set_pin(dev, i, (uint16_t)(fraction * MAX_BRIGHTNESS), true);
         } else {
-            pca9685_set_pin(dev, i, 0, false); // Fully OFF
+            pca9685_set_pin(dev, i, 0, true); // Fully OFF
         }
     }
 
@@ -186,12 +189,12 @@ void pca9685_update_vu(pca9685_t *dev, uint16_t adc_left, uint16_t adc_right) {
         float prev_threshold = (float)i / NUM_LEDS_PER_CH;
 
         if (peak_r >= threshold) {
-            pca9685_set_pin(dev, i + 8, 4095, false); 
+            pca9685_set_pin(dev, i + 8, MAX_BRIGHTNESS, true); 
         } else if (peak_r > prev_threshold) {
             float fraction = (peak_r - prev_threshold) * NUM_LEDS_PER_CH;
-            pca9685_set_pin(dev, i + 8, (uint16_t)(fraction * 4095), false);
+            pca9685_set_pin(dev, i + 8, (uint16_t)(fraction * MAX_BRIGHTNESS), true);
         } else {
-            pca9685_set_pin(dev, i + 8, 0, false); 
+            pca9685_set_pin(dev, i + 8, 0, true); 
         }
     }
 }
