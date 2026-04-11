@@ -7,6 +7,7 @@
 #include "lib/display/display.h"
 #include "lib/led_driver/led_driver.h"
 #include "lib/buttons/buttons.h"
+#include "lib/pot/pot.h"
 
 // #define DEBUG // print all dprints to terminal
 
@@ -90,6 +91,7 @@ int main()
     
     
     while(1) {
+        read_lwbt();
         //Return to main menu with list selection:
         if (exitCode == 0) {
             selected = false; 

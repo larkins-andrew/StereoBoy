@@ -532,8 +532,8 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
     buttons_init(10);
     printf("\r\nButtons intializedr\n");
 
-    // pot_init();
-    printf("\r\pot intializedr\n");
+    pot_init();
+    printf("\r\npot intialized\r\n");
 
     dprint("Finished sb_hw_init");
     printf("\r\nFinished sb_hw_init\r\n");
@@ -541,7 +541,7 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
 
 int sb_scan_tracks(track_info_t *tracks, int max_tracks)
 {
-    dprint("start of sb_scan_tracks heartbeat");
+    dprint("start of nsb_scan_tracks heartbeat");
     DIR dir;
     FILINFO fno;
     int count = 0;
@@ -833,6 +833,8 @@ uint16_t normal_speed = 1; // 1 = normal
 #define RESUME_WARP_US 1200000 // 1.2 seconds for resume
 #define SKIP_INTERVAL_MS 100   // minimum interval between FF/RW jumps
 
+
+uint16_t *playStatus;
 int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
 {
     FIL fil;             // file object
@@ -884,30 +886,40 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
     int selected_band = 0;
     int currEq = 0;
     dac_eq_init(sampleSpeed); // init with default sample rate
-    uint16_t *playStatus;
     uint8_t current_volume = 0;
     uint8_t smoothed_adc = 0;
     // This while loop continuously scans for key inputs while playing audio.
     // Warping is achieved by continuously sending audio bytes after pause point until warp duration is met.
+    uint8_t old_volume;
+    uint8_t vol_check = 0;
+    read_lwbt();
     while (1)
     {
         // //read input
-        // adc_select_input(POT_ADC_CHANNEL);
-        // uint16_t raw_adc = adc_read();
+        if (vol_check < 30){
+            vol_check = (vol_check + 1) % 31;
+        }
+        else {
+            adc_select_input(POT_ADC_CHANNEL);
+            uint16_t raw_adc = adc_read() * 0x60 / 4096;
 
-        // //moving average
-        // smoothed_adc = ((smoothed_adc * 7) + raw_adc) / 8;
+            //moving average
+            // smoothed_adc = ((smoothed_adc * 7) + raw_adc) / 8;
 
-        // // Squares the ADC value to create an audio curve, then scales to MAX_DAC_VOL
-        // uint32_t adc_squared = (uint32_t)smoothed_adc * smoothed_adc;
-        // uint8_t new_volume = (uint8_t)((adc_squared * MAX_DAC_VOL) / (4095 * 4095));
+            // // Squares the ADC value to create an audio curve, then scales to MAX_DAC_VOL
+            // uint32_t adc_squared = (uint32_t)smoothed_adc * smoothed_adc;
+            // uint8_t new_volume = (uint8_t)((adc_squared * MAX_DAC_VOL) / (4095 * 4095));
+            if (abs(raw_adc - old_volume) < 3) {
+                dac_set_volume(raw_adc);
+                // printf("pot vol %d\n\t", raw_adc);
+            }
+            old_volume = raw_adc;
+        }
         // // Only send an I2C command to the DAC if the volume changed by >1 step.
         // if (abs(new_volume - current_volume) > 1) {
         //     current_volume = new_volume;
         //     dac_set_volume(current_volume);
         // }
-
-
 
         // --- 2. MUSIC FEEDING (Priority) ---
         // The rest of your jukebox logic remains here...
@@ -1077,7 +1089,7 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
                 break;
             case 'v':
             case 'V':
-                visualizer = (visualizer + 1) % num_visualizations;
+                visualizer = (visualizer + 1) % (num_visualizations - 1);
                 if (visualizer == 0 && !album_art_ready && track->album_art_size > 0)
                 {
                     process_image(track, filename, 160);
@@ -1249,6 +1261,16 @@ void dac_int_callback(uint gpio, uint32_t events)
         paused = 1;
         warping = 0;
     }
+    // for (int y = 0; y < 20; y++)
+    // {
+    //     uint16_t *dst = &frame_buffer[y * SCREEN_WIDTH];
+    //     uint16_t *src = &playStatus[y * 20];
+    //     memcpy(dst, src, 20 * sizeof(uint16_t));
+    // }
+    // st7789_set_cursor(0, 0);
+    // st7789_ramwr();
+    // spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
+    // spi_write16_blocking(spi0, frame_buffer, 240 * 240);
 }
 
 // ---- Init GPIO interrupt ----
