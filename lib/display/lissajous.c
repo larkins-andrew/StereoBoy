@@ -72,7 +72,6 @@ void draw_lissajous()
             y = 239;
 
         // 4. Draw the new sample with FULL brightness
-        // Using WAVE_L_COLOR (0x07E0)
         frame_buffer[y * SCREEN_WIDTH + x] = 0xFFFF;
         frame_buffer[y * SCREEN_WIDTH + (239 - x)] = 0xFFFF;
         frame_buffer[(239 - y) * SCREEN_WIDTH + x] = 0xFFFF;

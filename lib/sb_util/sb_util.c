@@ -52,7 +52,6 @@ static FATFS fs;
 // Display and oscope stuff
 #define SCREEN_WIDTH 240
 #define SCREEN_HEIGHT 240
-#define WAVE_COLOR 0x07E0 // Bright Green
 #define BG_COLOR 0x0000   // Black
 
 // Center at 0.65V (ADC is 12-bit, 0-3.3V)
@@ -69,8 +68,8 @@ static FATFS fs;
 #define ADC_CH_L 6
 #define ADC_CH_R 5
 
-#define WAVE_L_COLOR 0x07E0
-#define WAVE_R_COLOR 0x07FF
+#define WAVE_L_COLOR 0x051C
+#define WAVE_R_COLOR 0x0693
 #define FFT_L_COLOR_DARK 0x0600
 #define FFT_R_COLOR_DARK 0x05FF
 #define FFT_L_COLOR_LIGHT 0x8FF1
