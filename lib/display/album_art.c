@@ -1,3 +1,4 @@
+#include "album_art.h"
 
 void album_art_centered(void)
 {

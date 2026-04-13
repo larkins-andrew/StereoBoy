@@ -70,6 +70,10 @@ extern semaphore_t text_sem;
 extern int visualizer;
 extern bool album_art_ready;
 
+#define IMG_WIDTH 160
+#define IMG_HEIGHT 160
+extern uint16_t img_buffer[IMG_WIDTH * IMG_HEIGHT];
+
 typedef struct {
     uint32_t album_art_size;
     uint32_t album_art_offset;

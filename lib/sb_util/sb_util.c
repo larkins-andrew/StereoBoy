@@ -41,8 +41,8 @@
 uint16_t num_tracks = 0; // number of tracks in current directory
 bool potCheck;
 uint16_t frame_buffer[240 * 240];
-static uint16_t img_buffer[IMG_WIDTH * IMG_HEIGHT];
-static uint16_t column_buf[240];
+uint16_t img_buffer[IMG_WIDTH * IMG_HEIGHT];
+// static uint16_t column_buf[240];
 //TODO: moved to sb_init.c
 // static int dma_chan = -1;
 // static dma_channel_config dcc;

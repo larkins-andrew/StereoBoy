@@ -8,8 +8,7 @@
 #define FFT_R_COLOR_DARK 0x05FF
 #define FFT_L_COLOR_LIGHT 0x8FF1
 #define FFT_R_COLOR_LIGHT 0xAFFF
-#define IMG_WIDTH 160
-#define IMG_HEIGHT 160
+
 
 // Display and oscope stuff
 #define WAVE_COLOR 0x07E0 // Bright Green

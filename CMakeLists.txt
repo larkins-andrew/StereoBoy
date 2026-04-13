@@ -143,6 +143,7 @@ add_executable(StereoBoy_FW
     lib/dac/dac.c
     lib/display/display.c
     lib/display/fft.c
+    lib/display/album_art.c
     lib/display/lissajous.c
     lib/display/picojpeg.c
     lib/led_driver/led_driver.c
