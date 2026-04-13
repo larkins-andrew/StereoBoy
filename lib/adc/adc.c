@@ -1,4 +1,5 @@
 #include "adc.h"
+#include "lib/sb_util/global_vars.h"
 
 uint16_t capture_buf[CAPTURE_DEPTH];
 

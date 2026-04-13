@@ -8,7 +8,6 @@
 #include <stdio.h>
 // #include "lib/dac/dac.h"
 
-extern bool potCheck;
 #define POT_ADC_PIN 44     
 #define POT_ADC_CHANNEL 4     // ADC channel 0 maps to GPIO 26
 #define LED_R 24

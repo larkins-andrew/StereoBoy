@@ -10,13 +10,14 @@
 #include "pico/stdlib.h"
 #include "hardware/gpio.h"
 #include "display.h"
+#include "lib/font/font.h"
 
 struct st7789_t st7789_cfg;
-static uint16_t st7789_width;
-static uint16_t st7789_height;
-static bool st7789_data_mode = false;
+uint16_t st7789_width;
+uint16_t st7789_height;
+bool st7789_data_mode = false;
 
-static void st7789_cmd(uint8_t cmd, const uint8_t* data, size_t len)
+void st7789_cmd(uint8_t cmd, const uint8_t* data, size_t len)
 {
     spi_set_format(st7789_cfg.spi, 8, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
     if (st7789_cfg.gpio_cs > -1) {
@@ -77,83 +78,6 @@ void st7789_raset(uint16_t ys, uint16_t ye)
     st7789_cmd(0x2b, data, sizeof(data));
 }
 
-void st7789_init(const struct st7789_t* config, uint16_t width, uint16_t height)
-{
-    memcpy(&st7789_cfg, config, sizeof(st7789_cfg));
-    st7789_width = width;
-    st7789_height = height;
-
-    spi_init(st7789_cfg.spi, 150 * 1000 * 1000);
-    if (st7789_cfg.gpio_cs > -1) {
-        spi_set_format(st7789_cfg.spi, 8, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
-    } else {
-        spi_set_format(st7789_cfg.spi, 8, SPI_CPOL_1, SPI_CPHA_1, SPI_MSB_FIRST);
-    }
-
-    gpio_set_function(st7789_cfg.gpio_din, GPIO_FUNC_SPI);
-    gpio_set_function(st7789_cfg.gpio_clk, GPIO_FUNC_SPI);
-
-    if (st7789_cfg.gpio_cs > -1) {
-        gpio_init(st7789_cfg.gpio_cs);
-    }
-    gpio_init(st7789_cfg.gpio_dc);
-    gpio_init(st7789_cfg.gpio_rst);
-    gpio_init(st7789_cfg.gpio_bl);
-
-    if (st7789_cfg.gpio_cs > -1) {
-        gpio_set_dir(st7789_cfg.gpio_cs, GPIO_OUT);
-    }
-    gpio_set_dir(st7789_cfg.gpio_dc, GPIO_OUT);
-    gpio_set_dir(st7789_cfg.gpio_rst, GPIO_OUT);
-    gpio_set_dir(st7789_cfg.gpio_bl, GPIO_OUT);
-
-    if (st7789_cfg.gpio_cs > -1) {
-        gpio_put(st7789_cfg.gpio_cs, 1);
-    }
-    gpio_put(st7789_cfg.gpio_dc, 1);
-    gpio_put(st7789_cfg.gpio_rst, 1);
-    sleep_ms(100);
-    
-    // SWRESET (01h): Software Reset
-    st7789_cmd(0x01, NULL, 0);
-    sleep_ms(150);
-
-    // SLPOUT (11h): Sleep Out
-    st7789_cmd(0x11, NULL, 0);
-    sleep_ms(50);
-
-    // COLMOD (3Ah): Interface Pixel Format
-    // - RGB interface color format     = 65K of RGB interface
-    // - Control interface color format = 16bit/pixel
-    st7789_cmd(0x3a, (uint8_t[]){ 0x55 }, 1);
-    sleep_ms(10);
-
-    // MADCTL (36h): Memory Data Access Control
-    // - Page Address Order            = Top to Bottom
-    // - Column Address Order          = Left to Right
-    // - Page/Column Order             = Normal Mode
-    // - Line Address Order            = LCD Refresh Top to Bottom
-    // - RGB/BGR Order                 = RGB
-    // - Display Data Latch Data Order = LCD Refresh Left to Right
-    st7789_cmd(0x36, (uint8_t[]){ 0xC0 }, 1);
-   
-    st7789_caset(0, width);
-    st7789_raset(0, height);
-
-    // INVON (21h): Display Inversion On
-    st7789_cmd(0x21, NULL, 0);
-    sleep_ms(10);
-
-    // NORON (13h): Normal Display Mode On
-    st7789_cmd(0x13, NULL, 0);
-    sleep_ms(10);
-
-    // DISPON (29h): Display On
-    st7789_cmd(0x29, NULL, 0);
-    sleep_ms(10);
-
-    gpio_put(st7789_cfg.gpio_bl, 1);
-}
 
 void st7789_ramwr()
 {
@@ -231,8 +155,58 @@ void st7789_set_window(uint16_t xs, uint16_t ys, uint16_t xe, uint16_t ye) {
     st7789_raset(ys, ye);
 }
 
+void st7789_draw_string(uint16_t x, uint16_t y, const char *text, uint16_t color)
+{
+    uint16_t start_x = x;
+    uint16_t start_y = y;
 
-const uint16_t play_icon[400] = {
+    for (int i = 0; text[i] != '\0' && i < 30; i++)
+    {
+        // if (text[i] == '\n' || text[i] == '\r') {
+        //     start_x = x;
+        //     start_y += 10;
+        // }
+        if (start_x < SCREEN_WIDTH - font_width && start_y < SCREEN_HEIGHT - font_height)
+        {
+            lcd_draw_char(start_x, start_y, text[i], color);
+            start_x += font_width;
+        }
+        else
+        {
+            break;
+        }
+    }
+}
+
+void set_pixel(uint16_t x, uint16_t y, uint16_t color)
+{
+    frame_buffer[y * SCREEN_WIDTH + x] = color;
+}
+
+void lcd_draw_char(uint16_t x, uint16_t y, char c, uint16_t color)
+{
+    const struct Font *f = find_font_char(c);
+    if (f == NULL)
+        return;
+    for (uint8_t row = 0; row < font_height; row++)
+    {
+        for (uint8_t col = 0; col < font_width; col++)
+        {
+            if (f->code[row * font_width + col] == 1)
+            {
+                set_pixel(x + col, y + row, color);
+            }
+            else
+            {
+                set_pixel(x + col, y + row, BLACK);
+            }
+        }
+    }
+}
+
+
+
+uint16_t play_icon[400] = {
     0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
     0,0xFFFF,0xFFFF,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
     0,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
@@ -255,7 +229,7 @@ const uint16_t play_icon[400] = {
     0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 };
 
-const uint16_t pause_icon[400]= {
+uint16_t pause_icon[400]= {
     0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
     0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
     0,0,0,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0,0,0,0,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0xFFFF,0,0,0,

@@ -1,4 +1,5 @@
 #include "pot.h"
+#include "lib/sb_util/global_vars.h"
 
 struct repeating_timer pot_timer;
 

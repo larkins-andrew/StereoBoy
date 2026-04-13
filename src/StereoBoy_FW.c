@@ -1,12 +1,8 @@
+#include "lib/sb_util/global_vars.h"
+#include "lib/sb_util/sb_init.h"
 #include "lib/sb_util/sb_util.h"
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include "hw_config.h"
-#include "hardware/i2c.h"
-#include "lib/display/display.h"
-#include "lib/led_driver/led_driver.h"
 #include "lib/buttons/buttons.h"
+#include "lib/sb_util/core1_entry.h"
 #include "lib/pot/pot.h"
 
 // #define DEBUG // print all dprints to terminal

@@ -9,8 +9,6 @@
 // Shared Types & Macros
 // ---------------------------------------------------------
 
-typedef float complex cplx;
-
 #ifndef SCREEN_WIDTH
 #define SCREEN_WIDTH 240
 #endif
@@ -38,9 +36,9 @@ typedef float complex cplx;
 // These variables live in your main C file but are needed here 
 // to read audio samples and draw the output.
 
-extern cplx audio_history_l[HISTORY_SIZE];
-extern cplx audio_history_r[HISTORY_SIZE];
-extern uint16_t frame_buffer[SCREEN_WIDTH * SCREEN_HEIGHT];
+// extern cplx audio_history_l[HISTORY_SIZE];
+// extern cplx audio_history_r[HISTORY_SIZE];
+// extern uint16_t frame_buffer[SCREEN_WIDTH * SCREEN_HEIGHT];
 
 // ---------------------------------------------------------
 // Function Prototypes

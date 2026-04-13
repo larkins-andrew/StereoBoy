@@ -137,6 +137,7 @@ add_executable(StereoBoy_FW
     src/StereoBoy_FW.c
     src/hw_config.c # this is important!!! https://forums.raspberrypi.com/viewtopic.php?t=342315
     lib/sb_util/sb_util.c
+    lib/sb_util/sb_init.c
     lib/sb_util/filehelper.c
     lib/codec/vs1053.c
     lib/dac/dac.c
@@ -147,7 +148,7 @@ add_executable(StereoBoy_FW
     lib/led_driver/led_driver.c
     lib/buttons/buttons.c
     lib/pot/pot.c
-    # lib/codec/codec.c
+    lib/sb_util/core1_entry.c
     )
 
 pico_set_program_name(StereoBoy_FW "StereoBoy_FW")
