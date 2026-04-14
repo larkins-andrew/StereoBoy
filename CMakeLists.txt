@@ -134,7 +134,7 @@ pico_sdk_init()
 # Add executable. Default name is the project name, version 0.1
 
 add_executable(StereoBoy_FW
-    src/StereoBoy_FW.c
+    src/radiomagDemo.c
     src/hw_config.c # this is important!!! https://forums.raspberrypi.com/viewtopic.php?t=342315
     lib/sb_util/sb_util.c
     lib/sb_util/filehelper.c
@@ -147,6 +147,7 @@ add_executable(StereoBoy_FW
     lib/led_driver/led_driver.c
     lib/buttons/buttons.c
     lib/pot/pot.c
+    lib/radiomag/si4705.c
     # lib/codec/codec.c
     )
 
