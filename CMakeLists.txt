@@ -141,7 +141,6 @@ add_executable(StereoBoy_FW
     lib/sb_util/filehelper.c
     lib/codec/vs1053.c
     lib/dac/dac.c
-    lib/display/display.c
     lib/display/fft.c
     lib/display/album_art.c
     lib/display/lissajous.c
@@ -150,6 +149,8 @@ add_executable(StereoBoy_FW
     lib/buttons/buttons.c
     lib/pot/pot.c
     lib/sb_util/core1_entry.c
+    lib/display/display.c
+    lib/font/font.c
     )
 
 pico_set_program_name(StereoBoy_FW "StereoBoy_FW")

@@ -1,20 +1,7 @@
 #ifndef SB_UTIL_H
 #define SB_UTIL_H
 
-// #include <complex.h>
-// #include <math.h>
-
-// #include "pico/stdlib.h"
-// #include "ff.h"
-// #include "pico/multicore.h"
-
-// #include "lib/codec/vs1053.h"
-// #include "lib/display/display.h"
-// #include "lib/led_driver/led_driver.h"
-#include "lib/sb_util/global_vars.h"
-
-// #define MAX_TRACKS 128
-// #define MAX_FILENAME_LEN 256
+#include "global_vars.h"
 
 /* ========= Audio ========= */
 void sb_audio_init(vs1053_t *player);

@@ -1,18 +1,6 @@
-// #include <stdlib.h>
-// #include <stdio.h>
-// #include <string.h>
-// #include "core1_entry.h"
-// #include "pico/multicore.h"
-// #include "lib/sb_util/sb_util.h"
-// #include "lib/display/fft.h"
-// #include "lib/adc/adc.h"
-// #include "lib/sb_util/sb_util.h"
-#include "core1_entry.h"
 #include "lib/sb_util/global_vars.h"
-#include "lib/adc/adc.h"
-#include "lib/display/display.h"
-#include "lib/led_driver/led_driver.h"
-#include "lib/font/font.h"
+#include "core1_entry.h"
+#include "firmware.h"
 
 /* Text Display Stuff */
 mutex_t text_buff_mtx;

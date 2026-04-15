@@ -1,16 +1,8 @@
 #include "sb_util.h"
 
-#include "lib/sb_util/global_vars.h"
-#include "lib/dac/dac.h"
-#include "lib/codec/vs1053.h"
 #include "core1_entry.h"
-#include "lib/buttons/buttons.h"
-#include "lib/pot/pot.h"
 #include "filehelper.h"
-#include "lib/adc/adc.h"
-#include "lib/font/font.h"
-#include "lib/led_driver/led_driver.h"
-#include "lib/display/display.h"
+#include "firmware.h"
 
 // SPI1 configuration for codec & sd card
     //TODO: Moved to vs1053.h

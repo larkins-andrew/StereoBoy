@@ -8,6 +8,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "ff.h"
+#include "sd_card.h"
 
 #include "pico/stdlib.h"
 #include "pico/multicore.h"
@@ -17,9 +19,9 @@
 #include "hardware/gpio.h"
 #include "hardware/pio.h"
 #include "hardware/spi.h"
-#include "ff.h"
 
 #include "lib/display/picojpeg.h"
+#include "lib/font/font.h"
 
 
 //LED DRIVER

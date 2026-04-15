@@ -1,3 +1,6 @@
+#ifndef ADC
+#define ADC
+
 #include <stdio.h>
 #include "pico/stdlib.h"
 #include "hardware/adc.h"
@@ -13,4 +16,4 @@
 #define ADC_CH_L 6
 #define ADC_CH_R 5
 
-uint16_t capture_buf[CAPTURE_DEPTH];
+#endif

@@ -1,12 +1,6 @@
 #include "global_vars.h"
+#include "firmware.h"
 
-#include "lib/pot/pot.h"
-#include "lib/buttons/buttons.h"
-#include "lib/codec/vs1053.h"
-#include "lib/dac/dac.h"
-#include "lib/adc/adc.h"
-#include "lib/display/display.h"
-#include "lib/led_driver/led_driver.h"
 #include "lib/sb_util/core1_entry.h"
 #include "lib/sb_util/filehelper.h"
 
@@ -92,7 +86,6 @@ void st7789_init(const struct st7789_t* config, uint16_t width, uint16_t height)
 
     gpio_put(st7789_cfg.gpio_bl, 1);
 }
-
 
 void sb_display_init(st7789_t *display)
 {
