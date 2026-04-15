@@ -104,6 +104,37 @@ char buttons_map_to_char_jukebox(int currentEq) {
     return 0; // No match found
 }
 
+char buttons_map_to_char_radiomag(int currentEq) {
+    uint8_t raw = buttons_get_raw_state();       // Is a button HELD
+    uint8_t edge = buttons_get_just_pressed();   // Was a button CLICKED
+
+    // Identify if the modifier (SELECT) is currently being held
+    bool select_held = (raw & BTN_SELECT);
+    // Process the "Just Pressed" buttons based on the modifier
+    if (edge == 0) return 0; // No new press detected
+
+    if (select_held) {
+        // --- Standard actions (just button) ---
+        if (edge & BTN_A)     return 'p'; // B = pause
+        if (edge & BTN_B)     return 's'; // A = stop
+        if (edge & BTN_U)     return 'u'; // Up = Volume Up
+        if (edge & BTN_D)     return 'd'; // Down = Volume Down
+        if (edge & BTN_R)     return 'n'; // Right = next song
+        if (edge & BTN_L)     return 'o'; // Left = prev song
+        if (edge & BTN_START) return 'v'; //change visualizer
+    } else {
+        // --- modifier actions (buton + select) ---
+        if (edge & BTN_R) return 'f'; // Select + Right = Fast Forward
+        if (edge & BTN_L) return 'r'; // Select + Left = Rewind
+        if (edge & BTN_U) return '+';
+        if (edge & BTN_D) return '-';
+        if (edge & BTN_A) return (char) (((currentEq % 5) + 1) + '0'); //need to check this
+    }
+    return 0; // No match found
+}
+
+
+
 /**
  * 2. FOR MAIN MENU: Maps buttons to navigation
  * Returns: 'U'(Up), 'D'(Down), 'L'(-5), 'R'(+5), 'E'(Enter/Start)

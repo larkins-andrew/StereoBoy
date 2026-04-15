@@ -10,23 +10,23 @@ static void wait_for_cts(void) {
     }
 }
 
-// --- Layer 1: Hardware Initialization ---
+
 void si4705_init(void) {
-    // 1. Initialize RP2350 I2C
+    //Initialize RP2350 I2C (FIX FOR INTEGRATION, SHOULD ALREADY BE DONE!)
     i2c_init(SI4705_I2C_PORT, 100 * 1000); 
     gpio_set_function(SI4705_PIN_SDA, GPIO_FUNC_I2C);
     gpio_set_function(SI4705_PIN_SCL, GPIO_FUNC_I2C);
     gpio_pull_up(SI4705_PIN_SDA);
     gpio_pull_up(SI4705_PIN_SCL);
 
-    // 2. Setup RST and SEN pins
+    //Setup RST and SEN pins
     gpio_init(SI4705_PIN_RST);
     gpio_set_dir(SI4705_PIN_RST, GPIO_OUT);
     
     gpio_init(SI4705_PIN_SEN);
     gpio_set_dir(SI4705_PIN_SEN, GPIO_OUT);
 
-    // 3. Reset Sequence: Drive SEN low to select 0x11 I2C Address
+    //Reset Sequence: Drive SEN low to select 0x11 I2C Address
     gpio_put(SI4705_PIN_SEN, 0); 
 
     // Toggle Reset
@@ -36,10 +36,8 @@ void si4705_init(void) {
     sleep_ms(5); // Allow time for device to power up
 }
 
-// --- Layer 2: Chip Configuration ---
 void si4705_power_up(void) {
     uint8_t cmd[3];
-    //need to check this startup sequence!
     cmd[0] = CMD_POWER_UP;
     
     // CTS interrupt disabled, FM Receive, XOSCEN = 0
@@ -75,11 +73,11 @@ void si4705_tune_fm(uint16_t freq_10khz) {
     cmd[3] = freq_10khz & 0xFF;
     cmd[4] = 0x00; // Antenna tuning cap (0 = Auto)
 
-    // 1. Send the tune command
+    // Send the tune command
     i2c_write_blocking(SI4705_I2C_PORT, SI4705_I2C_ADDR, cmd, 5, false);
     wait_for_cts();
 
-    // 2. The Si4705 requires us to explicitly poll the GET_INT_STATUS 
+    // The Si4705 requires us to explicitly poll the GET_INT_STATUS 
     // command to force the internal STCINT (Tune Complete) bit to update.
     uint8_t status_cmd = CMD_GET_INT_STATUS;
     uint8_t status = 0;
@@ -116,32 +114,6 @@ bool si4705_get_tune_status(uint8_t *rssi, uint8_t *snr) {
     // This returns true if the tuned frequency contains a valid, strong FM station.
     return (resp[1] & 0x01); 
 }
-
-// // --- Layer 3: Application / Tuning ---
-// void si4705_tune_fm(uint16_t freq_10khz) {
-//     uint8_t cmd[5];
-//     cmd[0] = CMD_FM_TUNE_FREQ;
-//     cmd[1] = 0x00;
-//     cmd[2] = (freq_10khz >> 8) & 0xFF;
-//     cmd[3] = freq_10khz & 0xFF;
-//     cmd[4] = 0x00; // Antenna tuning cap (0 = Auto)
-
-//     i2c_write_blocking(SI4705_I2C_PORT, SI4705_I2C_ADDR, cmd, 5, false);
-//     wait_for_cts();
-// }
-
-// bool si4705_get_tune_status(uint8_t *rssi, uint8_t *snr) {
-//     uint8_t cmd[2] = {CMD_FM_TUNE_STATUS, 0x01}; // INTACK = 1
-//     uint8_t resp[8];
-
-//     i2c_write_blocking(SI4705_I2C_PORT, SI4705_I2C_ADDR, cmd, 2, true);
-//     i2c_read_blocking(SI4705_I2C_PORT, SI4705_I2C_ADDR, resp, 8, false);
-
-//     if (rssi) *rssi = resp[4];
-//     if (snr) *snr = resp[5];
-
-//     return (resp[0] & 0x01); 
-// }
 
 void si4705_set_volume(uint8_t volume) {
     // Volume range is 0 to 63
@@ -231,4 +203,15 @@ bool si4705_seek(bool seek_up, bool wrap) {
     // Return the VALID bit. 
     // True = Stopped on a good station. False = Wrapped around and found nothing.
     return (resp[1] & 0x01); 
+}
+
+void print_current_station() {
+    uint16_t freq = si4705_get_current_frequency();
+    uint8_t rssi, snr;
+    bool valid = si4705_get_tune_status(&rssi, &snr);
+    
+    printf("-> Station: %d.%d MHz | RSSI: %3d dBuV | SNR: %3d dB | Valid: %s\n", 
+           freq / 100, (freq % 100) / 10, 
+           rssi, snr, 
+           valid ? "YES" : "NO");
 }

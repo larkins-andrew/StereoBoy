@@ -41,4 +41,6 @@ char buttons_map_menu_navigation(void);
 
 void buttons_sync_state(void);
 
+char buttons_map_to_char_radiomag(int currentEq);
+
 #endif // BUTTONS_H

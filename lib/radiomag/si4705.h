@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "hardware/i2c.h"
+#include <stdio.h>
 
 // --- Hardware Configuration ---
 #define SI4705_I2C_PORT i2c0
@@ -45,6 +46,7 @@ bool si4705_seek(bool seek_up, bool wrap);
 // Diagnostics
 bool si4705_get_revision(uint8_t *part_number, uint8_t *fw_major, uint8_t *fw_minor);
 uint16_t si4705_get_current_frequency(void);
+void print_current_station();
 
 
 #endif // SI4705_H

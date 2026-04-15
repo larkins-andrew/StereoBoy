@@ -8,6 +8,7 @@
 #include "lib/led_driver/led_driver.h"
 #include "lib/buttons/buttons.h"
 #include "lib/pot/pot.h"
+#include "lib/radiomag/radiomag_util.h"
 
 // #define DEBUG // print all dprints to terminal
 
@@ -85,6 +86,7 @@ int main()
     int choice = 0;
     int prev_choice = 0;
     bool selected = 0;
+    bool inRadio = 0;
     // --- Print menu ---
     dprint("Debug print test %d", 1); //Trigger Core 2 Print
     printf("Debug print test %s\r\n", "2");
@@ -127,16 +129,12 @@ int main()
                     if (pressed & BTN_R)      choice = (choice + 1) % count;
                     if (pressed & BTN_L)      choice = (choice - 1 + count) % count; //added roll-over
                     if (pressed & BTN_U)      choice = (choice + 10) % count;
-                    if (pressed & BTN_D)      {
-                        printf("pressed D");
-                        choice = (choice - 10 + (count * 10)) % count; //added roll-over
-                    }
-                    if (pressed & BTN_A){
-                        selected = true;   
-                        printf("pressed A");
-                    }       
+                    if (pressed & BTN_D)      choice = (choice - 10 + (count * 10)) % count; //added roll-over
+                    if (pressed & BTN_A)      selected = true;   
+                    if (pressed & BTN_SELECT) inRadio = radioLoop();
+                       
                 }
-                if (prev_choice != choice){
+                if ((prev_choice != choice) | (inRadio)){
                     clear_framebuffer();
                     dprint("Song %d/%d: ", choice+1, count);
                     printf("\r\nSong %d/%d: ", choice+1, count);
