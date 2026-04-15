@@ -36,7 +36,7 @@ int main() {
     printf("==================================================\n\n");
 
     //init
-    si4705_init();
+    si4705_init(); //look into init later, I2C should already be initliazed 
     si4705_power_up();
 
     //set op_amp high (change this if outputting from normal audio stream??)

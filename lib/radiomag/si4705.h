@@ -10,7 +10,6 @@
 #define SI4705_I2C_PORT i2c0
 #define SI4705_I2C_ADDR 0x11 // Set via driving SEN low during reset
 
-// Adjust these to match your RP2350 pinout
 #define SI4705_PIN_SDA  20
 #define SI4705_PIN_SCL  21
 #define SI4705_PIN_RST  18 
