@@ -90,8 +90,8 @@ char buttons_map_to_char_jukebox(int currentEq) {
         if (edge & BTN_B)     return 's'; // A = stop
         if (edge & BTN_U)     return 'u'; // Up = Volume Up
         if (edge & BTN_D)     return 'd'; // Down = Volume Down
-        if (edge & BTN_L)     return 'n'; // Left = next song
-        if (edge & BTN_R)     return 'o'; // right = prev song
+        if (edge & BTN_R)     return 'n'; // Right = next song
+        if (edge & BTN_L)     return 'o'; // Left = prev song
         if (edge & BTN_START) return 'v'; //change visualizer
     } else {
         // --- modifier actions (buton + select) ---
