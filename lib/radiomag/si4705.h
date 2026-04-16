@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include "hardware/i2c.h"
 #include <stdio.h>
+#include "lib/codec/vs1053.h"
 
 // --- Hardware Configuration ---
 #define SI4705_I2C_PORT i2c0
@@ -27,15 +28,20 @@
 // --- Property Macros ---
 #define PROP_RX_VOLUME     0x4000
 #define PROP_FM_ANTENNA_INPUT 0x1107
+#define PROP_DIGITAL_OUTPUT_FORMAT      0x0102
+#define PROP_DIGITAL_OUTPUT_SAMPLE_RATE 0x0104
 
 #define ANTENNA_FMI 0  // Pin 8 (Headphone Antenna)
 #define ANTENNA_LPI 1  // Pin 11 (PCB Trace Antenna)
 #define PROP_FM_SEEK_TUNE_SNR_THRESHOLD  0x1403
 #define PROP_FM_SEEK_TUNE_RSSI_THRESHOLD 0x1404
+#define CMD_POWER_DOWN 0x11
 
 // --- Function Prototypes ---
 void si4705_init(void);
-void si4705_power_up(void);
+void si4705_power_up(uint8_t opmode); // Modify to accept the opmode
+void si4705_power_down(void);
+void switch_radio_audio_mode(vs1053_t *player, uint16_t current_freq, bool is_digital_audio, uint8_t current_volume, uint8_t current_antenna);
 void si4705_set_property(uint16_t prop_id, uint16_t prop_value);
 void si4705_tune_fm(uint16_t freq_10khz);
 bool si4705_get_tune_status(uint8_t *rssi, uint8_t *snr);

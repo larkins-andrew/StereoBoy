@@ -1,18 +1,6 @@
 #include "vs1053.h"
 #include <stdio.h>
 
-#define VS_WRITE 0x02
-#define VS_READ  0x03
-
-#define SCI_MODE    0x00
-#define SCI_CLOCKF  0x03
-#define SCI_VOL     0x0B
-#define SCI_AUDATA  0x05
-
-#define SCI_WRAM      0x06
-#define SCI_WRAMADDR  0x07
-
-#define VS1053_PARA_PLAYSPEED 0x1E04
 
 static inline void cs_low(uint pin)  { gpio_put(pin, 0); }
 static inline void cs_high(uint pin) { gpio_put(pin, 1); }
@@ -190,4 +178,20 @@ void vs1053_tape_stop(vs1053_t *v) {
     // Optional: Reset rate to 44.1k for the next song
     sci_write(v, SCI_AUDATA, 0xAC45); 
     vs1053_set_volume(v, 0x00, 0x00); // Unmute
+}
+
+
+
+// Leave MCLK, BCLK, and LRCK active, but float SDATA
+void vs1053_float_i2s_data(vs1053_t *v) {
+    sci_write(v, SCI_WRAMADDR, 0xC017);  // GPIO_DDR Address
+    
+    // Bits 4(MCLK), 5(BCLK), 7(LRCK) = 1 (Outputs), Bit 6(SDATA) = 0 (Input/Hi-Z)
+    sci_write(v, SCI_WRAM, 0x00B0); 
+}
+
+// Reclaim all pins for MP3 playback
+void vs1053_claim_i2s_data(vs1053_t *v) {
+    sci_write(v, SCI_WRAMADDR, 0xC017);  
+    sci_write(v, SCI_WRAM, 0x00F0); 
 }

@@ -3,10 +3,12 @@
 // Global state variables for the demo
 uint8_t current_volume = 45;
 uint8_t current_antenna = ANTENNA_FMI; // Start with Headphone Antenna
+uint16_t current_freq = 40000;
 bool amp_is_muted = false;
 int32_t scan_time = 50;
+bool is_digital_audio = false;
 
-int radioLoop() {
+int radioLoop(vs1053_t* player) {
     stdio_init_all();
 
     buttons_init(10);
@@ -20,7 +22,7 @@ int radioLoop() {
     dprint("  [U] : Seek to Next Station (Up)\n");
     dprint("  [D] : Seek to Previous Station (Down)\n");
     dprint("==================================================\n");
-    dprint("  [SELECT] : Toggle Antenna (FMI Headphone <-> LPI PCB)\n");
+    dprint("  [START] : Toggle Antenna (FMI Headphone <-> LPI PCB)\n");
     dprint("  [R] : Volume Up\n");
     dprint("  [L] : Volume Down\n");
     dprint("  [B] : Toggle Amplifier Mute (Hardware)\n");
@@ -29,13 +31,12 @@ int radioLoop() {
 
     //init
     si4705_init();
-    si4705_power_up();
+    si4705_power_up(0x05); 
 
     //set op_amp high (change this if outputting from normal audio stream??)
     gpio_init(PIN_AMP_SHUTDOWN);
     gpio_set_dir(PIN_AMP_SHUTDOWN, GPIO_OUT);
     gpio_put(PIN_AMP_SHUTDOWN, 0); // Drive LOW to wake up amp
-
 
     //initial properties
     si4705_set_property(0x1100, 0x0002); // 75us De-emphasis (US)
@@ -120,15 +121,19 @@ int radioLoop() {
 
                 // PRINT STATUS
                 case (BTN_A):
-                    dprint("\n");
-                    print_current_station();
+                    current_freq = si4705_get_current_frequency();
+                    switch_radio_audio_mode(player, current_freq, is_digital_audio, current_volume, current_antenna);
+                    printf("debug 11 \n");
                     break;
                 case (BTN_SELECT):
                     exit = true;
                     break;
         }
         if (exit)
-            break;
-    }
+            break;    }
+    //give codec control again
+    vs1053_claim_i2s_data(player);
+    si4705_power_down();
+    dprint("outside of radio");
     return 1;
 }

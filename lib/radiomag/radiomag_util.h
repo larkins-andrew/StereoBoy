@@ -13,7 +13,7 @@
 #define PIN_AMP_SHUTDOWN 17
 
 
-int radioLoop();
+int radioLoop(vs1053_t* player);
 
 
 #endif

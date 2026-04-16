@@ -131,10 +131,10 @@ int main()
                     if (pressed & BTN_U)      choice = (choice + 10) % count;
                     if (pressed & BTN_D)      choice = (choice - 10 + (count * 10)) % count; //added roll-over
                     if (pressed & BTN_A)      selected = true;   
-                    if (pressed & BTN_SELECT) inRadio = radioLoop();
+                    if (pressed & BTN_SELECT) inRadio = radioLoop(&player);
                        
                 }
-                if ((prev_choice != choice) | (inRadio)){
+                if ((prev_choice != choice)){
                     clear_framebuffer();
                     dprint("Song %d/%d: ", choice+1, count);
                     printf("\r\nSong %d/%d: ", choice+1, count);
@@ -142,6 +142,15 @@ int main()
                     dprint("%s", tracks[choice].title);
                     dprint("%s", tracks[choice].artist);
                     prev_choice = choice;
+                }
+                if (inRadio){
+                    clear_framebuffer();
+                    dprint("Song %d/%d: ", choice+1, count);
+                    printf("\r\nSong %d/%d: ", choice+1, count);
+
+                    dprint("%s", tracks[choice].title);
+                    dprint("%s", tracks[choice].artist);
+                    inRadio = 0;
                 }
                 
                 sleep_ms(10);

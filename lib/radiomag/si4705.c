@@ -36,7 +36,7 @@ void si4705_init(void) {
     sleep_ms(5); // Allow time for device to power up
 }
 
-void si4705_power_up(void) {
+void si4705_power_up(uint8_t opMode) {
     uint8_t cmd[3];
     cmd[0] = CMD_POWER_UP;
     
@@ -44,11 +44,56 @@ void si4705_power_up(void) {
     cmd[1] = 0x00; 
     
     // ARG 2: OPMODE = 0x05 (Analog Audio Output Only)
-    cmd[2] = 0x05; 
+    // cmd[2] = 0x05; 
+    cmd[2] = opMode; //analog AND digital
 
     i2c_write_blocking(SI4705_I2C_PORT, SI4705_I2C_ADDR, cmd, 3, false);
     wait_for_cts();
 }
+
+void si4705_power_down(void) {
+    uint8_t cmd = CMD_POWER_DOWN;
+    i2c_write_blocking(SI4705_I2C_PORT, SI4705_I2C_ADDR, &cmd, 1, false);
+    wait_for_cts();
+}
+
+void switch_radio_audio_mode(vs1053_t *player, uint16_t current_freq, bool is_digital_audio, uint8_t current_volume, uint8_t current_antenna) {
+    printf("\nSwitching Audio Mode...\n");
+
+    si4705_power_down();
+    si4705_init();
+
+    is_digital_audio = !is_digital_audio;
+
+    if (is_digital_audio) {
+        printf("Mode: DIGITAL (Si4705 is I2S Master)\n");
+        
+        //Silence the VS1053 and remove it from the bus
+        vs1053_float_i2s_data(player);
+        
+        // Power up Si4705 with Analog & Digital outputs active
+        si4705_power_up(0xB5); 
+        
+        // Configure Si4705 as I2S MASTER at 48kHz
+        si4705_set_property(0x0102, 0x0008); 
+        si4705_set_property(0x0104, 0xBB80); 
+    } else {
+        printf("Mode: ANALOG (Headphone Jack)\n");
+        
+        // Allow the VS1053 to take back control of the bus
+        vs1053_claim_i2s_data(player);
+        
+        //Power up Si4705 with Analog output only (0x05)
+        si4705_power_up(0x05); 
+    }
+
+    // Restore radio properties
+    si4705_set_property(0x1100, 0x0002); 
+    si4705_set_volume(current_volume);
+    si4705_select_antenna(current_antenna);
+    si4705_tune_fm(current_freq);
+}
+
 
 void si4705_set_property(uint16_t prop_id, uint16_t prop_value) {
     uint8_t cmd[6];
