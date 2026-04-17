@@ -24,11 +24,9 @@ int radioLoop(vs1053_t* player) {
     dprint("  [U] : Seek to Next Station (Up)\n");
     dprint("  [D] : Seek to Previous Station (Down)\n");
     dprint("==================================================\n");
-    dprint("  [START] : Toggle Antenna (FMI Headphone <-> LPI PCB)\n");
-    dprint("  [R] : Volume Up\n");
-    dprint("  [L] : Volume Down\n");
-    dprint("  [B] : Toggle Amplifier Mute (Hardware)\n");
-    dprint("  [A] : Print Signal Status\n");
+    dprint("  [L] : Mute\n");
+    dprint("  [B] : Toggle Antenna (FMI Headphone <-> LPI PCB)\n");
+    dprint("  [A] : Toggle Audio (analog <-> digital) \n");
     dprint("==================================================\n\n");
 
     //init
@@ -118,21 +116,24 @@ int radioLoop(vs1053_t* player) {
                     }
                     break;
 
-                // VOLUME DOWN
                 case (BTN_L):
-                    if (current_volume >= 3) {
-                        current_volume -= 3;
-                        si4705_set_volume(current_volume);
-                        dprint("\nVolume: %d/63\n", current_volume);
-                    }
-                    break;
-
-                // HARDWARE MUTE TOGGLE
-                case (BTN_B):
                     amp_is_muted = !amp_is_muted;
-                    // LM4810 shutdown is active HIGH
                     gpio_put(PIN_AMP_SHUTDOWN, amp_is_muted ? 1 : 0);
                     dprint("\nAmplifier is now: %s\n", amp_is_muted ? "MUTED" : "ACTIVE");
+                    break;
+
+                case (BTN_B):
+                    if (current_antenna == ANTENNA_FMI) {
+                        current_antenna = ANTENNA_LPI;
+                        dprint("\nSwitched to PCB Trace Antenna (LPI / Pin 11)\n");
+                    } else {
+                        current_antenna = ANTENNA_FMI;
+                        dprint("\nSwitched to Headphone Antenna (FMI / Pin 8)\n");
+                    }
+                    si4705_select_antenna(current_antenna);
+                    // Give the LNA a few milliseconds to settle, then print new signal quality
+                    sleep_ms(50); 
+                    print_current_station();
                     break;
 
                 // PRINT STATUS
