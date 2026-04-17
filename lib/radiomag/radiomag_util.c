@@ -132,7 +132,7 @@ int radioLoop(vs1053_t* player) {
         if (exit)
             break;    }
     //give codec control again
-    vs1053_claim_i2s_data(player);
+    vs1053_claim_i2s_bus(player);
     si4705_power_down();
     dprint("outside of radio");
     return 1;

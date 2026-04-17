@@ -182,16 +182,19 @@ void vs1053_tape_stop(vs1053_t *v) {
 
 
 
-// Leave MCLK, BCLK, and LRCK active, but float SDATA
+
 void vs1053_float_i2s_data(vs1053_t *v) {
-    sci_write(v, SCI_WRAMADDR, 0xC017);  // GPIO_DDR Address
-    
-    // Bits 4(MCLK), 5(BCLK), 7(LRCK) = 1 (Outputs), Bit 6(SDATA) = 0 (Input/Hi-Z)
-    sci_write(v, SCI_WRAM, 0x00B0); 
+    //Keep I2S enabled so clocks keep running
+    sci_write(v, SCI_WRAMADDR, 0xC040);
+    sci_write(v, SCI_WRAM, 0x000C); 
+
+    // GPIO4, 5, 6 = Outputs (Keep I2S clocks alive for the Si4705)
+    // GPIO7 (I2S Data) & GPIO3 (SPI Data) = Inputs (0)
+     sci_write(v, SCI_WRAMADDR, 0xC017);
+    sci_write(v, SCI_WRAM, 0x0070);
 }
 
-// Reclaim all pins for MP3 playback
-void vs1053_claim_i2s_data(vs1053_t *v) {
-    sci_write(v, SCI_WRAMADDR, 0xC017);  
-    sci_write(v, SCI_WRAM, 0x00F0); 
+// Reclaims the bus for MP3 Playback
+void vs1053_claim_i2s_bus(vs1053_t *v) {
+    vs1053_enable_i2s(v);
 }
