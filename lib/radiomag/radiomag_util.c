@@ -7,6 +7,8 @@ uint16_t current_freq = 40000;
 bool amp_is_muted = false;
 int32_t scan_time = 50;
 bool is_digital_audio = false;
+uint16_t vol_check = 0;
+uint16_t inverted_volume = 0;
 
 int radioLoop(vs1053_t* player) {
     stdio_init_all();
@@ -59,6 +61,20 @@ int radioLoop(vs1053_t* player) {
     //Interactive Event Loop
     bool exit = false;
     while (true) {
+        if (vol_check < 30){
+            vol_check = (vol_check + 1) % 31;
+        }
+        else {
+            adc_select_input(POT_ADC_CHANNEL);
+            uint16_t raw_adc = (adc_read() * 63) / 4096;
+            if (abs(raw_adc - current_volume) < 3) {
+                inverted_volume = MAX_VOLUME - raw_adc;
+                si4705_set_volume(inverted_volume);
+                printf("Volume set to: %d", inverted_volume);
+            }
+            current_volume = raw_adc;
+        }
+        
         uint8_t pressed = buttons_get_just_pressed();
             if (pressed != 0)
                 dprint("Pressed: %d", pressed);

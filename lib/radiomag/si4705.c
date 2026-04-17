@@ -166,8 +166,7 @@ bool si4705_get_tune_status(uint8_t *rssi, uint8_t *snr) {
 }
 
 void si4705_set_volume(uint8_t volume) {
-    // Volume range is 0 to 63
-    if (volume > 63) volume = 63;
+    if (volume > MAX_VOLUME) volume = MAX_VOLUME;
     si4705_set_property(PROP_RX_VOLUME, volume);
 }
 
