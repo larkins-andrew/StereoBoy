@@ -1,40 +1,18 @@
 #include "sb_util.h"
 
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <math.h>
-
-#include "sd_card.h"
-#include "hw_config.h"
-#include "lib/dac/dac.h"
-#include "hardware/adc.h"
-#include "hardware/dma.h"
-#include "hardware/spi.h"
-#include "pico/multicore.h"
-// #include "scripting/output.h"
-#include "lib/display/display.h"
-#include "lib/display/picojpeg.h"
-#include "lib/font/font.h"
-#include "lib/led_driver/led_driver.h"
-
-#include "lib/display/fft.h"
-#include "lib/display/lissajous.h"
+#include "core1_entry.h"
 #include "filehelper.h"
-#include "lib/buttons/buttons.h"
-
-#include "lib/pot/pot.h"
-
-#define MAX_FILENAME_LEN 256 // max filaname character length
-#define MAX_TRACKS 128       // max number of mp3 files in sd card
+#include "firmware.h"
 
 // SPI1 configuration for codec & sd card
-#define PIN_SCK 30
-#define PIN_MOSI 28
-#define PIN_MISO 31
-#define PIN_CS 32
+    //TODO: Moved to vs1053.h
+// #define PIN_SCK 30
+// #define PIN_MOSI 28
+// #define PIN_MISO 31
+// #define PIN_CS 32
 
-static FATFS fs;
+// TODO: Moved to sb_init (don't think this is global?)
+// static FATFS fs;
 
 // Codec control signals
 #define PIN_DCS 33
@@ -42,48 +20,24 @@ static FATFS fs;
 #define PIN_RST 27
 
 // I2C0 for DAC
-#define PIN_I2C0_SCL 21
-#define PIN_I2C0_SDA 20
-
-// I2C1 for LED Driver
-#define PIN_I2C1_SDA 42
-#define PIN_I2C1_SCL 43
-
-// Display and oscope stuff
-#define SCREEN_WIDTH 240
-#define SCREEN_HEIGHT 240
-#define BG_COLOR 0x0000   // Black
+    // TODO: moved to dac.h
+// #define PIN_I2C0_SCL 21
+// #define PIN_I2C0_SDA 20
 
 // Center at 0.65V (ADC is 12-bit, 0-3.3V)
-#define ADC_CH 5
-
-// Updated Constants for Split View
-#define ADC_BIAS_CENTER 1551
-#define ADC_RANGE_PKPK 1613
-#define TARGET_HEIGHT 60 // Height of each individual wave (reduced to prevent overlap)
-
-#define OFFSET_L 150 // Bottom half-ish
-#define OFFSET_R 90  // Top half-ish
-
-#define ADC_CH_L 6
-#define ADC_CH_R 5
-
-#define WAVE_L_COLOR 0x051C
-#define WAVE_R_COLOR 0x0693
-#define FFT_L_COLOR_DARK 0x0600
-#define FFT_R_COLOR_DARK 0x05FF
-#define FFT_L_COLOR_LIGHT 0x8FF1
-#define FFT_R_COLOR_LIGHT 0xAFFF
-#define IMG_WIDTH 160
-#define IMG_HEIGHT 160
+    // TODO: Moved to adc.h
+// #define ADC_CH 5
+// #define ADC_CH_L 6
+// #define ADC_CH_R 5
 
 uint16_t num_tracks = 0; // number of tracks in current directory
 bool potCheck;
 uint16_t frame_buffer[240 * 240];
-static uint16_t img_buffer[IMG_WIDTH * IMG_HEIGHT];
-static uint16_t column_buf[240];
-static int dma_chan = -1;
-static dma_channel_config dcc;
+uint16_t img_buffer[IMG_WIDTH * IMG_HEIGHT];
+// static uint16_t column_buf[240];
+//TODO: moved to sb_init.c
+// static int dma_chan = -1;
+// static dma_channel_config dcc;
 pca9685_t vu_meter;
 /*******************visualizations not scope*******************/
 #define HISTORY_SIZE 256
@@ -91,7 +45,6 @@ cplx audio_history_l[HISTORY_SIZE];
 cplx audio_history_r[HISTORY_SIZE];
 int history_index = 0;
 int visualizer = 1;
-volatile bool loading_songs = false;
 int num_visualizations = 6;
 bool album_art_ready = false;
 /*******************visualizations not scope*******************/
@@ -102,22 +55,24 @@ bool album_art_ready = false;
 
 static int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display);
 
-/* Text Display Stuff */
-mutex_t text_buff_mtx;
-semaphore_t text_sem;
 
-char text_buff_temp[120];
-struct Node *head = NULL;
+// TODO: Moved to core1_entry.c
+// /* Text Display Stuff */
+// mutex_t text_buff_mtx;
+// semaphore_t text_sem;
 
-void printLL()
-{
-    struct Node *n = head;
-    while (n != NULL)
-    {
-        printf("%p: %s", n, n->str);
-        n = n->next;
-    }
-}
+// char text_buff_temp[120];
+// struct Node *head = NULL;
+
+// void printLL()
+// {
+//     struct Node *n = head;
+//     while (n != NULL)
+//     {
+//         printf("%p: %s", n, n->str);
+//         n = n->next;
+//     }
+// }
 
 /* Text Display Stuff */
 
@@ -443,8 +398,6 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
     // gpio_pull_up(PIN_I2C0_SDA);
     dprint("SPI0 and I2C0 initialized.");
     printf("SPI0 and I2C0 initialized.\r\n");
-    dac_init(i2c0);
-    dac_interrupt_init();
 
     // set I2C1 for PCA9685 at 400KHz
     i2c_init(i2c1, 400 * 1000);
@@ -453,6 +406,7 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
     // gpio_pull_up(PIN_I2C1_SDA);
     // gpio_pull_up(PIN_I2C1_SCL);
     printf("I2C1 initialized.\r\n");
+
     // LED driver init
     if (pca9685_init(&vu_meter, i2c1, 0x40))
     {
@@ -504,7 +458,17 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
     printf("test point 1");
 
     vs1053_init(player);
+    printf("test point 2");
 
+    printf("VS1053 initialized.\r\n");
+    dprint("VS1053 initialized.");
+    vs1053_set_volume(player, 0x01, 0x01); // chnged from 0 (0x00) to -12dB (0x0202) to -6dB (0x0101)
+    printf("VS1053 volume set to max!\r\n");
+    dprint("VS1053 volume set to max!");
+
+    // Enable I2S output
+    vs1053_enable_i2s(player);
+    printf("VS1053 I2S enabled.\r\n");
     dprint("VS1053 I2S enabled.");
 
     // initialize DAC
@@ -519,7 +483,7 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
     dprint("Scanning directory...");
 
     // Initialize buttons with a 10ms scan rate
-    buttons_init(50);
+    buttons_init(10);
     printf("\r\nButtons intializedr\n");
 
     pot_init();
@@ -527,8 +491,6 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
 
     dprint("Finished sb_hw_init");
     printf("\r\nFinished sb_hw_init\r\n");
-
-    pca9685_sleep(&vu_meter);
 }
 
 int sb_scan_tracks(track_info_t *tracks, int max_tracks)
@@ -586,82 +548,6 @@ int sb_play_track(vs1053_t *player, track_info_t *track, st7789_t *display)
     return exitCode;
 }
 
-/* =========================================================
-   COPY YOUR EXISTING FUNCTIONS BELOW
-   (unchanged, just made static)
-   ========================================================= */
-
-void update_scope_core1()
-{
-    static int x = 0;
-    static int last_y_l = OFFSET_L;
-    static int last_y_r = OFFSET_R;
-    static int led_throttle = 0;
-
-    // 1. Sample Channels
-    adc_select_input(ADC_CH_L);
-    uint16_t raw_l = adc_read();
-    adc_select_input(ADC_CH_R);
-    uint16_t raw_r = adc_read();
-    // 2. Map to Split Offsets
-    // Left Channel centered at 150
-    int dev_l = (int)raw_l - ADC_BIAS_CENTER;
-    int y_l = OFFSET_L - (dev_l * TARGET_HEIGHT / ADC_RANGE_PKPK);
-
-    // Right Channel centered at 90
-    int dev_r = (int)raw_r - ADC_BIAS_CENTER;
-    int y_r = OFFSET_R - (dev_r * TARGET_HEIGHT / ADC_RANGE_PKPK);
-
-    // 3. Clamps (Keep them within their respective zones or full screen)
-    if (y_l < 0)
-        y_l = 0;
-    if (y_l > 239)
-        y_l = 239;
-    if (y_r < 0)
-        y_r = 0;
-    if (y_r > 239)
-        y_r = 239;
-
-    // 4. Clear Column
-    for (int i = 0; i < 240; i++)
-    {
-        frame_buffer[i * 240 + x] = BG_COLOR;
-    }
-
-    // 5. Draw Left (Green)
-    int start_l = (y_l < last_y_l) ? y_l : last_y_l;
-    int end_l = (y_l < last_y_l) ? last_y_l : y_l;
-    for (int i = start_l; i <= end_l; i++)
-    {
-        frame_buffer[i * 240 + x] |= WAVE_L_COLOR;
-    }
-
-    // 6. Draw Right (Cyan)
-    int start_r = (y_r < last_y_r) ? y_r : last_y_r;
-    int end_r = (y_r < last_y_r) ? last_y_r : y_r;
-    for (int i = start_r; i <= end_r; i++)
-    {
-        frame_buffer[i * 240 + x] |= WAVE_R_COLOR;
-    }
-
-    last_y_l = y_l;
-    last_y_r = y_r;
-    x++;
-
-    // 7. Push to Display
-    if (x >= 240)
-    {
-        x = 0;
-        st7789_set_cursor(0, 0);
-        st7789_ramwr();
-        spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
-        spi_write16_blocking(spi0, frame_buffer, 240 * 240);
-        // ensures that LED do not use too many cycles
-        //  if (led_throttle++ % 2 == 0)
-        pca9685_update_vu(&vu_meter, raw_l, raw_r);
-    }
-}
-
 ////////////////////IMAGE////////////////////////////
 
 typedef struct
@@ -696,21 +582,6 @@ unsigned char jpeg_need_bytes_callback(
     ctx->bytes_left -= br;
 
     return 0;
-}
-
-void album_art_centered(void)
-{
-    // Clear screen first (black borders)
-    memset(frame_buffer, 0, sizeof(frame_buffer));
-
-    const int offset = (SCREEN_WIDTH - 160) / 2;
-
-    for (int y = 0; y < 160; y++)
-    {
-        uint16_t *dst = &frame_buffer[(y + offset) * SCREEN_WIDTH + offset];
-        uint16_t *src = &img_buffer[y * 160];
-        memcpy(dst, src, 160 * sizeof(uint16_t));
-    }
 }
 
 void process_image(track_info_t *track, const char *filename, float output_size)

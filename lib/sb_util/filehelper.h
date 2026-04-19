@@ -4,7 +4,8 @@
 #include <stdint.h>
 #include <string.h>
 #include "ff.h"         // Required for the FIL struct
-#include "sb_util.h"    // Required for track_info_t
+// #include "sb_util.h"    // Required for track_info_t
+#include "global_vars.h"
 
 
 uint32_t syncsafe_to_uint(const uint8_t *b);

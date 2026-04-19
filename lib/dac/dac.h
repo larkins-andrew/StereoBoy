@@ -37,9 +37,8 @@
 #define DAC_REG_HPR_DRIVER      0x29 // HPR driver
 #define DAC_REG_SPK_DRIVER      0x2A // Class-D driver
 
-
-extern bool paused;
-extern bool warping;
+#define PIN_I2C0_SCL 21
+#define PIN_I2C0_SDA 20
 
 
 uint8_t dac_read(uint8_t page, uint8_t reg);

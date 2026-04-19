@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include "pico/time.h"
 #include <math.h>
+#include "lib/sb_util/global_vars.h"
 
 
 #define DEBOUNCE_US 1000000  // 1000 ms

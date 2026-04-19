@@ -2,14 +2,15 @@
 #include "pico/stdlib.h"
 #include "hardware/spi.h"
 #include <stdbool.h>
+#include "lib/sb_util/global_vars.h"
 
-typedef struct {
-    spi_inst_t *spi;
-    uint cs;
-    uint dcs;
-    uint dreq;
-    uint rst;
-} vs1053_t;
+#define PIN_SCK 30
+#define PIN_MOSI 28
+#define PIN_MISO 31
+#define PIN_CS 32
+
+#define MAX_TRACKS 128
+#define MAX_FILENAME_LEN 256
 
 void sci_write(vs1053_t *v, uint8_t addr, uint16_t data);
 uint16_t sci_read(vs1053_t *v, uint8_t addr);
