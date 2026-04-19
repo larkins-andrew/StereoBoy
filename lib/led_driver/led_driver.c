@@ -13,8 +13,13 @@
 #define MODE1_SLEEP  0x10
 #define MODE1_AI     0x20
 #define MODE1_RESTART 0x80
-
 #define MODE2_OUTDRV 0x04
+#define ALL_LED_ON_L 0xFA
+#define ALL_LED_ON_H 0xFB
+#define ALL_LED_OFF_L 0xFC
+#define ALL_LED_OFF_H 0xFD
+
+#define MAX_BRIGHTNESS 32
 
 
 
@@ -37,8 +42,20 @@ void pca9685_wakeup(pca9685_t *dev) {
 }
 
 void pca9685_sleep(pca9685_t *dev) {
+    // 1. Force all outputs HIGH (Full OFF for common anode)
+    // Writing 0x10 to the ALL_LED_OFF_H register sets the 'Full OFF' bit for all channels
+    write8(dev, ALL_LED_ON_L, 0x00);
+    write8(dev, ALL_LED_ON_H, 0x00);
+    write8(dev, ALL_LED_OFF_L, 0x00);
+    write8(dev, ALL_LED_OFF_H, 0x10); 
+
+    // 2. Read the current mode
     uint8_t mode = read8(dev, MODE1);
-    write8(dev, MODE1, mode | MODE1_SLEEP);
+    
+    // 3. Set the SLEEP bit (bit 4)
+    // write8(dev, MODE1, mode | MODE1_SLEEP);
+    
+    // 4. Wait for the oscillator to stabilize (as per datasheet)
     sleep_ms(1);
 }
 
@@ -78,7 +95,7 @@ bool pca9685_init(pca9685_t *dev, i2c_inst_t *i2c, uint8_t addr) {
     // flush the PWM counters
     write8(dev, MODE1, MODE1_AI | MODE1_RESTART);
 
-    
+    pca9685_sleep(dev);
 
     return true;
 }
@@ -145,7 +162,6 @@ static float peak_r = 0.0f;
 static const float PEAK_DECAY = 0.05f; // How fast the LEDs fall back down
 
 void pca9685_update_vu(pca9685_t *dev, uint16_t adc_left, uint16_t adc_right) {
-    int MAX_BRIGHTNESS = 400;
     // Remove DC bais from codec
     float amp_l = (float)abs((int)adc_left - ADC_CENTER);
     float amp_r = (float)abs((int)adc_right - ADC_CENTER);

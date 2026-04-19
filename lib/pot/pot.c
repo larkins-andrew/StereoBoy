@@ -46,6 +46,7 @@ void read_lwbt(){
     int lwbt = gpio_get(LWBT_GPIO);
     printf("lwbt: %d\r\n", lwbt);
     gpio_put(LED_R, 1-lwbt);
-    gpio_put(LED_G, lwbt);
+    gpio_put(LED_G, 1-lwbt);
+    gpio_put(LED_B, 1-lwbt);
     return;
 }   

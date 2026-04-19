@@ -443,6 +443,8 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
     // gpio_pull_up(PIN_I2C0_SDA);
     dprint("SPI0 and I2C0 initialized.");
     printf("SPI0 and I2C0 initialized.\r\n");
+    dac_init(i2c0);
+    dac_interrupt_init();
 
     // set I2C1 for PCA9685 at 400KHz
     i2c_init(i2c1, 400 * 1000);
@@ -451,7 +453,6 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
     // gpio_pull_up(PIN_I2C1_SDA);
     // gpio_pull_up(PIN_I2C1_SCL);
     printf("I2C1 initialized.\r\n");
-
     // LED driver init
     if (pca9685_init(&vu_meter, i2c1, 0x40))
     {
@@ -503,17 +504,7 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
     printf("test point 1");
 
     vs1053_init(player);
-    printf("test point 2");
 
-    printf("VS1053 initialized.\r\n");
-    dprint("VS1053 initialized.");
-    vs1053_set_volume(player, 0x01, 0x01); // chnged from 0 (0x00) to -12dB (0x0202) to -6dB (0x0101)
-    printf("VS1053 volume set to max!\r\n");
-    dprint("VS1053 volume set to max!");
-
-    // Enable I2S output
-    vs1053_enable_i2s(player);
-    printf("VS1053 I2S enabled.\r\n");
     dprint("VS1053 I2S enabled.");
 
     // initialize DAC
@@ -528,7 +519,7 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
     dprint("Scanning directory...");
 
     // Initialize buttons with a 10ms scan rate
-    buttons_init(10);
+    buttons_init(50);
     printf("\r\nButtons intializedr\n");
 
     pot_init();
@@ -536,6 +527,8 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
 
     dprint("Finished sb_hw_init");
     printf("\r\nFinished sb_hw_init\r\n");
+
+    pca9685_sleep(&vu_meter);
 }
 
 int sb_scan_tracks(track_info_t *tracks, int max_tracks)
@@ -1246,11 +1239,16 @@ void dac_int_callback(uint gpio, uint32_t events)
     // read whether headphone in or out
     if (dac_read(0, 0x2E) & 0x10)
     { // Bit 5
-        printf("Headphones plugged in! Paused and switching to stereo headphones.\n");
         dac_write(1, 0x20, 0b00000110); // shut down speaker driver
         // pause without warping
         paused = 1;
         warping = 0;
+        // Reg 0x1F: HP Drivers power up
+        dac_write(1, 0x1F, 0xC0);
+        // Reg 0x28/0x29: HPL/R Driver unmute
+        dac_write(1, 0x28, 0x06);
+        dac_write(1, 0x29, 0x06);
+        printf("Headphones plugged in! Paused and switching to stereo headphones.\n");
     }
     else
     {
