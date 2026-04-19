@@ -9,6 +9,7 @@ int32_t scan_time = 50;
 bool is_digital_audio = false;
 uint16_t vol_check = 0;
 uint16_t inverted_volume = 0;
+uint8_t eq_band = 0;
 
 int radioLoop(vs1053_t* player) {
     stdio_init_all();
@@ -19,14 +20,17 @@ int radioLoop(vs1053_t* player) {
     sleep_ms(3000); // Wait for you to open the serial terminal
 
     dprint("\n==================================================\n");
-    dprint("         STEREOBOY INTERACTIVE RADIO DEMO         \n");
+    dprint("         RadioMag        \n");
     dprint(" Controls:\n");
     dprint("  [U] : Seek to Next Station (Up)\n");
     dprint("  [D] : Seek to Previous Station (Down)\n");
+    dprint("  [L] : Decrease selected EQ band\n");
+    dprint("  [R] : Increase selected EQ band\n");
     dprint("==================================================\n");
-    dprint("  [L] : Mute\n");
-    dprint("  [B] : Toggle Antenna (FMI Headphone <-> LPI PCB)\n");
-    dprint("  [A] : Toggle Audio (analog <-> digital) \n");
+    dprint("  [A] : Toggle antenna (headphone <-> pcb) \n");
+    dprint("  [B] : Select EQ Band\n");
+    dprint("[START] : Toggle audio output (analog <-> digital) \n");
+    dprint("[SELECT] : Exit RadioMag \n");
     dprint("==================================================\n\n");
 
     //init
@@ -43,8 +47,8 @@ int radioLoop(vs1053_t* player) {
     si4705_set_volume(current_volume);
     si4705_select_antenna(current_antenna);
 
+    
     // Drop the thresholds slightly (can change this later)
-
     si4705_set_property(0x1403, 1); // SNR Threshold
     si4705_set_property(0x1404, 15); // RSSI Threshold
 
@@ -59,23 +63,37 @@ int radioLoop(vs1053_t* player) {
     //Interactive Event Loop
     bool exit = false;
     while (true) {
+
+    //Volume control, switch between Si4705 and DAC
         if (vol_check < 30){
             vol_check = (vol_check + 1) % 31;
         }
+        //Update volume
         else {
             adc_select_input(POT_ADC_CHANNEL);
             uint16_t raw_adc = (adc_read() * 63) / 4096;
-            if (abs(raw_adc - current_volume) < 3) {
-                inverted_volume = MAX_VOLUME - raw_adc;
-                si4705_set_volume(inverted_volume);
-                printf("Volume set to: %d", inverted_volume);
+            //DAC control
+            if (is_digital_audio){
+                if (abs(raw_adc - current_volume) < 3) {
+                    inverted_volume = DAC_VOL_MAX - raw_adc;
+                    dac_set_volume(inverted_volume);
+                    printf("Volume set to: %d", inverted_volume);
+                }
+                current_volume = raw_adc;
             }
+            //SI4705 control
+            else{
+                if (abs(raw_adc - current_volume) < 3) {
+                    inverted_volume = MAX_VOLUME_SI4705 - raw_adc;
+                    si4705_set_volume(inverted_volume);
+                    printf("Volume set to: %d", inverted_volume);
+                }
             current_volume = raw_adc;
+            }
         }
         
         uint8_t pressed = buttons_get_just_pressed();
-            if (pressed != 0)
-                dprint("Pressed: %d", pressed);
+
             switch(pressed) {
                 // SEEK UP
                 case (BTN_U): 
@@ -92,7 +110,7 @@ int radioLoop(vs1053_t* player) {
                     break;
 
                 // TOGGLE ANTENNA
-                case (BTN_START):
+                case (BTN_A):
                     if (current_antenna == ANTENNA_FMI) {
                         current_antenna = ANTENNA_LPI;
                         dprint("\nSwitched to PCB Trace Antenna (LPI / Pin 11)\n");
@@ -106,41 +124,34 @@ int radioLoop(vs1053_t* player) {
                     print_current_station();
                     break;
 
-                // VOLUME UP
+                // EQ up
                 case (BTN_R): 
-                    if (current_volume < 63) {
-                        current_volume += 3;
-                        if (current_volume > 63) current_volume = 63;
-                        si4705_set_volume(current_volume);
-                        dprint("\nVolume: %d/63\n", current_volume);
+                    if (is_digital_audio){
+                        dac_eq_adjust(eq_band, 0.5f, SAMPLE_SPEED); // Boost
+                        dprint("Band %d Gain: %.1f dB\n", eq_band, dac_eq_get_gain(eq_band));
                     }
                     break;
 
+                //Eq down
                 case (BTN_L):
-                    amp_is_muted = !amp_is_muted;
-                    gpio_put(PIN_AMP_SHUTDOWN, amp_is_muted ? 1 : 0);
-                    dprint("\nAmplifier is now: %s\n", amp_is_muted ? "MUTED" : "ACTIVE");
+                    if (is_digital_audio){
+                        dac_eq_adjust(eq_band, -0.5f, SAMPLE_SPEED); // Boost
+                        dprint("Band %d Gain: %.1f dB\n", eq_band, dac_eq_get_gain(eq_band));
+                    }
                     break;
 
                 case (BTN_B):
-                    if (current_antenna == ANTENNA_FMI) {
-                        current_antenna = ANTENNA_LPI;
-                        dprint("\nSwitched to PCB Trace Antenna (LPI / Pin 11)\n");
-                    } else {
-                        current_antenna = ANTENNA_FMI;
-                        dprint("\nSwitched to Headphone Antenna (FMI / Pin 8)\n");
+                    if (is_digital_audio){
+                        eq_band = (eq_band + 1) % 5;
+                        dprint("Selected EQ Band: %d", eq_band);
                     }
-                    si4705_select_antenna(current_antenna);
-                    // Give the LNA a few milliseconds to settle, then print new signal quality
-                    sleep_ms(50); 
-                    print_current_station();
                     break;
 
-                // PRINT STATUS
-                case (BTN_A):
+                // Change: digital <-> analog
+                case (BTN_START):
                     current_freq = si4705_get_current_frequency();
                     switch_radio_audio_mode(player, current_freq, is_digital_audio, current_volume, current_antenna);
-                    printf("debug 11 \n");
+                    eq_band = 0;
                     break;
                 case (BTN_SELECT):
                     exit = true;

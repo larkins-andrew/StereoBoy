@@ -36,7 +36,7 @@
 #define PROP_FM_SEEK_TUNE_SNR_THRESHOLD  0x1403
 #define PROP_FM_SEEK_TUNE_RSSI_THRESHOLD 0x1404
 #define CMD_POWER_DOWN 0x11
-#define MAX_VOLUME 63
+#define MAX_VOLUME_SI4705 63
 
 // --- Function Prototypes ---
 void si4705_init(void);

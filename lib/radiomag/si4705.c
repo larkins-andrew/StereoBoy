@@ -81,6 +81,10 @@ void switch_radio_audio_mode(vs1053_t *player, uint16_t current_freq, bool is_di
         
         // Match the 48kHz clock we forced the VS1053 to output
         si4705_set_property(0x0104, 0xBB80);
+
+        //Set volume ~half
+        si4705_set_volume(30);
+        dac_eq_init(48000); //***DOUBLE CHECK THIS! */
         
     } else {
         printf("Mode: ANALOG (Headphone Jack)\n");
@@ -166,7 +170,7 @@ bool si4705_get_tune_status(uint8_t *rssi, uint8_t *snr) {
 }
 
 void si4705_set_volume(uint8_t volume) {
-    if (volume > MAX_VOLUME) volume = MAX_VOLUME;
+    if (volume > MAX_VOLUME_SI4705) volume = MAX_VOLUME_SI4705;
     si4705_set_property(PROP_RX_VOLUME, volume);
 }
 
