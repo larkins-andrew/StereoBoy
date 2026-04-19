@@ -1,7 +1,9 @@
 #include "lissajous.h"
 #include "display.h"        
 #include "hardware/spi.h"   
-#include "pico/stdlib.h"    
+#include "pico/stdlib.h"
+#include "lib/sb_util/global_vars.h"
+    
 
 ////////////////LISSAJOUS///////////////////////////
 

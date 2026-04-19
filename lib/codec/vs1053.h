@@ -2,27 +2,15 @@
 #include "pico/stdlib.h"
 #include "hardware/spi.h"
 #include <stdbool.h>
+#include "lib/sb_util/global_vars.h"
 
-#define VS_WRITE 0x02
-#define VS_READ  0x03
+#define PIN_SCK 30
+#define PIN_MOSI 28
+#define PIN_MISO 31
+#define PIN_CS 32
 
-#define SCI_MODE    0x00
-#define SCI_CLOCKF  0x03
-#define SCI_VOL     0x0B
-#define SCI_AUDATA  0x05
-
-#define SCI_WRAM      0x06
-#define SCI_WRAMADDR  0x07
-
-#define VS1053_PARA_PLAYSPEED 0x1E04
-
-typedef struct {
-    spi_inst_t *spi;
-    uint cs;
-    uint dcs;
-    uint dreq;
-    uint rst;
-} vs1053_t;
+#define MAX_TRACKS 128
+#define MAX_FILENAME_LEN 256
 
 void sci_write(vs1053_t *v, uint8_t addr, uint16_t data);
 uint16_t sci_read(vs1053_t *v, uint8_t addr);

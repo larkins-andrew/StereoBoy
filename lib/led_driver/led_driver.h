@@ -1,9 +1,8 @@
 #ifndef PCA9685_H
 #define PCA9685_H
 
-#include "hardware/i2c.h"
-#include <stdint.h>
-#include <stdbool.h>
+#include "lib/sb_util/global_vars.h"
+
 
 #define PCA9685_I2C_ADDR 0x40
 #define PCA9685_OSC_FREQ 25000000
@@ -11,11 +10,9 @@
 #define ADC_CENTER 1551
 #define MAX_AMPLITUDE 600.0f
 
-typedef struct {
-    i2c_inst_t *i2c;
-    uint8_t addr;
-    uint32_t osc_freq;
-} pca9685_t;
+// I2C1 for LED Driver
+#define PIN_I2C1_SDA 42
+#define PIN_I2C1_SCL 43
 
 bool pca9685_init(pca9685_t *dev, i2c_inst_t *i2c, uint8_t addr);
 

@@ -1,5 +1,5 @@
 #include "fft.h"
-
+#include "lib/sb_util/global_vars.h"
 
 void bit_reverse(cplx buf[], int n)
 {
