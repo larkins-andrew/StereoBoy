@@ -5,6 +5,9 @@
 #include "lib/sb_util/core1_entry.h"
 #include "lib/pot/pot.h"
 
+#include "pico/stdlib.h"
+#include "hardware/vreg.h"
+
 // #define DEBUG // print all dprints to terminal
 
 #define MAX_FILENAME_LEN 256 // max filaname character length
@@ -48,6 +51,11 @@ struct st7789_t display = {
 #define LCD_HEIGHT 240
 int main()
 {
+    // Lower RP2350 core voltage to 1V
+    // P = V^2 * f, so 0.1V drop results in quadratic change
+    // Before: 1.1 ^ 2 * 150 = 181.5
+    // Now: 1.0 ^ 2 * 150 = 150
+    vreg_set_voltage(VREG_VOLTAGE_1_00);
 
     stdio_init_all();
 

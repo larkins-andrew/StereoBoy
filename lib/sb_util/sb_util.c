@@ -314,15 +314,13 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
     int selected_band = 0;
     int currEq = 0;
     dac_eq_init(sampleSpeed); // init with default sample rate
-    uint8_t vol_check = 0;
+    uint8_t vol_check = 10;
     uint8_t old_volume = 0;
     read_lwbt();
     while (1)
     {
         // janky counter for volume sampling
-        if (vol_check < 10){
-            vol_check = (vol_check + 1) % 31;
-        } else {
+        if (vol_check == 10) {
             uint16_t vol = (uint32_t)potVal * 0x60 / 4096;
 
             // Only update DAC if the change is larger than the noise (hysteresis)
@@ -330,6 +328,9 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
                 dac_set_volume(vol);
                 old_volume = vol; // Only update "old" when the DAC actually changes
             }
+            vol_check = 0;
+        } else {
+            vol_check++;
         }
         // // Only send an I2C command to the DAC if the volume changed by >1 step.
         // if (abs(new_volume - current_volume) > 1) {
