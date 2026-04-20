@@ -8,7 +8,8 @@
 #include "lib/buttons/buttons.h"
 #include "lib/sb_util/sb_util.h"
 #include "lib/pot/pot.h"
-#include "lib/dac/dac.h"
+#include "lib/sb_util/core1_entry.h"
+
 // Define the LM4810 shutdown pin
 #define PIN_AMP_SHUTDOWN 17
 #define SAMPLE_SPEED 48000

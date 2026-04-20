@@ -57,16 +57,16 @@ void si4705_power_down(void) {
     wait_for_cts();
 }
 
-void switch_radio_audio_mode(vs1053_t *player, uint16_t current_freq, bool is_digital_audio, uint8_t current_volume, uint8_t current_antenna){
-    printf("\nSwitching Audio Mode...\n");
+void switch_radio_audio_mode(vs1053_t *player, uint16_t current_freq, bool* is_digital_audio, uint8_t current_volume, uint8_t current_antenna){
+    dprint("\nSwitching Audio Mode...\n");
 
     si4705_power_down();
     si4705_init();
 
-    is_digital_audio = !is_digital_audio;
+    *is_digital_audio = !(*is_digital_audio);
 
-    if (is_digital_audio) {
-        printf("Mode: DIGITAL (Si4705 is SLAVE, VS1053 drives all clocks)\n");
+    if (*is_digital_audio) {
+        dprint("Mode: DIGITAL (Si4705 is SLAVE, VS1053 drives all clocks)\n");
         
         //Force VS1053 to generate a constant 48kHz clock
         sci_write(player, SCI_AUDATA, 48000);
@@ -87,7 +87,7 @@ void switch_radio_audio_mode(vs1053_t *player, uint16_t current_freq, bool is_di
         dac_eq_init(48000); //***DOUBLE CHECK THIS! */
         
     } else {
-        printf("Mode: ANALOG (Headphone Jack)\n");
+        dprint("Mode: ANALOG (Headphone Jack)\n");
         
         // Give VS1053 full control
         vs1053_claim_i2s_bus(player);

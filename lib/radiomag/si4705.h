@@ -6,6 +6,8 @@
 #include "hardware/i2c.h"
 #include <stdio.h>
 #include "lib/codec/vs1053.h"
+#include "lib/dac/dac.h"
+#include "lib/sb_util/core1_entry.h"
 
 // --- Hardware Configuration ---
 #define SI4705_I2C_PORT i2c0
@@ -42,7 +44,7 @@
 void si4705_init(void);
 void si4705_power_up(uint8_t opmode); // Modify to accept the opmode
 void si4705_power_down(void);
-void switch_radio_audio_mode(vs1053_t *player, uint16_t current_freq, bool is_digital_audio, uint8_t current_volume, uint8_t current_antenna);
+void switch_radio_audio_mode(vs1053_t *player, uint16_t current_freq, bool* is_digital_audio, uint8_t current_volume, uint8_t current_antenna);
 void si4705_set_property(uint16_t prop_id, uint16_t prop_value);
 void si4705_tune_fm(uint16_t freq_10khz);
 bool si4705_get_tune_status(uint8_t *rssi, uint8_t *snr);

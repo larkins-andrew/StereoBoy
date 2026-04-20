@@ -7,7 +7,7 @@
 #include "pico/time.h"
 #include <math.h>
 #include "lib/sb_util/global_vars.h"
-
+#include "dac.h"
 
 #define DEBOUNCE_US 1000000  // 1000 ms
 
@@ -16,8 +16,7 @@
 #define DAC_I2C_ADDR 0x18
 
 
-#define DAC_VOL_MIN   0x00
-#define DAC_VOL_MAX   0x60
+
 #define DAC_VOL_STEP  3      // 1.5 dB step
 
 #define DAC_INT_GPIO 3   // Pico pin connected to TLV320 GPIO1/INT1

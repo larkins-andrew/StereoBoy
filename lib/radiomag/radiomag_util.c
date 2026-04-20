@@ -17,7 +17,7 @@ int radioLoop(vs1053_t* player) {
     buttons_init(10);
 
 
-    sleep_ms(3000); // Wait for you to open the serial terminal
+    sleep_ms(1000); // Wait for you to open the serial terminal
 
     dprint("\n==================================================\n");
     dprint("         RadioMag        \n");
@@ -47,7 +47,7 @@ int radioLoop(vs1053_t* player) {
     si4705_set_volume(current_volume);
     si4705_select_antenna(current_antenna);
 
-    
+
     // Drop the thresholds slightly (can change this later)
     si4705_set_property(0x1403, 1); // SNR Threshold
     si4705_set_property(0x1404, 15); // RSSI Threshold
@@ -74,18 +74,18 @@ int radioLoop(vs1053_t* player) {
             uint16_t raw_adc = (adc_read() * 63) / 4096;
             //DAC control
             if (is_digital_audio){
-                if (abs(raw_adc - current_volume) < 3) {
-                    inverted_volume = DAC_VOL_MAX - raw_adc;
-                    dac_set_volume(inverted_volume);
+                // if (abs(raw_adc - current_volume) < 3) {
+                //     inverted_volume = DAC_VOL_MAX - raw_adc;
+                    dac_set_volume(DAC_VOL_MAX);
                     printf("Volume set to: %d", inverted_volume);
-                }
-                current_volume = raw_adc;
+                // }
+                // current_volume = raw_adc;
             }
             //SI4705 control
             else{
                 if (abs(raw_adc - current_volume) < 3) {
                     inverted_volume = MAX_VOLUME_SI4705 - raw_adc;
-                    si4705_set_volume(inverted_volume);
+                    si4705_set_volume(30);
                     printf("Volume set to: %d", inverted_volume);
                 }
             current_volume = raw_adc;
@@ -150,7 +150,7 @@ int radioLoop(vs1053_t* player) {
                 // Change: digital <-> analog
                 case (BTN_START):
                     current_freq = si4705_get_current_frequency();
-                    switch_radio_audio_mode(player, current_freq, is_digital_audio, current_volume, current_antenna);
+                    switch_radio_audio_mode(player, current_freq, &is_digital_audio, current_volume, current_antenna);
                     eq_band = 0;
                     break;
                 case (BTN_SELECT):
