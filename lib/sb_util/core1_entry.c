@@ -195,6 +195,12 @@ void update_scope_core1()
     uint16_t raw_l = adc_read();
     adc_select_input(ADC_CH_R);
     uint16_t raw_r = adc_read();
+
+    // Read pot
+    // Pot is read alongside audio to prevent sample contamination over to audio samples
+    adc_select_input(POT_CH);
+    potVal = adc_read();
+    
     // 2. Map to Split Offsets
     // Left Channel centered at 150
     int dev_l = (int)raw_l - ADC_BIAS_CENTER;

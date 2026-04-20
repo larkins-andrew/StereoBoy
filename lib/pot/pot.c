@@ -6,9 +6,6 @@ struct repeating_timer pot_timer;
 // State variables for filtering
 static uint16_t smoothed_adc = 0;
 
-
-
-
 bool pot_timer_callback(struct repeating_timer *t) {
     potCheck = true;
     return true; 

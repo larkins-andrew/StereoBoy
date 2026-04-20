@@ -255,6 +255,8 @@ bool fast_forward = false;
 bool audio_rewind = false;
 uint16_t normal_speed = 1; // 1 = normal
 
+volatile uint16_t potVal = 0;
+
 #define PAUSE_WARP_US 600000   // 0.7 seconds for pause
 #define RESUME_WARP_US 1200000 // 1.2 seconds for resume
 #define SKIP_INTERVAL_MS 100   // minimum interval between FF/RW jumps
@@ -326,20 +328,13 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
             vol_check = (vol_check + 1) % 31;
         }
         else {
-            adc_select_input(POT_ADC_CHANNEL);
-            uint16_t raw_adc = adc_read() * 0x60 / 4096;
+            uint16_t vol = (uint32_t)potVal * 0x60 / 4096;
 
-            //moving average
-            // smoothed_adc = ((smoothed_adc * 7) + raw_adc) / 8;
-
-            // // Squares the ADC value to create an audio curve, then scales to MAX_DAC_VOL
-            // uint32_t adc_squared = (uint32_t)smoothed_adc * smoothed_adc;
-            // uint8_t new_volume = (uint8_t)((adc_squared * MAX_DAC_VOL) / (4095 * 4095));
-            if (abs(raw_adc - old_volume) < 3) {
-                dac_set_volume(raw_adc);
-                // printf("pot vol %d\n\t", raw_adc);
+            // Only update DAC if the change is larger than the noise (hysteresis)
+            if (abs((int)vol - (int)old_volume) >= 2) { 
+                dac_set_volume(vol);
+                old_volume = vol; // Only update "old" when the DAC actually changes
             }
-            old_volume = raw_adc;
         }
         // // Only send an I2C command to the DAC if the volume changed by >1 step.
         // if (abs(new_volume - current_volume) > 1) {

@@ -231,7 +231,6 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
     adc_init();        // Inside sb_hw_init
     adc_gpio_init(46); // Left
     adc_gpio_init(45); // Right
-    adc_select_input(ADC_CH_R);
 
     printf("Oscope ADC initialized!\r\n");
     dprint("Oscope ADC initialized!");
@@ -269,6 +268,7 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
     printf("\r\nButtons intializedr\n");
 
     pot_init();
+    adc_set_clkdiv(4799999.f);
     printf("\r\npot intialized\r\n");
 
     dprint("Finished sb_hw_init");
