@@ -314,20 +314,15 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
     int selected_band = 0;
     int currEq = 0;
     dac_eq_init(sampleSpeed); // init with default sample rate
-    uint8_t current_volume = 0;
-    uint8_t smoothed_adc = 0;
-    // This while loop continuously scans for key inputs while playing audio.
-    // Warping is achieved by continuously sending audio bytes after pause point until warp duration is met.
-    uint8_t old_volume;
     uint8_t vol_check = 0;
+    uint8_t old_volume = 0;
     read_lwbt();
     while (1)
     {
-        // //read input
-        if (vol_check < 30){
+        // janky counter for volume sampling
+        if (vol_check < 10){
             vol_check = (vol_check + 1) % 31;
-        }
-        else {
+        } else {
             uint16_t vol = (uint32_t)potVal * 0x60 / 4096;
 
             // Only update DAC if the change is larger than the noise (hysteresis)
@@ -472,7 +467,7 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
                 break;
             case 'f':
             case 'F':
-                dac_decrease_volume(8);
+                // dac_decrease_volume(8);
                 if (absolute_time_diff_us(last_skip_time, now) >= SKIP_INTERVAL_MS * 1000)
                 {
                     pos += skip_bits;
@@ -482,11 +477,11 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
                     printf("\r\nFast-forwarded ~2s\r\n");
                     last_skip_time = now;
                 }
-                dac_increase_volume(8);
+                // dac_increase_volume(8);
                 break;
             case 'r':
             case 'R':
-                dac_decrease_volume(8);
+                // dac_decrease_volume(8);
                 if (absolute_time_diff_us(last_skip_time, now) >= SKIP_INTERVAL_MS * 1000)
                 {
                     pos -= skip_bits;
@@ -496,7 +491,7 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
                     printf("\r\nRewound ~2s\r\n");
                     last_skip_time = now;
                 }
-                dac_increase_volume(8);
+                // dac_increase_volume(8);
                 break;
             case 'u':
             case 'U':
