@@ -42,7 +42,7 @@ bool pca9685_init(pca9685_t *dev, i2c_inst_t *i2c, uint8_t addr) {
     dev->osc_freq = PCA9685_OSC_FREQ;
 
     // 1. Enter sleep to allow configuration
-    write8(dev, MODE1, MODE1_SLEEP);
+    pca9685_sleep(dev, 1);
 
     // 2. Set MODE2: Open-Drain (0) and Inverted Polarity (1)
     // This makes 4095 = LED Full Bright for cathode-wired setups
@@ -92,9 +92,9 @@ void pca9685_set_pin(pca9685_t *dev, uint8_t channel, uint16_t value) {
     }
 }
 
-void pca9685_sleep(pca9685_t *dev) {
-    uint8_t mode = read8(dev, MODE1);
-    write8(dev, MODE1, mode | MODE1_SLEEP);
+void pca9685_sleep(pca9685_t *dev, bool enable) {
+    uint8_t mode1 = read8(dev, MODE1);
+    write8(dev, MODE1, mode1 | (enable << 4));
 }
 
 void pca9685_wakeup(pca9685_t *dev) {

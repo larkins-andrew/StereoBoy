@@ -274,5 +274,5 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
     dprint("Finished sb_hw_init");
     printf("\r\nFinished sb_hw_init\r\n");
 
-    // pca9685_sleep(&vu_meter);
+    // pca9685_sleep(&vu_meter, 1);
 }

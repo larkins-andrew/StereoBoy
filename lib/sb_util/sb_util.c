@@ -513,6 +513,11 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
                 dac_decrease_volume(3);
                 printf("\r\nVolume down!\r\n");
                 break;
+            case 'l':
+            case 'L':
+                pca9685_sleep(&vu_meter, 1);
+                printf("\r\nVU meter powered off.\r\n");
+                break;
             case 'v':
             case 'V':
                 visualizer = (visualizer + 1) % (num_visualizations - 1);

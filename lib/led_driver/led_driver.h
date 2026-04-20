@@ -17,7 +17,7 @@
 bool pca9685_init(pca9685_t *dev, i2c_inst_t *i2c, uint8_t addr);
 
 void pca9685_reset(pca9685_t *dev);
-void pca9685_sleep(pca9685_t *dev);
+void pca9685_sleep(pca9685_t *dev, bool enable);
 void pca9685_wakeup(pca9685_t *dev);
 
 bool pca_check_presence(pca9685_t *dev);
