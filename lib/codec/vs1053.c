@@ -50,9 +50,8 @@ void vs1053_init(vs1053_t *v) {
     vs1053_soft_reset(v);
 
     // Boost clock (datasheet recommended)
-    sci_write(v, SCI_CLOCKF, 0x6000);
+    sci_write(v, SCI_CLOCKF, 0xB000);
     sleep_ms(10);
-    printf("test point 5");
 }
 
 void vs1053_soft_reset(vs1053_t *v) {
@@ -61,7 +60,9 @@ void vs1053_soft_reset(vs1053_t *v) {
     gpio_put(v->rst, 1);
     sleep_ms(10);
 
+    printf("test point 5");
     sci_write(v, SCI_MODE, 0x0804); // SM_SDINEW | reset
+    printf("test point 6");
     sleep_ms(10);
 }
 

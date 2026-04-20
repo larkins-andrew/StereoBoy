@@ -4,19 +4,25 @@
 #include <stdlib.h>
 
 /* Registers */
-#define MODE1      0x00
-#define MODE2      0x01
-#define PRESCALE   0xFE
-#define LED0_ON_L  0x06
+#define MODE1         0x00
+#define MODE2         0x01
+#define PRESCALE      0xFE
+#define LED0_ON_L     0x06
+#define ALL_LED_ON_L  0xFA
+#define ALL_LED_ON_H  0xFB
+#define ALL_LED_OFF_L 0xFC
+#define ALL_LED_OFF_H 0xFD
 
-/* Bits */
-#define MODE1_SLEEP  0x10
-#define MODE1_AI     0x20
+/* MODE1 Bits */
 #define MODE1_RESTART 0x80
+#define MODE1_AI      0x20
+#define MODE1_SLEEP   0x10
 
-#define MODE2_OUTDRV 0x04
+/* MODE2 Bits */
+#define MODE2_INVRT   0x10  // Invert logic: 1 = High duty cycle is Sink (GND)
+#define MODE2_OUTDRV  0x04  // 0 = Open-Drain, 1 = Totem-Pole
 
-
+#define MAX_BRIGHTNESS 32 // Standardize on full 12-bit range
 
 static void write8(pca9685_t *dev, uint8_t reg, uint8_t val) {
     uint8_t buf[2] = {reg, val};
@@ -30,18 +36,75 @@ static uint8_t read8(pca9685_t *dev, uint8_t reg) {
     return val;
 }
 
+bool pca9685_init(pca9685_t *dev, i2c_inst_t *i2c, uint8_t addr) {
+    dev->i2c = i2c;
+    dev->addr = addr;
+    dev->osc_freq = PCA9685_OSC_FREQ;
+
+    // 1. Enter sleep to allow configuration
+    pca9685_sleep(dev, 1);
+
+    // 2. Set MODE2: Open-Drain (0) and Inverted Polarity (1)
+    // This makes 4095 = LED Full Bright for cathode-wired setups
+    write8(dev, MODE2, MODE2_INVRT);
+
+    // 3. Set PWM frequency
+    pca9685_set_pwm_freq(dev, 1000);
+
+    // 4. Wake up and enable Auto-Increment
+    write8(dev, MODE1, MODE1_AI);
+    sleep_ms(5);
+
+    // 5. Clear restart bit
+    write8(dev, MODE1, MODE1_AI | MODE1_RESTART);
+
+    return true;
+}
+
+void pca9685_set_pwm(pca9685_t *dev, uint8_t channel, uint16_t on, uint16_t off) {
+    uint8_t reg = LED0_ON_L + (4 * channel);
+    uint8_t buf[5] = {
+        reg,
+        (uint8_t)(on & 0xFF),
+        (uint8_t)((on >> 8) & 0x1F), // Masking to 5 bits (includes Full ON bit)
+        (uint8_t)(off & 0xFF),
+        (uint8_t)((off >> 8) & 0x1F) // Masking to 5 bits (includes Full OFF bit)
+    };
+    i2c_write_blocking(dev->i2c, dev->addr, buf, 5, false);
+}
+
+/**
+ * Sets brightness from 0 to 4095. 
+ * Hardware INVRT handles the cathode logic.
+ */
+void pca9685_set_pin(pca9685_t *dev, uint8_t channel, uint16_t value) {
+    if (value > 4095) value = 4095;
+
+    if (value == 4095) {
+        // Special Case: Full ON (Bit 4 of ON_H)
+        pca9685_set_pwm(dev, channel, 0x1000, 0);
+    } else if (value == 0) {
+        // Special Case: Full OFF (Bit 4 of OFF_H)
+        pca9685_set_pwm(dev, channel, 0, 0x1000);
+    } else {
+        // Standard PWM: We pulse from time 0 to 'value'
+        pca9685_set_pwm(dev, channel, 0, value);
+    }
+}
+
+void pca9685_sleep(pca9685_t *dev, bool enable) {
+    uint8_t mode1 = read8(dev, MODE1);
+    write8(dev, MODE1, mode1 | (enable << 4));
+}
+
 void pca9685_wakeup(pca9685_t *dev) {
     uint8_t mode = read8(dev, MODE1);
     write8(dev, MODE1, mode & ~MODE1_SLEEP);
     sleep_ms(1);
+    write8(dev, MODE1, (mode & ~MODE1_SLEEP) | MODE1_RESTART);
 }
 
-void pca9685_sleep(pca9685_t *dev) {
-    uint8_t mode = read8(dev, MODE1);
-    write8(dev, MODE1, mode | MODE1_SLEEP);
-    sleep_ms(1);
-}
-
+// ... (pca9685_set_pwm_freq remains the same) ...
 void pca9685_set_pwm_freq(pca9685_t *dev, float freq) {
     if (freq < 1) freq = 1;
     if (freq > 3500) freq = 3500;
@@ -57,144 +120,53 @@ void pca9685_set_pwm_freq(pca9685_t *dev, float freq) {
     write8(dev, MODE1, oldmode | MODE1_RESTART | MODE1_AI);
 }
 
-bool pca9685_init(pca9685_t *dev, i2c_inst_t *i2c, uint8_t addr) {
-    dev->i2c = i2c;
-    dev->addr = addr;
-    dev->osc_freq = PCA9685_OSC_FREQ;
-
-    //enter sleep
-    write8(dev, MODE1, MODE1_SLEEP);
-
-    //set Totem-Pole outputs to source current
-    write8(dev, MODE2, MODE2_OUTDRV);
-
-    // set frequency
-    pca9685_set_pwm_freq(dev, 1000);
-
-    //Wake up and enable Auto-Increment for the 5-byte block writes
-    write8(dev, MODE1, MODE1_AI);
-    sleep_ms(10); // Required 500us minimum for the oscillator to stabilize
-
-    // flush the PWM counters
-    write8(dev, MODE1, MODE1_AI | MODE1_RESTART);
-
-    
-
-    return true;
-}
-
-void pca9685_reset(pca9685_t *dev) {
-    write8(dev, MODE1, MODE1_RESTART);
-    sleep_ms(10);
-}
-
-bool pca_check_presence(pca9685_t *dev) {
-    int result = i2c_write_blocking(dev->i2c, dev->addr, NULL, 0, 0);
-
-    // Hardware I²C returns number of bytes written OR a negative error code
-    return (!result);
-}
-
-void pca9685_set_pwm(pca9685_t *dev, uint8_t channel, uint16_t on, uint16_t off) {
-    uint8_t reg = LED0_ON_L + 4 * channel;
-    uint8_t buf[5] = {
-        reg,
-        on & 0xFF,
-        on >> 8,
-        off & 0xFF,
-        off >> 8
-    };
-    i2c_write_blocking(dev->i2c, dev->addr, buf, 5, false);
-}
-
-void pca9685_set_pin(pca9685_t *dev, uint8_t channel, uint16_t value, bool invert) {
-    if (value > 4095) value = 4095;
-
-    if (invert) {
-        if (value == 0)
-            pca9685_set_pwm(dev, channel, 4096, 0);
-        else if (value == 4095)
-            pca9685_set_pwm(dev, channel, 0, 4096);
-        else
-            pca9685_set_pwm(dev, channel, 0, 4095 - value);
-    } else {
-        if (value == 4095)
-            pca9685_set_pwm(dev, channel, 4096, 0);
-        else if (value == 0)
-            pca9685_set_pwm(dev, channel, 0, 4096);
-        else
-            pca9685_set_pwm(dev, channel, 0, value);
-    }
-}
-
-void pca9685_write_microseconds(pca9685_t *dev, uint8_t channel, uint16_t us) {
-    uint8_t prescale = read8(dev, PRESCALE) + 1;
-
-    double pulse_len = 1000000.0;
-    pulse_len *= prescale;
-    pulse_len /= dev->osc_freq;
-
-    double ticks = us / pulse_len;
-    pca9685_set_pwm(dev, channel, 0, (uint16_t)ticks);
-}
-
-
 // State variables for peak smoothing 
 static float peak_l = 0.0f;
 static float peak_r = 0.0f;
 static const float PEAK_DECAY = 0.05f; // How fast the LEDs fall back down
 
 void pca9685_update_vu(pca9685_t *dev, uint16_t adc_left, uint16_t adc_right) {
-    int MAX_BRIGHTNESS = 400;
-    // Remove DC bais from codec
     float amp_l = (float)abs((int)adc_left - ADC_CENTER);
     float amp_r = (float)abs((int)adc_right - ADC_CENTER);
-
-    // Scale to a percent
+    
     float level_l = fminf(amp_l / MAX_AMPLITUDE, 1.0f);
     float level_r = fminf(amp_r / MAX_AMPLITUDE, 1.0f);
 
-    // Optional: Apply Logarithmic curve so quiet sounds still light up the bottom LEDs
-    // level_l = log10f(1.0f + 9.0f * level_l); 
-    // level_r = log10f(1.0f + 9.0f * level_r);
-
-    // Peak Tracking (Instantly rise, slowly fall)
-    if (level_l > peak_l) peak_l = level_l;
-    else peak_l -= PEAK_DECAY;
+    if (level_l > peak_l) peak_l = level_l; else peak_l -= PEAK_DECAY;
     if (peak_l < 0.0f) peak_l = 0.0f;
 
-    if (level_r > peak_r) peak_r = level_r;
-    else peak_r -= PEAK_DECAY;
+    if (level_r > peak_r) peak_r = level_r; else peak_r -= PEAK_DECAY;
     if (peak_r < 0.0f) peak_r = 0.0f;
 
-    // 4. Update Left LEDs (Channels 0 to 7)
-    for (int i = 0; i < NUM_LEDS_PER_CH; i++) {
-        float threshold = (float)(NUM_LEDS_PER_CH - i) / NUM_LEDS_PER_CH;
-        float prev_threshold = (float)(NUM_LEDS_PER_CH - i - 1) / NUM_LEDS_PER_CH;
+    // Loop through 8 LED segments
+    for (int i = 0; i < 8; i++) {
+        float threshold = (float)(i + 1) / 8.0f;
+        float prev_threshold = (float)i / 8.0f;
 
+        // Calculate the physical pin indices
+        // Left:  i=0 (Bottom) -> Pin 7, i=7 (Top) -> Pin 0
+        // Right: i=0 (Bottom) -> Pin 15, i=7 (Top) -> Pin 8
+        uint8_t pin_l = 7 - i;
+        uint8_t pin_r = 15 - i;
+
+        // Left Bank Logic
         if (peak_l >= threshold) {
-            pca9685_set_pin(dev, i, MAX_BRIGHTNESS, true); // Fully ON
+            pca9685_set_pin(dev, pin_l, MAX_BRIGHTNESS);
         } else if (peak_l > prev_threshold) {
-            // Smoothly fade the top active LED
-            float fraction = (peak_l - prev_threshold) * NUM_LEDS_PER_CH;
-            pca9685_set_pin(dev, i, (uint16_t)(fraction * MAX_BRIGHTNESS), true);
+            float fraction = (peak_l - prev_threshold) * 8.0f;
+            pca9685_set_pin(dev, pin_l, (uint16_t)(fraction * MAX_BRIGHTNESS));
         } else {
-            pca9685_set_pin(dev, i, 0, true); // Fully OFF
+            pca9685_set_pin(dev, pin_l, 0);
         }
-    }
 
-    // 5. Update Right LEDs (Channels 8 to 15)
-    for (int i = 0; i < NUM_LEDS_PER_CH; i++) {
-        float threshold = (float)(NUM_LEDS_PER_CH - i) / NUM_LEDS_PER_CH;
-        float prev_threshold = (float)(NUM_LEDS_PER_CH - i - 1) / NUM_LEDS_PER_CH;
-
+        // Right Bank Logic
         if (peak_r >= threshold) {
-            pca9685_set_pin(dev, i + 8, MAX_BRIGHTNESS, true); 
+            pca9685_set_pin(dev, pin_r, MAX_BRIGHTNESS);
         } else if (peak_r > prev_threshold) {
-            float fraction = (peak_r - prev_threshold) * NUM_LEDS_PER_CH;
-            pca9685_set_pin(dev, i + 8, (uint16_t)(fraction * MAX_BRIGHTNESS), true);
+            float fraction = (peak_r - prev_threshold) * 8.0f;
+            pca9685_set_pin(dev, pin_r, (uint16_t)(fraction * MAX_BRIGHTNESS));
         } else {
-            pca9685_set_pin(dev, i + 8, 0, true); 
+            pca9685_set_pin(dev, pin_r, 0);
         }
     }
 }

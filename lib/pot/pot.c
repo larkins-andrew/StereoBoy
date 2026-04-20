@@ -6,9 +6,6 @@ struct repeating_timer pot_timer;
 // State variables for filtering
 static uint16_t smoothed_adc = 0;
 
-
-
-
 bool pot_timer_callback(struct repeating_timer *t) {
     potCheck = true;
     return true; 
@@ -47,6 +44,7 @@ void read_lwbt(){
     int lwbt = gpio_get(LWBT_GPIO);
     printf("lwbt: %d\r\n", lwbt);
     gpio_put(LED_R, 1-lwbt);
-    gpio_put(LED_G, lwbt);
+    gpio_put(LED_G, 1-lwbt);
+    gpio_put(LED_B, 1-lwbt);
     return;
 }   

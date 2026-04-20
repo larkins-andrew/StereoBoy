@@ -164,6 +164,7 @@ int sb_scan_tracks(track_info_t *tracks, int max_tracks)
 
 void sb_hw_init(vs1053_t *player, st7789_t *display)
 {
+
     mutex_init(&text_buff_mtx);
     sem_init(&text_sem, 0, 255);
 
@@ -173,18 +174,18 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
     gpio_set_function(PIN_MISO, GPIO_FUNC_SPI);
 
     // set I2C0 for DAC at 400KHz
-    i2c_init(i2c0, 400 * 1000);
     gpio_set_function(PIN_I2C0_SCL, GPIO_FUNC_I2C);
     gpio_set_function(PIN_I2C0_SDA, GPIO_FUNC_I2C);
+    i2c_init(i2c0, 400 * 1000);
     // gpio_pull_up(PIN_I2C0_SCL);
     // gpio_pull_up(PIN_I2C0_SDA);
     dprint("SPI0 and I2C0 initialized.");
     printf("SPI0 and I2C0 initialized.\r\n");
 
     // set I2C1 for PCA9685 at 400KHz
-    i2c_init(i2c1, 400 * 1000);
     gpio_set_function(PIN_I2C1_SDA, GPIO_FUNC_I2C);
     gpio_set_function(PIN_I2C1_SCL, GPIO_FUNC_I2C);
+    i2c_init(i2c1, 400 * 1000);
     // gpio_pull_up(PIN_I2C1_SDA);
     // gpio_pull_up(PIN_I2C1_SCL);
     printf("I2C1 initialized.\r\n");
@@ -231,7 +232,6 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
     adc_init();        // Inside sb_hw_init
     adc_gpio_init(46); // Left
     adc_gpio_init(45); // Right
-    adc_select_input(ADC_CH_R);
 
     printf("Oscope ADC initialized!\r\n");
     dprint("Oscope ADC initialized!");
@@ -273,4 +273,6 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
 
     dprint("Finished sb_hw_init");
     printf("\r\nFinished sb_hw_init\r\n");
+
+    pca9685_sleep(&vu_meter, 1);
 }

@@ -330,15 +330,14 @@ void dac_init() {
     dac_write(0, 0x41, 00);   // Left Vol (0dB is usually 0, 18 is +9dB depending on mapping)
     dac_write(0, 0x42, 00);   // Right Vol
 
-
     // 10. Headphone & Speaker Setup (Page 1)
-    // Reg 0x1F: HP Drivers power up
-    dac_write(1, 0x1F, 0xC0);
     // Reg 0x24/0x25: HPL/R Gain (0x06 = 6dB approx)
     // ADJUST THESE VALUES FOR VOLUME CONTROL IN MAIN FIRMWARE!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     dac_write(1, 0x24, 0x05);
     dac_write(1, 0x25, 0x05);
     dac_write(1, 0x26, 0x05);
+    // Reg 0x1F: HP Drivers power up
+    dac_write(1, 0x1F, 0xC0);
     // Reg 0x28/0x29: HPL/R Driver unmute
     dac_write(1, 0x28, 0x06);
     dac_write(1, 0x29, 0x06);
@@ -360,7 +359,6 @@ void dac_init() {
 
 
     dac_set_volume(dac_volume);
-    // --- PASTE THIS BLOCK AT THE VERY END OF dac_init() ---
     
     // Give the amp a tiny moment to attempt power-up before checking faults
     sleep_ms(10); 
@@ -394,49 +392,3 @@ void dac_init() {
     printf("---------------------------\r\n");
     // --- END PASTE BLOCK ---
 }
-
-// // Headphones disconnect interrupt
-
-// void dac_int_callback(uint gpio, uint32_t events)
-
-// {
-
-//     // Read 0x2C to clear the sticky interrupt
-
-//     dac_read(0, 0x2C); // THIS NEEDS TO BE HERE!!!! DO NOT REMOVE THIS LINE
-
-//     // read whether headphone in or out
-
-//     if (dac_read(0, 0x2E) & 0x10)
-
-//     { // Bit 5
-
-//         printf("Headphones plugged in! Paused and switching to stereo headphones.\n");
-
-//         dac_write(1, 0x20, 0b00000110); // shut down speaker driver
-
-//         // pause without warping
-
-//         paused = 1;
-
-//         warping = 0;
-
-//     }
-
-//     else
-
-//     {
-
-//         printf("Headphones pulled out! Paused and switching to mono speakers.\n");
-
-//         dac_write(1, 0x20, 0b10000110); // power up speaker driver
-
-//         // pause without warping
-
-//         paused = 1;
-
-//         warping = 0;
-
-//     }
-
-// }

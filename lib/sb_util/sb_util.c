@@ -255,6 +255,8 @@ bool fast_forward = false;
 bool audio_rewind = false;
 uint16_t normal_speed = 1; // 1 = normal
 
+volatile uint16_t potVal = 0;
+
 #define PAUSE_WARP_US 600000   // 0.7 seconds for pause
 #define RESUME_WARP_US 1200000 // 1.2 seconds for resume
 #define SKIP_INTERVAL_MS 100   // minimum interval between FF/RW jumps
@@ -312,34 +314,23 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
     int selected_band = 0;
     int currEq = 0;
     dac_eq_init(sampleSpeed); // init with default sample rate
-    uint8_t current_volume = 0;
-    uint8_t smoothed_adc = 0;
-    // This while loop continuously scans for key inputs while playing audio.
-    // Warping is achieved by continuously sending audio bytes after pause point until warp duration is met.
-    uint8_t old_volume;
-    uint8_t vol_check = 0;
+    uint8_t vol_check = 10;
+    uint8_t old_volume = 0;
     read_lwbt();
     while (1)
     {
-        // //read input
-        if (vol_check < 30){
-            vol_check = (vol_check + 1) % 31;
-        }
-        else {
-            adc_select_input(POT_ADC_CHANNEL);
-            uint16_t raw_adc = adc_read() * 0x60 / 4096;
+        // janky counter for volume sampling
+        if (vol_check == 10) {
+            uint16_t vol = (uint32_t)potVal * 0x60 / 4096;
 
-            //moving average
-            // smoothed_adc = ((smoothed_adc * 7) + raw_adc) / 8;
-
-            // // Squares the ADC value to create an audio curve, then scales to MAX_DAC_VOL
-            // uint32_t adc_squared = (uint32_t)smoothed_adc * smoothed_adc;
-            // uint8_t new_volume = (uint8_t)((adc_squared * MAX_DAC_VOL) / (4095 * 4095));
-            if (abs(raw_adc - old_volume) < 3) {
-                dac_set_volume(raw_adc);
-                // printf("pot vol %d\n\t", raw_adc);
+            // Only update DAC if the change is larger than the noise (hysteresis)
+            if (abs((int)vol - (int)old_volume) >= 2) { 
+                dac_set_volume(vol);
+                old_volume = vol; // Only update "old" when the DAC actually changes
             }
-            old_volume = raw_adc;
+            vol_check = 0;
+        } else {
+            vol_check++;
         }
         // // Only send an I2C command to the DAC if the volume changed by >1 step.
         // if (abs(new_volume - current_volume) > 1) {
@@ -477,7 +468,7 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
                 break;
             case 'f':
             case 'F':
-                dac_decrease_volume(8);
+                // dac_decrease_volume(8);
                 if (absolute_time_diff_us(last_skip_time, now) >= SKIP_INTERVAL_MS * 1000)
                 {
                     pos += skip_bits;
@@ -487,11 +478,11 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
                     printf("\r\nFast-forwarded ~2s\r\n");
                     last_skip_time = now;
                 }
-                dac_increase_volume(8);
+                // dac_increase_volume(8);
                 break;
             case 'r':
             case 'R':
-                dac_decrease_volume(8);
+                // dac_decrease_volume(8);
                 if (absolute_time_diff_us(last_skip_time, now) >= SKIP_INTERVAL_MS * 1000)
                 {
                     pos -= skip_bits;
@@ -501,7 +492,7 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
                     printf("\r\nRewound ~2s\r\n");
                     last_skip_time = now;
                 }
-                dac_increase_volume(8);
+                // dac_increase_volume(8);
                 break;
             case 'u':
             case 'U':
@@ -512,6 +503,11 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
             case 'D':
                 dac_decrease_volume(3);
                 printf("\r\nVolume down!\r\n");
+                break;
+            case 'l':
+            case 'L':
+                pca9685_sleep(&vu_meter, 1);
+                printf("\r\nVU meter powered off.\r\n");
                 break;
             case 'v':
             case 'V':
@@ -673,11 +669,16 @@ void dac_int_callback(uint gpio, uint32_t events)
     // read whether headphone in or out
     if (dac_read(0, 0x2E) & 0x10)
     { // Bit 5
-        printf("Headphones plugged in! Paused and switching to stereo headphones.\n");
         dac_write(1, 0x20, 0b00000110); // shut down speaker driver
         // pause without warping
         paused = 1;
         warping = 0;
+        // Reg 0x1F: HP Drivers power up
+        dac_write(1, 0x1F, 0xC0);
+        // Reg 0x28/0x29: HPL/R Driver unmute
+        dac_write(1, 0x28, 0x06);
+        dac_write(1, 0x29, 0x06);
+        printf("Headphones plugged in! Paused and switching to stereo headphones.\n");
     }
     else
     {
