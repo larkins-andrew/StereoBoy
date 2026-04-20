@@ -46,6 +46,7 @@ extern bool warping;
 
 extern uint16_t play_icon[400];
 extern uint16_t pause_icon[400];
+extern uint16_t empty_icon[400];
 extern uint16_t frame_buffer[SCREEN_WIDTH * SCREEN_HEIGHT];
 
 extern struct st7789_t st7789_cfg;

@@ -29,6 +29,12 @@
 // #define ADC_CH 5
 // #define ADC_CH_L 6
 // #define ADC_CH_R 5
+// Progress Bar
+int progress_bar = 0;
+int prev_progress_bar = 0;
+uint16_t played_progres_color = 0xFFFF;
+uint16_t background_progress_color = 0x0000;
+
 
 uint16_t num_tracks = 0; // number of tracks in current directory
 bool potCheck;
@@ -262,7 +268,7 @@ volatile uint16_t potVal = 0;
 #define SKIP_INTERVAL_MS 100   // minimum interval between FF/RW jumps
 
 
-uint16_t *playStatus;
+uint16_t *playStatus = empty_icon;
 int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
 {
     FIL fil;             // file object
@@ -281,9 +287,6 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
     warping = false;
     stopped = 0;
 
-    // Progress Bar
-    int progress_bar = 0;
-    int prev_progress_bar = 0;
 
     // more warp effect stuff
     float transport = 1.0f;                  // desired speed
@@ -372,11 +375,11 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
                 {
                     if (x < progress_bar)
                     {
-                        frame_buffer[y * 240 + x] = color_red; // Played part
+                        frame_buffer[y * 240 + x] = played_progres_color; // Played part
                     }
                     else
                     {
-                        frame_buffer[y * 240 + x] = color_gray; // Remaining part
+                        frame_buffer[y * 240 + x] = background_progress_color; // Remaining part
                     }
                 }
             }
@@ -441,13 +444,11 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
                 warp_start_transport = transport;      //
                 warp_target = paused ? 0.0f : 1.0f;
                 warping = true;
+                if (paused) playStatus = pause_icon;
+                else playStatus = play_icon;
                 //draw pause ICON for text or album art visualizer
                 if (visualizer == 0 || visualizer == 5)
                 {
-                    if (paused)
-                        playStatus = pause_icon;
-                    else
-                        playStatus = play_icon;
                     for (int y = 0; y < 20; y++)
                     {
                         uint16_t *dst = &frame_buffer[y * SCREEN_WIDTH];

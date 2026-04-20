@@ -2,9 +2,18 @@
 #include "core1_entry.h"
 #include "firmware.h"
 
+extern uint16_t* playStatus;
+extern int progress_bar;
+
+// ST7789 uses 16-bit RGB565 colors
+extern uint16_t played_progres_color;
+extern uint16_t background_progress_color;
+
+
 /* Text Display Stuff */
 mutex_t text_buff_mtx;
 semaphore_t text_sem;
+
 
 char text_buff_temp[120];
 struct Node *head = NULL;
@@ -249,13 +258,34 @@ void update_scope_core1()
     // 7. Push to Display
     if (x >= 240)
     {
+        //Place pause Icon on screen
+        for (int y = 0; y < 20; y++)
+        {
+            uint16_t *dst = &frame_buffer[y * SCREEN_WIDTH];
+            uint16_t *src = &playStatus[y * 20];
+            memcpy(dst, src, 20 * sizeof(uint16_t));
+        }
+
+        for (int y = 235; y < 240; y++)
+        {
+            for (int x = 0; x < 240; x++)
+            {
+                if (x < progress_bar)
+                {
+                    frame_buffer[y * 240 + x] = played_progres_color; // Played part
+                }
+                else
+                {
+                    frame_buffer[y * 240 + x] = background_progress_color; // Remaining part
+                }
+            }
+        }
+
         x = 0;
         st7789_set_cursor(0, 0);
         st7789_ramwr();
         spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
         spi_write16_blocking(spi0, frame_buffer, 240 * 240);
-        // ensures that LED do not use too many cycles
-        //  if (led_throttle++ % 2 == 0)
         pca9685_update_vu(&vu_meter, raw_l, raw_r);
     }
 }
