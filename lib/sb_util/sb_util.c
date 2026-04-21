@@ -284,6 +284,7 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
 
     // status bits for player state and warp effect
     paused = false;
+    playStatus = play_icon;
     warping = false;
     stopped = 0;
 
@@ -352,6 +353,8 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
             if (btn_char != 0)
                 c = (int)btn_char; // Inject the button character into the logic
         }
+
+        //progress bar (should make seperate function)
         long song_pos = f_tell(&fil);
         float progress = (float)(song_pos - track->audio_start) / (float)(track->audio_end - track->audio_start);
         if (progress < 0.0f)
@@ -361,33 +364,6 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
         prev_progress_bar = progress_bar;
         progress_bar = 240 * progress;
         bool update_bar = prev_progress_bar != progress_bar;
-
-        if (visualizer == 0 && update_bar)
-        {
-            // ST7789 uses 16-bit RGB565 colors
-            uint16_t color_red = 0xF800;
-            uint16_t color_gray = 0x8410; // Medium gray
-
-            // Draw the bottom 10 rows (assuming screen height is 240)
-            for (int y = 230; y < 240; y++)
-            {
-                for (int x = 0; x < 240; x++)
-                {
-                    if (x < progress_bar)
-                    {
-                        frame_buffer[y * 240 + x] = played_progres_color; // Played part
-                    }
-                    else
-                    {
-                        frame_buffer[y * 240 + x] = background_progress_color; // Remaining part
-                    }
-                }
-            }
-            st7789_set_cursor(0, 0);
-            st7789_ramwr();
-            spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
-            spi_write16_blocking(spi0, frame_buffer, 240 * 240);
-        }
 
         if (c != PICO_ERROR_TIMEOUT)
         {
@@ -446,20 +422,6 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
                 warping = true;
                 if (paused) playStatus = pause_icon;
                 else playStatus = play_icon;
-                //draw pause ICON for text or album art visualizer
-                if (visualizer == 0 || visualizer == 5)
-                {
-                    for (int y = 0; y < 20; y++)
-                    {
-                        uint16_t *dst = &frame_buffer[y * SCREEN_WIDTH];
-                        uint16_t *src = &playStatus[y * 20];
-                        memcpy(dst, src, 20 * sizeof(uint16_t));
-                    }
-                    st7789_set_cursor(0, 0);
-                    st7789_ramwr();
-                    spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
-                    spi_write16_blocking(spi0, frame_buffer, 240 * 240);
-                }
 
                 // select duration based on pause/resume
                 warp_duration = paused ? PAUSE_WARP_US : RESUME_WARP_US;
@@ -518,17 +480,6 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
                     process_image(track, filename, 160);
                     album_art_ready = true;
                     printf("changing visualizer");
-                    if (paused)
-                        playStatus = pause_icon;
-                    else
-                        playStatus = play_icon;
-
-                    for (int y = 0; y < 20; y++)
-                    {
-                        uint16_t *dst = &frame_buffer[y * SCREEN_WIDTH];
-                        uint16_t *src = &playStatus[y * 20];
-                        memcpy(dst, src, 20 * sizeof(uint16_t));
-                    }
                 }
                 switch (visualizer)
                 {

@@ -115,6 +115,12 @@ void core1_entry()
                     uint16_t raw_r = adc_read();
 
                     pca9685_update_vu(&vu_meter, raw_l, raw_r);
+
+                    addIcons(frame_buffer);
+                    st7789_set_cursor(0, 0);
+                    st7789_ramwr();
+                    spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
+                    spi_write16_blocking(spi0, frame_buffer, 240 * 240);
                     // sleep_ms(16); // Throttle to ~60FPS
                 }
             }
@@ -130,6 +136,8 @@ void core1_entry()
             memset(frame_buffer, 0, sizeof(frame_buffer));
             draw_bins(60);
 
+            //Place pause Icon on screen
+            addIcons(frame_buffer);
             st7789_set_cursor(0, 0);
             st7789_ramwr();
             spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
@@ -258,29 +266,7 @@ void update_scope_core1()
     // 7. Push to Display
     if (x >= 240)
     {
-        //Place pause Icon on screen
-        for (int y = 0; y < 20; y++)
-        {
-            uint16_t *dst = &frame_buffer[y * SCREEN_WIDTH];
-            uint16_t *src = &playStatus[y * 20];
-            memcpy(dst, src, 20 * sizeof(uint16_t));
-        }
-
-        for (int y = 235; y < 240; y++)
-        {
-            for (int x = 0; x < 240; x++)
-            {
-                if (x < progress_bar)
-                {
-                    frame_buffer[y * 240 + x] = played_progres_color; // Played part
-                }
-                else
-                {
-                    frame_buffer[y * 240 + x] = background_progress_color; // Remaining part
-                }
-            }
-        }
-
+        addIcons(frame_buffer);
         x = 0;
         st7789_set_cursor(0, 0);
         st7789_ramwr();
@@ -325,4 +311,29 @@ static void process_audio_batch()
 
     // Re-add the bias so the VU meter math processes the peak correctly
     pca9685_update_vu(&vu_meter, ADC_BIAS_CENTER + max_dev_l, ADC_BIAS_CENTER + max_dev_r);
+}
+
+void addIcons(uint16_t* frame_buffer){
+    //Place pause Icon on screen
+    for (int y = 0; y < 20; y++)
+    {
+        uint16_t *dst = &frame_buffer[y * SCREEN_WIDTH];
+        uint16_t *src = &playStatus[y * 20];
+        memcpy(dst, src, 20 * sizeof(uint16_t));
+    }
+    //progress bar
+    for (int y = 235; y < 240; y++)
+    {
+        for (int x = 0; x < 240; x++)
+        {
+            if (x < progress_bar)
+            {
+                frame_buffer[y * 240 + x] = played_progres_color; // Played part
+            }
+            else
+            {
+                frame_buffer[y * 240 + x] = background_progress_color; // Remaining part
+            }
+        }
+    }
 }
