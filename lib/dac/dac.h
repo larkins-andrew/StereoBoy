@@ -40,10 +40,15 @@
 #define PIN_I2C0_SCL 21
 #define PIN_I2C0_SDA 20
 
+//Constants for chaning eq
+#define NUM_EQ_BANDS 6
+#define MAX_GAIN_DB 6.0f
+#define MIN_GAIN_DB -6.0f
+
 
 uint8_t dac_read(uint8_t page, uint8_t reg);
 void dac_write(uint8_t page, uint8_t reg, uint8_t val);
-void dac_init(i2c_inst_t *i2c);
+void dac_init();
 bool dac_begin(i2c_inst_t *i2c);
 void dac_set_volume(uint8_t vol);
 void dac_increase_volume(uint8_t step);

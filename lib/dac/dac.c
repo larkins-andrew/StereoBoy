@@ -7,7 +7,7 @@
 #include "pico/time.h"
 #include <math.h>
 #include "lib/sb_util/global_vars.h"
-
+#include "dac.h"
 
 #define DEBOUNCE_US 1000000  // 1000 ms
 
@@ -26,10 +26,6 @@
 #define MAX_16BIT 32767 //2^15 - 1 (16 bits, 2's comp)
 #define MIN_16BIT -32768
 
-//Constants for chaning eq
-#define NUM_EQ_BANDS 6
-#define MAX_GAIN_DB 6.0f
-#define MIN_GAIN_DB -6.0f
 
 
 static uint8_t dac_volume = 0x20; // default DAC volume
@@ -260,6 +256,7 @@ float dac_eq_get_gain(int band) {
     if (band < 0 || band >= NUM_EQ_BANDS) return 0.0f;
     return eq_gains[band];
 }
+
 int dac_eq_get_freq(int band) {
     if (band < 0 || band >= NUM_EQ_BANDS) return 0;
     return (int)eq_frequencies[band];

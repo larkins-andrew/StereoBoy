@@ -7,7 +7,7 @@ void core1_entry();
 
 void update_scope_core1();
 static void process_audio_batch();
-void addIcons(uint16_t* frame_buffer);
+void addIcons(uint16_t* frame_buffer, bool enabled);
 
 extern volatile uint16_t potVal;
 

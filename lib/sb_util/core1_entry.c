@@ -1,10 +1,12 @@
 #include "lib/sb_util/global_vars.h"
 #include "core1_entry.h"
 #include "firmware.h"
+#include "lib/dac/dac.h"
 
 extern uint16_t* playStatus;
+extern uint16_t* ff_rew_status;
 extern int progress_bar;
-
+extern bool enableIcons;
 // ST7789 uses 16-bit RGB565 colors
 extern uint16_t played_progres_color;
 extern uint16_t background_progress_color;
@@ -116,7 +118,7 @@ void core1_entry()
 
                     pca9685_update_vu(&vu_meter, raw_l, raw_r);
 
-                    addIcons(frame_buffer);
+                    addIcons(frame_buffer, enableIcons);
                     st7789_set_cursor(0, 0);
                     st7789_ramwr();
                     spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
@@ -137,7 +139,7 @@ void core1_entry()
             draw_bins(60);
 
             //Place pause Icon on screen
-            addIcons(frame_buffer);
+            addIcons(frame_buffer, enableIcons);
             st7789_set_cursor(0, 0);
             st7789_ramwr();
             spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
@@ -266,7 +268,7 @@ void update_scope_core1()
     // 7. Push to Display
     if (x >= 240)
     {
-        addIcons(frame_buffer);
+        addIcons(frame_buffer, enableIcons);
         x = 0;
         st7789_set_cursor(0, 0);
         st7789_ramwr();
@@ -313,26 +315,79 @@ static void process_audio_batch()
     pca9685_update_vu(&vu_meter, ADC_BIAS_CENTER + max_dev_l, ADC_BIAS_CENTER + max_dev_r);
 }
 
-void addIcons(uint16_t* frame_buffer){
-    //Place pause Icon on screen
-    for (int y = 0; y < 20; y++)
-    {
-        uint16_t *dst = &frame_buffer[y * SCREEN_WIDTH];
-        uint16_t *src = &playStatus[y * 20];
-        memcpy(dst, src, 20 * sizeof(uint16_t));
-    }
-    //progress bar
-    for (int y = 235; y < 240; y++)
-    {
-        for (int x = 0; x < 240; x++)
+#define CENTER_Y 20
+#define MARGIN_LEFT 200
+#define BAR_WIDTH 4
+#define GAP_PX 2
+
+void addIcons(uint16_t* frame_buffer, bool enabled){
+    if (enabled){
+        //Place pause Icon on screen
+        for (int y = 0; y < 20; y++)
         {
-            if (x < progress_bar)
+            uint16_t *dst = &frame_buffer[y * SCREEN_WIDTH];
+            uint16_t *src = &playStatus[y * 20];
+            memcpy(dst, src, 20 * sizeof(uint16_t));
+        }
+        //Place rewind/fastforward Icon on screen (Starts at x = 24)
+        int icon_spacing = 34; // 20px icon width + 4px gap
+        for (int y = 0; y < 20; y++)
+        {
+            uint16_t *dst = &frame_buffer[(y * SCREEN_WIDTH) + icon_spacing];
+            uint16_t *src = &ff_rew_status[y * 20];
+            memcpy(dst, src, 20 * sizeof(uint16_t));
+        }
+        //progress bar
+        for (int y = 235; y < 240; y++)
+        {
+            for (int x = 0; x < 240; x++)
             {
-                frame_buffer[y * 240 + x] = played_progres_color; // Played part
+                if (x < progress_bar)
+                {
+                    frame_buffer[y * 240 + x] = played_progres_color; // Played part
+                }
+                else
+                {
+                    frame_buffer[y * 240 + x] = background_progress_color; // Remaining part
+                }
+            }
+        }
+
+        //eq Icons
+        for (int i = 0; i < 6; i++){
+            float eqGain = dac_eq_get_gain(i);
+            
+            // Map the gain to pixel height
+            int pixel_height = (int)((eqGain / MAX_GAIN_DB) * 20.0f);
+
+            // Determine vertical start and end points based on positive/negative gain
+            int y_start, y_end;
+
+            if (pixel_height >= 0)
+            {
+                // Positive gain: bar goes UP from center (subtracting from Y)
+                y_start = CENTER_Y - pixel_height;
+                y_end = CENTER_Y;
             }
             else
             {
-                frame_buffer[y * 240 + x] = background_progress_color; // Remaining part
+                // Negative gain: bar goes DOWN from center (adding to Y)
+                y_start = CENTER_Y;
+                y_end = CENTER_Y - pixel_height; // pixel_height is negative, so subtracting it ADDS to Y
+            }
+
+            // Determine horizontal bounds for this specific bar
+            int x_start = MARGIN_LEFT + i * (BAR_WIDTH + GAP_PX);
+            int x_end = x_start + BAR_WIDTH;
+
+            // 3. Draw the white block directly into the frame buffer
+            for (int y = y_start; y <= y_end; y++)
+            {
+                for (int x = x_start; x < x_end; x++)
+                {
+                    // Assuming WHITE is defined as 0xFFFF
+                    frame_buffer[y * SCREEN_WIDTH + x] = 0xFFFF; 
+                }
             }
         }
     }

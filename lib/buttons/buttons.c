@@ -99,7 +99,8 @@ char buttons_map_to_char_jukebox(int currentEq) {
         if (edge & BTN_L) return 'r'; // Select + Left = Rewind
         if (edge & BTN_U) return '+';
         if (edge & BTN_D) return '-';
-        if (edge & BTN_A) return (char) (((currentEq % 5) + 1) + '0'); //need to check this
+        if (edge & BTN_A) return (char) (((currentEq + 1) % 6) + '0'); //need to check this
+        if (edge & BTN_START) return 'm';
     }
     return 0; // No match found
 }

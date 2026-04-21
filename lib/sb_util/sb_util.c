@@ -259,6 +259,7 @@ bool warping = false;
 bool stopped = false;
 bool fast_forward = false;
 bool audio_rewind = false;
+bool enableIcons;
 uint16_t normal_speed = 1; // 1 = normal
 
 volatile uint16_t potVal = 0;
@@ -269,6 +270,7 @@ volatile uint16_t potVal = 0;
 
 
 uint16_t *playStatus = empty_icon;
+uint16_t *ff_rew_status = empty_icon;
 int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
 {
     FIL fil;             // file object
@@ -287,7 +289,7 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
     playStatus = play_icon;
     warping = false;
     stopped = 0;
-
+    enableIcons = true;
 
     // more warp effect stuff
     float transport = 1.0f;                  // desired speed
@@ -326,7 +328,7 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
         // janky counter for volume sampling
         if (vol_check == 10) {
             uint16_t vol = (uint32_t)potVal * 0x60 / 4096;
-
+            ff_rew_status = empty_icon; //update ff/rew icon every 10 as well
             // Only update DAC if the change is larger than the noise (hysteresis)
             if (abs((int)vol - (int)old_volume) >= 2) { 
                 dac_set_volume(vol);
@@ -336,11 +338,8 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
         } else {
             vol_check++;
         }
-        // // Only send an I2C command to the DAC if the volume changed by >1 step.
-        // if (abs(new_volume - current_volume) > 1) {
-        //     current_volume = new_volume;
-        //     dac_set_volume(current_volume);
-        // }
+        
+        
 
         // --- 2. MUSIC FEEDING (Priority) ---
         // The rest of your jukebox logic remains here...
@@ -431,9 +430,9 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
                 break;
             case 'f':
             case 'F':
-                // dac_decrease_volume(8);
                 if (absolute_time_diff_us(last_skip_time, now) >= SKIP_INTERVAL_MS * 1000)
                 {
+                    ff_rew_status = ff_icon;
                     pos += skip_bits;
                     if (pos > f_size(&fil))
                         pos = f_size(&fil) - 1;
@@ -441,13 +440,12 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
                     printf("\r\nFast-forwarded ~2s\r\n");
                     last_skip_time = now;
                 }
-                // dac_increase_volume(8);
                 break;
             case 'r':
             case 'R':
-                // dac_decrease_volume(8);
                 if (absolute_time_diff_us(last_skip_time, now) >= SKIP_INTERVAL_MS * 1000)
                 {
+                    ff_rew_status = rew_icon;
                     pos -= skip_bits;
                     if (pos < 0)
                         pos = 0;
@@ -455,7 +453,6 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
                     printf("\r\nRewound ~2s\r\n");
                     last_skip_time = now;
                 }
-                // dac_increase_volume(8);
                 break;
             case 'u':
             case 'U':
@@ -516,6 +513,10 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
                 printf("  Album Art Size: %lu\r\n", (unsigned long)track->album_art_size);
                 printf("  Mime Type: %s\r\n", track->mime_type);
                 printf("  Header: %X\r\n", track->header);
+                break;
+            case 'm':
+            case 'M':
+                enableIcons = !enableIcons;
                 break;
             case 's':
             case 'S':
