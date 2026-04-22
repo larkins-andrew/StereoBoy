@@ -35,5 +35,6 @@ static void process_audio_batch();
 
 void set_visualizer(int num);
 void clear_framebuffer();
+int get_selected_band();
 
 #endif

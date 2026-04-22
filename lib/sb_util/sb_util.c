@@ -268,7 +268,7 @@ volatile uint16_t potVal = 0;
 #define RESUME_WARP_US 1200000 // 1.2 seconds for resume
 #define SKIP_INTERVAL_MS 100   // minimum interval between FF/RW jumps
 
-
+int selected_band = 0;
 uint16_t *playStatus = empty_icon;
 uint16_t *ff_rew_status = empty_icon;
 int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
@@ -317,7 +317,7 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
     f_lseek(&fil, start);
     absolute_time_t last_skip_time = get_absolute_time();
 
-    int selected_band = 0;
+    selected_band = 0;
     int currEq = 0;
     dac_eq_init(sampleSpeed); // init with default sample rate
     uint8_t vol_check = 10;
@@ -405,12 +405,20 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
                 return exitType;
             case 'o':
             case 'O':
+                if (progress > 0.1){
+                    pos = 0;
+                    f_lseek(&fil, pos);
+                    progress = 0;
+                    break;
+                }
+                else{
                 exitType = 2;
                 vs1053_set_play_speed(player, 0); // hard pause
                 printf("\r\n Going to next song....\r\n");
                 f_close(&fil);
                 vs1053_stop(player);
                 return exitType;
+                }
             // not new below
             case 'p':
             case 'P':
@@ -612,6 +620,10 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
     f_close(&fil);
     // exitType = 0; //plays next song if song just ends
     return exitType;
+}
+
+int get_selected_band(){
+    return selected_band;
 }
 
 // Headphones disconnect interrupt

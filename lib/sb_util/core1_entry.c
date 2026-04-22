@@ -2,6 +2,7 @@
 #include "core1_entry.h"
 #include "firmware.h"
 #include "lib/dac/dac.h"
+#include "lib/sb_util/sb_util.h"
 
 extern uint16_t* playStatus;
 extern uint16_t* ff_rew_status;
@@ -10,7 +11,7 @@ extern bool enableIcons;
 // ST7789 uses 16-bit RGB565 colors
 extern uint16_t played_progres_color;
 extern uint16_t background_progress_color;
-
+// extern int selected_band;
 
 /* Text Display Stuff */
 mutex_t text_buff_mtx;
@@ -386,7 +387,8 @@ void addIcons(uint16_t* frame_buffer, bool enabled){
                 for (int x = x_start; x < x_end; x++)
                 {
                     // Assuming WHITE is defined as 0xFFFF
-                    frame_buffer[y * SCREEN_WIDTH + x] = 0xFFFF; 
+                    if (get_selected_band() == i) frame_buffer[y * SCREEN_WIDTH + x] = 0x001F;
+                    else frame_buffer[y * SCREEN_WIDTH + x] = 0xFFFF; 
                 }
             }
         }
