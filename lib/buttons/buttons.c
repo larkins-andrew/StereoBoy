@@ -1,7 +1,5 @@
+#include "lib/sb_util/global_vars.h"
 #include "buttons.h"
-#include "pico/stdlib.h"
-#include "hardware/gpio.h"
-#include "pico/time.h"
 
 // --- Pin Definitions ---
 static const uint PIN_LATCH = 11;
@@ -76,11 +74,11 @@ uint8_t buttons_get_just_pressed(void) {
 //CHAT MADE THESE FUNCTIONS BELOW!!!
 //maps buttons to characters for use in jukebox, allows for multibutton presses
 char buttons_map_to_char_jukebox(int currentEq) {
-    uint8_t raw = buttons_get_raw_state();       // Is a button HELD
-    uint8_t edge = buttons_get_just_pressed();   // Was a button CLICKED
+    uint8_t edge = ~buttons_get_raw_state();       // Is a button HELD
+    // uint8_t edge = buttons_get_just_pressed();   // Was a button CLICKED
 
     // Identify if the modifier (SELECT) is currently being held
-    bool select_held = (raw & BTN_SELECT);
+    bool select_held = (edge & BTN_SELECT);
     // Process the "Just Pressed" buttons based on the modifier
     if (edge == 0) return 0; // No new press detected
 
@@ -129,3 +127,30 @@ void buttons_sync_state(void) {
     last_button_states = current_button_states;
 }
 
+#define REPEAT_TIME 1000
+char prev_char;
+absolute_time_t timeout;
+    //REPEAT_TIME is in milliseconds (10^-3)
+char get_button_jukebox(int currentEq){
+    
+    char c;
+    absolute_time_t t;
+    // Pair * p = malloc(sizeof(Pair));
+
+    c = buttons_map_to_char_jukebox(currentEq);
+    if (prev_char != c){
+        prev_char = c;
+        timeout = make_timeout_time_ms(REPEAT_TIME);
+        return c;
+    }
+    else{
+        t = get_absolute_time();
+        if (absolute_time_min(t, timeout) == timeout){
+            timeout = make_timeout_time_ms(REPEAT_TIME);
+            return c;
+        }
+        else{
+            return 0;
+        }
+    }
+}

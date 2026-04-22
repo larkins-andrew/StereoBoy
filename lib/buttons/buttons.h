@@ -37,6 +37,8 @@ uint8_t buttons_get_just_pressed(void);
 
 char buttons_map_to_char_jukebox(int currentEq);
 
+char get_button_jukebox(int currentEq);
+
 char buttons_map_menu_navigation(void);
 
 void buttons_sync_state(void);

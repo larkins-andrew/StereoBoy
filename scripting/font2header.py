@@ -6,6 +6,8 @@ Use this website to generate bitmaps:
 https://stmn.itch.io/font2bitmap
 '''
 
+font_file = 'cpmono.png'
+
 characters = ' !"#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~'
 characters = [c for c in characters]
 
@@ -38,13 +40,13 @@ def parsePixels(sub_ims):
     return px_colors
 
 if __name__ == '__main__':
-    sub_ims = genSubImages("Inconsolata.png")
+    sub_ims = genSubImages(font_file)
     pixel_tupels = parsePixels(sub_ims)
     with open('output.c', 'w+') as f:
         f.write(f'#include "font.h"\n')
         f.write(f'#include "stddef.h"\n\n')
-        f.write(f"int font_width = {grid_width};\n")
-        f.write(f"int font_height = {grid_height};\n\n")
+        # f.write(f"int font_width = {grid_width};\n")
+        # f.write(f"int font_height = {grid_height};\n\n")
 
         f.write("struct Font font[] = {\n")
 

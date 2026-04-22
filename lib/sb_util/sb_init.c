@@ -261,8 +261,6 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
 
     printf("Audio init complete.\r\n");
     dprint("Audio init complete.");
-    printf("\r\nScanning directory...\r\n");
-    dprint("Scanning directory...");
 
     // Initialize buttons with a 10ms scan rate
     buttons_init(10);
