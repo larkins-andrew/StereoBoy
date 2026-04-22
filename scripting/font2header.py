@@ -1,6 +1,11 @@
 from PIL import Image
 from math import floor
 
+'''
+Use this website to generate bitmaps:
+https://stmn.itch.io/font2bitmap
+'''
+
 characters = ' !"#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~'
 characters = [c for c in characters]
 
@@ -27,7 +32,7 @@ def parsePixels(sub_ims):
                 color = px[j,i]
                 color = (color[0], color[1], color[2])
                 color = (color[0] + color[1] + color[2])
-                print(color)
+                # print(color)
                 char_px.append(1 if color == 255*3 else 0)
         px_colors.append(char_px)
     return px_colors
@@ -35,13 +40,12 @@ def parsePixels(sub_ims):
 if __name__ == '__main__':
     sub_ims = genSubImages("Inconsolata.png")
     pixel_tupels = parsePixels(sub_ims)
-    with open('output.h', 'w+') as f:
+    with open('output.c', 'w+') as f:
+        f.write(f'#include "font.h"\n')
+        f.write(f'#include "stddef.h"\n\n')
         f.write(f"int font_width = {grid_width};\n")
         f.write(f"int font_height = {grid_height};\n\n")
-        f.write("struct Font {\n")
-        f.write("    char letter;\n")
-        f.write(f"    bool code[{grid_width}*{grid_height}];\n")
-        f.write("};\n")
+
         f.write("struct Font font[] = {\n")
 
         for idx, pixels in enumerate(pixel_tupels):
@@ -68,9 +72,9 @@ if __name__ == '__main__':
                 f.write(f"}};")
 
         f.write("\n\n")
-        f.write("const struct Font* find_font_char(char c) {\n")
-        f.write("\tfor (int i = 0; font[i].letter != 0; i++) {\n")
-        f.write("\t\tif (font[i].letter == c) return &font[i];\n")
-        f.write("\t}\n")
-        f.write("\treturn NULL;\n")
-        f.write("}\n")
+        # f.write("const struct Font* find_font_char(char c) {\n")
+        # f.write("\tfor (int i = 0; font[i].letter != 0; i++) {\n")
+        # f.write("\t\tif (font[i].letter == c) return &font[i];\n")
+        # f.write("\t}\n")
+        # f.write("\treturn NULL;\n")
+        # f.write("}\n")

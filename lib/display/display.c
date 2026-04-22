@@ -7,7 +7,7 @@
 
 #include "lib/sb_util/global_vars.h"
 #include "display.h"
-// #include "lib/font/font.h"
+#include "lib/font/font.h"
 
 struct st7789_t st7789_cfg;
 uint16_t st7789_width;
