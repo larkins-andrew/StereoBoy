@@ -82,7 +82,7 @@ char buttons_map_to_char_jukebox(int currentEq) {
     // Process the "Just Pressed" buttons based on the modifier
     if (edge == 0) return 0; // No new press detected
 
-    if (select_held) {
+    if (!select_held) {
         // --- Standard actions (just button) ---
         if (edge & BTN_A)     return 'p'; // B = pause
         if (edge & BTN_B)     return 's'; // A = stop
@@ -99,6 +99,7 @@ char buttons_map_to_char_jukebox(int currentEq) {
         if (edge & BTN_D) return '-';
         if (edge & BTN_A) return (char) (((currentEq + 1) % 6) + '0'); //need to check this
         if (edge & BTN_START) return 'm';
+        if (edge & BTN_B) return 'l'; // turn off VU meter
     }
     return 0; // No match found
 }
@@ -127,7 +128,7 @@ void buttons_sync_state(void) {
     last_button_states = current_button_states;
 }
 
-#define REPEAT_TIME 1000
+#define REPEAT_TIME 200
 char prev_char;
 absolute_time_t timeout;
     //REPEAT_TIME is in milliseconds (10^-3)

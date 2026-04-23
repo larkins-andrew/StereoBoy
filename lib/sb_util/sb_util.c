@@ -474,8 +474,7 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
                 break;
             case 'l':
             case 'L':
-                pca9685_sleep(&vu_meter, 1);
-                printf("\r\nVU meter powered off.\r\n");
+                pca9685_toggleSleep(&vu_meter);
                 break;
             case 'v':
             case 'V':
