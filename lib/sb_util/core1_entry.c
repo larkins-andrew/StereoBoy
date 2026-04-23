@@ -1,17 +1,7 @@
 #include "lib/sb_util/global_vars.h"
-#include "core1_entry.h"
-#include "firmware.h"
-#include "lib/dac/dac.h"
 #include "lib/sb_util/sb_util.h"
 
-extern uint16_t* playStatus;
-extern uint16_t* ff_rew_status;
-extern int progress_bar;
-extern bool enableIcons;
-// ST7789 uses 16-bit RGB565 colors
-extern uint16_t played_progres_color;
-extern uint16_t background_progress_color;
-// extern int selected_band;
+
 
 /* Text Display Stuff */
 mutex_t text_buff_mtx;
@@ -21,14 +11,9 @@ semaphore_t text_sem;
 char text_buff_temp[120];
 struct Node *head = NULL;
 
-void printLL()
+void set_visualizer(int num)
 {
-    struct Node *n = head;
-    while (n != NULL)
-    {
-        printf("%p: %s", n, n->str);
-        n = n->next;
-    }
+    visualizer = num;
 }
 
 void app_node(char *str)
@@ -188,6 +173,10 @@ void core1_entry()
                 // sleep_ms(1000);
                 printf(" core 1 finished print\r\n");
             }
+            break;
+        
+        case 6:
+            
             break;
 
         default:

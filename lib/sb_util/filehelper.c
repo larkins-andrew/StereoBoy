@@ -1,5 +1,4 @@
-#include "filehelper.h"
-#include "lib/sb_util/core1_entry.h"
+#include "lib/sb_util/sb_util.h"
 // Convert syncsafe integer (ID3 size format)
 
 uint32_t syncsafe_to_uint(const uint8_t *b)

@@ -1,8 +1,6 @@
 #include "global_vars.h"
-#include "firmware.h"
 
-#include "lib/sb_util/core1_entry.h"
-#include "lib/sb_util/filehelper.h"
+#include "lib/sb_util/sb_util.h"
 
 static FATFS fs;
 

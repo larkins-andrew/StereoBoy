@@ -67,7 +67,6 @@ typedef struct st7789_t {
 } st7789_t;
 
 //POT
-extern bool potCheck;
 
 //SB_UTIL
 extern mutex_t text_buff_mtx;
@@ -117,5 +116,19 @@ struct Node {
     struct Node * next;
     char str[30];
 };
+extern uint16_t* playStatus;
+extern uint16_t* ff_rew_status;
+extern int progress_bar;
+extern bool enableIcons;
+extern int song_choice;
+
+// ST7789 uses 16-bit RGB565 colors
+extern uint16_t played_progres_color;
+extern uint16_t background_progress_color;
+
+#define played_progres_color 0xFFFF
+#define background_progress_color 0x0000
+extern int selected_band;
+extern volatile uint16_t potVal;
 
 #endif

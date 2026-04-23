@@ -1,3 +1,4 @@
+import PIL
 from PIL import Image
 from math import floor
 
@@ -6,9 +7,10 @@ Use this website to generate bitmaps:
 https://stmn.itch.io/font2bitmap
 '''
 
-font_file = 'cpmono.png'
+font_file = 'a_cpmono.png'
 
-characters = ' !"#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~'
+# characters = ' !"#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~'
+characters = 'A'
 characters = [c for c in characters]
 
 chars_per_row = 19
@@ -21,21 +23,25 @@ def genSubImages(filename):
         for i in range(len(characters)):
             coords = (grid_width*(i%19), grid_height*(floor(i/19)), grid_width*(i%19 + 1), grid_height * (1 + floor(i/19)))
             sub_im = im.crop(coords)
+            im.save("a.png")
             sub_ims.append(sub_im)
     return sub_ims
 
 def parsePixels(sub_ims):
     px_colors = []
     for s in sub_ims:
+        # print(type(s))
+        assert (type(s) == PIL.Image.Image)
         char_px = []
         px = s.load()
         for i in range(grid_height):
             for j in range(grid_width):
                 color = px[j,i]
-                color = (color[0], color[1], color[2])
-                color = (color[0] + color[1] + color[2])
-                # print(color)
-                char_px.append(1 if color == 255*3 else 0)
+                print(color)
+                # color = (color[0], color[1], color[2])
+                color_sum = (color[0] + color[1] + color[2])
+                
+                char_px.append(1 if color_sum == 255*3 else 0)
         px_colors.append(char_px)
     return px_colors
 

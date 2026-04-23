@@ -3,7 +3,7 @@
 #include "hardware/spi.h"   
 #include "pico/stdlib.h"
 #include "lib/sb_util/global_vars.h"
-#include "lib/sb_util/core1_entry.h"
+#include "lib/sb_util/sb_util.h"
 
 ////////////////LISSAJOUS///////////////////////////
 
