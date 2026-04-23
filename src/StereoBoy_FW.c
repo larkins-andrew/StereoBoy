@@ -1,8 +1,7 @@
 #include "lib/sb_util/global_vars.h"
-#include "lib/sb_util/sb_init.h"
+
 #include "lib/sb_util/sb_util.h"
 #include "lib/buttons/buttons.h"
-#include "lib/sb_util/core1_entry.h"
 #include "lib/pot/pot.h"
 
 #include "pico/stdlib.h"
@@ -102,21 +101,21 @@ int main()
             set_visualizer(5);
             choice = 0;
             bool confirmed = 0;
-            printf("\r\nAvailable tracks:\r\n");
-            for (int i = 0; i < count; i++) {
-                // dprint("[%d] %s - %s", i + 1, tracks[i].artist, tracks[i].title);
-                printf("\r\n[%d] %s - %s\r\n", i + 1, tracks[i].artist, tracks[i].title);
-                // dprint("     Album: %s", tracks[i].album);
-                printf("     Album: %s\r\n", tracks[i].album);
-                // dprint("     Bit Rate: %d Kbps", tracks[i].bitrate);
-                printf("     Bit Rate: %d Kbps\r\n", tracks[i].bitrate);
-                // dprint("     Sample Rate: %d Hz", tracks[i].samplespeed);
-                printf("     Sample Rate: %d Hz\r\n", tracks[i].samplespeed);
-                // dprint("     Channels : %s", tracks[i].channels == 1 ? "Mono" : "Stereo");
-                printf("     Channels : %s\r\n", tracks[i].channels == 1 ? "Mono" : "Stereo");
-                // dprint("     Header: %X", tracks[i].header);
-                printf("     Header: %X\r\n", tracks[i].header);
-            }
+            // printf("\r\nAvailable tracks:\r\n");
+            // for (int i = 0; i < count; i++) {
+            //     // dprint("[%d] %s - %s", i + 1, tracks[i].artist, tracks[i].title);
+            //     printf("\r\n[%d] %s - %s\r\n", i + 1, tracks[i].artist, tracks[i].title);
+            //     // dprint("     Album: %s", tracks[i].album);
+            //     printf("     Album: %s\r\n", tracks[i].album);
+            //     // dprint("     Bit Rate: %d Kbps", tracks[i].bitrate);
+            //     printf("     Bit Rate: %d Kbps\r\n", tracks[i].bitrate);
+            //     // dprint("     Sample Rate: %d Hz", tracks[i].samplespeed);
+            //     printf("     Sample Rate: %d Hz\r\n", tracks[i].samplespeed);
+            //     // dprint("     Channels : %s", tracks[i].channels == 1 ? "Mono" : "Stereo");
+            //     printf("     Channels : %s\r\n", tracks[i].channels == 1 ? "Mono" : "Stereo");
+            //     // dprint("     Header: %X", tracks[i].header);
+            //     printf("     Header: %X\r\n", tracks[i].header);
+            // }
 
             clear_framebuffer();
             dprint("Song %d/%d: ", choice+1, count);
@@ -176,7 +175,7 @@ int main()
         printf("  Start: %X\r\n", track->audio_end);
 
         set_visualizer(1);
-        exitCode = sb_play_track(&player, track, &display);
+        exitCode = jukebox(&player, track, &display);
 
         if (exitCode == 1){
             if (choice + 1 > count)

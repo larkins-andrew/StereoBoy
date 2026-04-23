@@ -124,7 +124,6 @@ void sb_display_init(st7789_t *display)
 
 int sb_scan_tracks(track_info_t *tracks, int max_tracks)
 {
-    dprint("start of nsb_scan_tracks heartbeat");
     DIR dir;
     FILINFO fno;
     int count = 0;
@@ -156,7 +155,6 @@ int sb_scan_tracks(track_info_t *tracks, int max_tracks)
 
     qsort(tracks, count, sizeof(track_info_t), compare_filenames);
 
-    dprint("end of sb_scan_tracks heartbeat");
     return count;
 }
 

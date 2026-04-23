@@ -131,7 +131,6 @@ uint32_t find_audio_start(FIL *fil)
 
 void get_mp3_header(FIL *fil, track_info_t *track)
 {
-    dprint("start of get_mp3_header heartbeat");
     UINT br;
     uint8_t header[4];
 
@@ -240,12 +239,10 @@ void get_mp3_header(FIL *fil, track_info_t *track)
 
     // Channels
     track->channels = (channel_bits >> 1) & 1; // 0 = stereo, 1 = mono
-    dprint("end of get_mp3_header heartbeat");
 }
 
 void get_mp3_metadata(const char *filename, track_info_t *track)
 {
-    dprint("start of get_mp3_metadata heartbeat");
     strcpy(track->filename, filename);
     strcpy(track->title, "(unknown)");
     strcpy(track->artist, "(unknown)");
@@ -388,8 +385,6 @@ void get_mp3_metadata(const char *filename, track_info_t *track)
 
 out:
     f_close(&fil);
-
-    dprint("end of get_mp3_metadata heartbeat");
 }
 
 // Helper for qsort

@@ -54,15 +54,10 @@ void addIcons(uint16_t* frame_buffer, bool enabled);
 #define PI 3.141592653589793
 #endif
 
-// void dprint(char * str, ...);
+/* ========= sb_util.c ========== */
 
 void process_image(track_info_t *track, const char *filename, float output_size);
 static void process_audio_batch();
-
-// struct Node {
-//     struct Node * next;
-//     char str[30];
-// };
 
 void set_visualizer(int num);
 void clear_framebuffer();
