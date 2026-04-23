@@ -49,6 +49,7 @@ int song_choice = 0;
 int count;
 int main()
 {
+    set_visualizer(7);
     // Lower RP2350 core voltage to 1V
     // P = V^2 * f, so 0.1V drop results in quadratic change
     // Before: 1.1 ^ 2 * 150 = 181.5
@@ -60,6 +61,7 @@ int main()
     // sleep_ms(3000);
 
     sb_hw_init(&player, &display);
+    
     // Boot-up banner
 
     sleep_ms(250);
