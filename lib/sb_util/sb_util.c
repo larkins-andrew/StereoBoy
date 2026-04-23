@@ -176,6 +176,7 @@ void dac_int_callback(uint gpio, uint32_t events)
     // Read 0x2C to clear the sticky interrupt
     dac_read(0, 0x2C); // THIS NEEDS TO BE HERE!!!! DO NOT REMOVE THIS LINE
     // read whether headphone in or out
+    playStatus = pause_icon;
     if (dac_read(0, 0x2E) & 0x10)
     { // Bit 5
         dac_write(1, 0x20, 0b00000110); // shut down speaker driver
@@ -197,16 +198,6 @@ void dac_int_callback(uint gpio, uint32_t events)
         paused = 1;
         warping = 0;
     }
-    // for (int y = 0; y < 20; y++)
-    // {
-    //     uint16_t *dst = &frame_buffer[y * SCREEN_WIDTH];
-    //     uint16_t *src = &playStatus[y * 20];
-    //     memcpy(dst, src, 20 * sizeof(uint16_t));
-    // }
-    // st7789_set_cursor(0, 0);
-    // st7789_ramwr();
-    // spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
-    // spi_write16_blocking(spi0, frame_buffer, 240 * 240);
 }
 
 // ---- Init GPIO interrupt ----

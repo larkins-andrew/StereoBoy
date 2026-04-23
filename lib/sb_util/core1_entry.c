@@ -204,11 +204,6 @@ void update_scope_core1()
     uint16_t raw_l = adc_read();
     adc_select_input(ADC_CH_R);
     uint16_t raw_r = adc_read();
-
-    // Read pot
-    // Pot is read alongside audio to prevent sample contamination over to audio samples
-    adc_select_input(POT_CH);
-    potVal = adc_read();
     
     // 2. Map to Split Offsets
     // Left Channel centered at 150
@@ -310,8 +305,12 @@ static void process_audio_batch()
 #define BAR_WIDTH 4
 #define GAP_PX 2
 
+//Adds icons and samples ADC
 void addIcons(uint16_t* frame_buffer, bool enabled){
+    adc_select_input(POT_CH);
+    potVal = adc_read();
     if (enabled){
+
         //Place pause Icon on screen
         for (int y = 0; y < 20; y++)
         {

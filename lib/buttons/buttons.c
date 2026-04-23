@@ -128,7 +128,8 @@ void buttons_sync_state(void) {
     last_button_states = current_button_states;
 }
 
-#define REPEAT_TIME 200
+#define TIME_TO_REPEAT 1000
+#define REPEAT_TIME 100
 char prev_char;
 absolute_time_t timeout;
     //REPEAT_TIME is in milliseconds (10^-3)
@@ -141,11 +142,18 @@ char get_button_jukebox(int currentEq){
     c = buttons_map_to_char_jukebox(currentEq);
     if (prev_char != c){
         prev_char = c;
-        timeout = make_timeout_time_ms(REPEAT_TIME);
+        timeout = make_timeout_time_ms(TIME_TO_REPEAT);
         return c;
     }
     else{
-        t = get_absolute_time();
+        //if nothing pressed stop
+        if (c == 0) {
+            return 0;
+        }
+        //special keys to not repeat
+        if ((c >= '0' && c <= '5') || c == 'p' || c == 's' || c == 'v') {
+            return 0; 
+        }
         if (absolute_time_min(t, timeout) == timeout){
             timeout = make_timeout_time_ms(REPEAT_TIME);
             return c;
