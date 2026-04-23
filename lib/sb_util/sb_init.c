@@ -126,7 +126,7 @@ int sb_scan_tracks(track_info_t *tracks, int max_tracks)
 {
     DIR dir;
     FILINFO fno;
-    int count = 0;
+    count = 0;
 
     f_opendir(&dir, "0:/");
 
@@ -140,7 +140,7 @@ int sb_scan_tracks(track_info_t *tracks, int max_tracks)
         {
             get_mp3_metadata(fno.fname, &tracks[count]);
             count++;
-            dprint("Read song %d", count);
+            // dprint("Read song %d", count);
         }
     }
 

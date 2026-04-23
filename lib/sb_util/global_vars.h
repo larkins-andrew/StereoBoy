@@ -69,6 +69,9 @@ typedef struct st7789_t {
 //POT
 
 //SB_UTIL
+#define MAX_FILENAME_LEN 256 // max filaname character length
+#define MAX_TRACKS 128 // max number of mp3 files in sd card
+
 extern mutex_t text_buff_mtx;
 extern semaphore_t text_sem;
 extern int visualizer;
@@ -95,6 +98,9 @@ typedef struct {
     char artist[128];
     char album[128];
 } track_info_t;
+
+extern track_info_t tracks[MAX_TRACKS];
+extern int count;
 
 //CODEC
 typedef struct {

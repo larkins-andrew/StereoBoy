@@ -32,7 +32,6 @@ int prev_progress_bar = 0;
 cplx audio_history_l[HISTORY_SIZE];
 cplx audio_history_r[HISTORY_SIZE];
 int history_index = 0;
-int visualizer = 5;
 int num_visualizations = 6;
 bool album_art_ready = false;
 

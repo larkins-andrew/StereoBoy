@@ -1,8 +1,6 @@
 #include "lib/sb_util/global_vars.h"
 #include "lib/sb_util/sb_util.h"
 
-
-
 /* Text Display Stuff */
 mutex_t text_buff_mtx;
 semaphore_t text_sem;
@@ -10,6 +8,7 @@ semaphore_t text_sem;
 
 char text_buff_temp[120];
 struct Node *head = NULL;
+int visualizer = 5;
 
 void set_visualizer(int num)
 {
@@ -176,7 +175,28 @@ void core1_entry()
             break;
         
         case 6:
-            
+            clear_framebuffer();
+            int start = song_choice - (song_choice % 10);
+            for (int i = 0; i<10; i++){
+                if (start + i >= count){
+                    break;
+                }
+                track_info_t *track = &tracks[start+i];
+                char buf[300];
+                sprintf(buf, "%d", start+i+1); //Index at 1 for users
+                strcat(buf, " ");
+                strcat(buf, track->title);
+                if (start + i == song_choice){
+                    st7789_draw_string(1, 5 + i * font_height, buf, GREEN);
+                }
+                else{
+                    st7789_draw_string(1, 5 + i * font_height, buf, WHITE);
+                }
+            }
+            st7789_set_cursor(0, 0);
+            st7789_ramwr();
+            spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
+            spi_write16_blocking(spi0, frame_buffer, 240 * 240);
             break;
 
         default:
