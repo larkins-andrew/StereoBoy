@@ -22,7 +22,8 @@
 #define CYAN    0x07FF
 #define MAGENTA 0xF81F
 
-#define HIGHLIGHT_COLOR 0x049F
+#define HIGHLIGHT_COLOR_PRIMARY 0x049F
+#define HIGHLIGHT_COLOR_SECONDARY 0x9cd3
 
 
 // void st7789_init(const st7789_t* config, uint16_t width, uint16_t height);

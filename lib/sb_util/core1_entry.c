@@ -176,7 +176,7 @@ void core1_entry()
         
         case 6:
             clear_framebuffer();
-            start = song_choice - (song_choice % 10);
+            start =  (song_choice < 6) ? 0 : song_choice - 5;
             track_info_t *track;
             track_info_t *selected_track;
             selected_track = &tracks[song_choice];
@@ -190,7 +190,7 @@ void core1_entry()
                 strcat(buf, " ");
                 strcat(buf, track->title);
                 if (start + i == song_choice){
-                    st7789_draw_string(1, 0 + i * font_height, buf, HIGHLIGHT_COLOR);
+                    st7789_draw_string(1, 0 + i * font_height, buf, HIGHLIGHT_COLOR_SECONDARY);
                 }
                 else{
                     st7789_draw_string(1, 0 + i * font_height, buf, WHITE);
@@ -200,8 +200,8 @@ void core1_entry()
             char md_album[128];
             sprintf(md_artist, "%s", selected_track->artist);
             sprintf(md_album, "%s", selected_track->album);
-            st7789_draw_string(1, -2 + 10 * font_height, md_artist, HIGHLIGHT_COLOR);
-            st7789_draw_string(1, -2 + 11 * font_height, md_album, HIGHLIGHT_COLOR);
+            st7789_draw_string(1, -2 + 10 * font_height, md_artist, HIGHLIGHT_COLOR_PRIMARY);
+            st7789_draw_string(1, -2 + 11 * font_height, md_album, HIGHLIGHT_COLOR_PRIMARY);
 
             st7789_set_cursor(0, 0);
             st7789_ramwr();
@@ -222,7 +222,7 @@ void core1_entry()
                 strcat(buf, " ");
                 strcat(buf, track->title);
                 if (start + i == song_choice){
-                    st7789_draw_string(1, 5 + i * font_height, buf, HIGHLIGHT_COLOR);
+                    st7789_draw_string(1, 5 + i * font_height, buf, HIGHLIGHT_COLOR_PRIMARY);
                 }
                 else{
                     st7789_draw_string(1, 5 + i * font_height, buf, WHITE);
