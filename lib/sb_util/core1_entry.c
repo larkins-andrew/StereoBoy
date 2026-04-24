@@ -194,7 +194,7 @@ void core1_entry()
                 sprintf(buf, "%d", start+i+1); //Index at 1 for users
                 strcat(buf, " ");
                 if (start + i == song_choice){
-                    strncpy(marquee, track->title + marquee_title_start, marquee_title_start + 16);
+                    strncpy(marquee, track->title + marquee_title_start, marquee_title_start + 18);
                     strcat(buf, marquee);
                     st7789_draw_string(1, 0 + i * font_height, buf, HIGHLIGHT_COLOR_SECONDARY);
                 }
@@ -204,21 +204,30 @@ void core1_entry()
                 }
             }
 
-            // // 'static' ensures this variable survives between function calls
-            // static uint32_t last_marquee_update_ms = 0;
-            // // Get the current time since the chip started
-            // uint32_t current_time_ms = to_ms_since_boot(get_absolute_time());
+            // 'static' ensures this variable survives between function calls
+            static uint32_t last_marquee_update_ms = 0;
+            // Get the current time since the chip started
+            uint32_t current_time_ms = to_ms_since_boot(get_absolute_time());
 
-            // // crude counter to update marquee
-            // if (current_time_ms - last_marquee_update_ms >= 150) {
-            //     if (strlen(selected_track->artist) > 21) {
-            //         marquee_artist_start = (marquee_artist_start > strlen(selected_track->artist)) ? 0 : marquee_artist_start + 1;
-            //     }
-            //     if (strlen(selected_track->album) > 21) {
-            //         marquee_album_start = (marquee_album_start > strlen(selected_track->artist)) ? 0 : marquee_album_start + 1;
-            //     }
-            //     last_marquee_update_ms = current_time_ms;
-            // }
+            // crude counter to update marquee
+            if (current_time_ms - last_marquee_update_ms >= 150) {
+                if (strlen(selected_track->artist) > 20) {
+                    marquee_artist_start = (marquee_artist_start >= strlen(selected_track->artist)) ? 0 : marquee_artist_start + 1;
+                } else {
+                    marquee_artist_start = 0;
+                }
+                if (strlen(selected_track->album) > 20) {
+                    marquee_album_start = (marquee_album_start >= strlen(selected_track->album)) ? 0 : marquee_album_start + 1;
+                } else {
+                    marquee_album_start = 0;
+                }
+                if (strlen(selected_track->title) > 18) {
+                    marquee_title_start = (marquee_title_start >= strlen(selected_track->title)) ? 0 : marquee_title_start + 1;
+                } else {
+                    marquee_title_start = 0;
+                }
+                last_marquee_update_ms = current_time_ms;
+            }
 
             char md_artist[128];
             char md_album[128];
