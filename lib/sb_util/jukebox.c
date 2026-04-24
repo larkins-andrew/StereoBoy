@@ -114,7 +114,8 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
         // get value from buttons
         if (c == PICO_ERROR_TIMEOUT)
         {
-            char btn_char = get_button_jukebox();
+            char temp_btn = buttons_map_to_char_jukebox();
+            char btn_char = get_button_repeat(temp_btn);
             if (btn_char != 0)
                 c = (int)btn_char; // Inject the button character into the logic
         }

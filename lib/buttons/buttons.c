@@ -72,7 +72,7 @@ uint8_t buttons_get_just_pressed(void) {
 
 //CHAT MADE THESE FUNCTIONS BELOW!!!
 //maps buttons to characters for use in jukebox, allows for multibutton presses
-char buttons_map_to_char_jukebox() {
+char buttons_map_to_char_jukebox(void) {
     uint8_t edge = ~buttons_get_raw_state();       // Is a button HELD
     // uint8_t edge = buttons_get_just_pressed();   // Was a button CLICKED
 
@@ -108,13 +108,13 @@ char buttons_map_to_char_jukebox() {
  * Returns: 'U'(Up), 'D'(Down), 'L'(-5), 'R'(+5), 'E'(Enter/Start)
  */
 char buttons_map_menu_navigation(void) {
-    // uint8_t edge = buttons_get_just_pressed();
-    // if (edge == 0) return 0;
-    if (BTN_U)     return 'U';
-    if (BTN_D)     return 'D';
-    if (BTN_L)     return 'L';
-    if (BTN_R)     return 'R';
-    if (BTN_START) return 'E';
+    uint8_t edge = ~buttons_get_raw_state();       // Is a button HELD
+    if (edge == 0) return 0;
+    if (edge & BTN_U)     return 'u';
+    if (edge & BTN_D)     return 'd';
+    if (edge & BTN_L)     return 'l';
+    if (edge & BTN_R)     return 'r';
+    if (edge & BTN_A)     return 's';
     return 0;
 }
 
@@ -132,34 +132,33 @@ void buttons_sync_state(void) {
 char prev_char;
 absolute_time_t timeout;
     //REPEAT_TIME is in milliseconds (10^-3)
-char get_button_jukebox(){
-    
-    char c;
-    absolute_time_t t = get_absolute_time();
-    // Pair * p = malloc(sizeof(Pair));
-    c = buttons_map_to_char_jukebox();
+char get_button_repeat(char input_char){
 
-    if (prev_char != c){
-        prev_char = c;
+    printf("\ninput char: %c\n", input_char);
+
+    absolute_time_t t = get_absolute_time();
+
+    if (prev_char != input_char){
+        prev_char = input_char;
         timeout = make_timeout_time_ms(TIME_TO_REPEAT);
         printf("insde case 1");
-        return c;
+        return input_char;
     }
     else{
         //if nothing pressed stop
-        if (c == 0) {
+        if (input_char == 0) {
             printf("insde case 2");
             return 0;
         }
         //special keys to not repeat
-        if (c == 'p' || c == 's' || c == 'v' || c == 'e') {
+        if (input_char == 'p' || input_char == 's' || input_char == 'v') {
             printf("insde case 3");
             return 0; 
         }
         if (absolute_time_min(t, timeout) == timeout){
             timeout = make_timeout_time_ms(REPEAT_TIME);
             printf("insde case 4");
-            return c;
+            return input_char;
         }
         else{
             printf("insde case 5");
