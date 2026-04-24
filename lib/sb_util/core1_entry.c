@@ -184,13 +184,13 @@ void core1_entry()
             track_info_t *track;
             track_info_t *selected_track;
             char buf[256]; // buffer for string to write to display
-            char marque_title[19]; // buffer for scrolling title marquee
+            char marquee_title[64]; // buffer for scrolling title marquee
             char md_artist[128]; // artist metadata of currently selected track
             char md_album[128]; // album metadata of currently selected track
-            char marquee_artist[21]; // buffer for scrolling album marquee
-            char marquee_album[21]; // // buffer for scrolling album marquee
+            char marquee_artist[64]; // buffer for scrolling album marquee
+            char marquee_album[64]; // // buffer for scrolling album marquee
             for (int i = 0; i<10; i++){
-                if (start + i >= count){
+                if (start + i >= count) {
                     break;
                 }
                 track = &tracks[start+i];
@@ -198,8 +198,8 @@ void core1_entry()
                 sprintf(buf, "%d", start+i+1); //Index at 1 for users
                 strcat(buf, " ");
                 if (start + i == song_choice){
-                    strncpy(marque_title, track->title + marquee_title_start, marquee_title_start + 18);
-                    strcat(buf, marque_title);
+                    memcpy(marquee_title, track->title + marquee_title_start, marquee_title_start + 18);
+                    strcat(buf, marquee_title);
                     st7789_draw_string(1, 0 + i * font_height, buf, HIGHLIGHT_COLOR_SECONDARY);
                 }
                 else{
@@ -215,11 +215,12 @@ void core1_entry()
                 uint32_t current_time_ms = to_ms_since_boot(get_absolute_time());
 
                 // crude counter to update marquee
+                // Here, we update the window values for all three marquees every 100 milliseconds.
                 if (current_time_ms - last_marquee_update_ms >= 100) {
-                    if (strlen(selected_track->artist) > 20) {
+                    if (strlen(selected_track->artist) > 20) { // check if text is long enough to marquee
                         marquee_artist_start = (marquee_artist_start >= strlen(selected_track->artist)) ? 0 : marquee_artist_start + 1;
                     } else {
-                        marquee_artist_start = 0;
+                        marquee_artist_start = 0; // no marquee effect if text is short
                     }
                     if (strlen(selected_track->album) > 20) {
                         marquee_album_start = (marquee_album_start >= strlen(selected_track->album)) ? 0 : marquee_album_start + 1;
@@ -232,9 +233,37 @@ void core1_entry()
                         marquee_title_start = 0;
                     }
                     last_marquee_update_ms = current_time_ms;
+
+                    // Now that we've updated the marquee windows, splice the strings together for smooth scrolling
+                    int albumLen = strlen(selected_track->album);
+                    int artistLen = strlen(selected_track->artist);
+                    int titleLen = strlen(selected_track->album);
+                    if (albumLen - marquee_album_start >= 20) {
+                        // if there are more characters left than the marquee window, continue as necessary
+                        memcpy(marquee_album, selected_track->album + marquee_album_start, 20);
+                    } else if (albumLen - marquee_album_start > 0) {
+                        // if there are less characters than the window size, splice string into two
+                        // whatever's left, plus some spaces, then the start of the string
+
+                        // Whatever's left at the end of string
+                        memcpy(marquee_album, selected_track->album + marquee_album_start, albumLen - marquee_album_start);
+
+                        // Now, tack on eight spaces
+                        uint8_t numSpaces = 8;
+                        if ((albumLen - marquee_album_start) + numSpaces > 20) {
+                            numSpaces = 20 - (albumLen - marquee_album_start);
+                        }
+                        for (int i=0; i<numSpaces; i++) {
+                            marquee_album[albumLen - marquee_album_start + i] = ' ';
+                        }
+
+                        // Now, tack on however many characters we can from the beginning of string
+                        memcpy(marquee_album + (albumLen - marquee_album_start) + numSpaces, selected_track-> album, 20 - ((albumLen - marquee_album_start) + numSpaces));
+                    }
+                    marquee_album[20] = '\0';
+
                 }
-                strncpy(marquee_artist, selected_track->artist + marquee_artist_start, marquee_artist_start + 20);
-                strncpy(marquee_album, selected_track->album + marquee_album_start, marquee_album_start + 20);
+                memcpy(marquee_artist, selected_track->artist + marquee_artist_start, marquee_artist_start + 20);
                 sprintf(md_artist, "%s", marquee_artist);
                 sprintf(md_album, "%s", marquee_album);
                 st7789_draw_string(1, -2 + 10 * font_height, md_artist, HIGHLIGHT_COLOR_PRIMARY);

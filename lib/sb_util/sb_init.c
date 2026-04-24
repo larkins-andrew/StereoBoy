@@ -232,6 +232,8 @@ void sb_hw_init(vs1053_t *player, st7789_t *display)
     printf("Oscope ADC initialized!\r\n");
     dprint("Oscope ADC initialized!");
 
+    sleep_ms(100); // seems to help flaky display issues
+
     sb_display_init(display);
     printf("test point 1");
 

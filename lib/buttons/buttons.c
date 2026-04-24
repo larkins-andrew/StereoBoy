@@ -56,7 +56,6 @@ uint8_t buttons_get_raw_state(void) {
     return current_button_states;
 }
 
-
 uint8_t buttons_get_just_pressed(void) {
     // Snapshot volatile state
     uint8_t current = current_button_states;
@@ -109,13 +108,13 @@ char buttons_map_to_char_jukebox(int currentEq) {
  * Returns: 'U'(Up), 'D'(Down), 'L'(-5), 'R'(+5), 'E'(Enter/Start)
  */
 char buttons_map_menu_navigation(void) {
-    uint8_t edge = buttons_get_just_pressed();
-    if (edge == 0) return 0;
-    if (edge & BTN_U)     return 'U';
-    if (edge & BTN_D)     return 'D';
-    if (edge & BTN_L)     return 'L';
-    if (edge & BTN_R)     return 'R';
-    if (edge & BTN_START) return 'E';
+    // uint8_t edge = buttons_get_just_pressed();
+    // if (edge == 0) return 0;
+    if (BTN_U)     return 'U';
+    if (BTN_D)     return 'D';
+    if (BTN_L)     return 'L';
+    if (BTN_R)     return 'R';
+    if (BTN_START) return 'E';
     return 0;
 }
 
