@@ -226,11 +226,13 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
             case 'u':
             case 'U':
                 pca9685_increase_brightness();
+                st7789_increase_brightness();
                 printf("\r\n Brightness up!\r\n");
                 break;
             case 'd':
             case 'D':
                 pca9685_decrease_brightness();
+                st7789_decrease_brightness();
                 printf("\r\n Brightness down!\r\n");
                 break;
             case 'l':

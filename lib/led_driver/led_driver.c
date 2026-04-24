@@ -195,9 +195,9 @@ void pca9685_set_brightness(int new_brightness){
 }
 
 void pca9685_increase_brightness(){
-    brightness = brightness * 2 > MAX_BRIGHTNESS ? brightness : brightness * 2;
+    brightness = brightness * 2 > MAX_BRIGHTNESS ? MAX_BRIGHTNESS : brightness * 2;
 }
 
 void pca9685_decrease_brightness(){
-    brightness = brightness / 2 <= 1 ? brightness : brightness / 2;
+    brightness = brightness / 2 <= 1 ? 1 : brightness / 2;
 }

@@ -202,6 +202,32 @@ void lcd_draw_char(uint16_t x, uint16_t y, char c, uint16_t color)
 }
 
 
+int display_brightness = 32768;
+
+void st7789_set_brightness(uint16_t brightness) {
+    
+    gpio_set_function(BACKLIGHT_PIN, GPIO_FUNC_PWM);
+    uint slice_num = pwm_gpio_to_slice_num(BACKLIGHT_PIN);
+
+    // Set the duty cycle
+    pwm_set_chan_level(slice_num, pwm_gpio_to_channel(BACKLIGHT_PIN), brightness);
+
+    // Start the PWM timer
+    pwm_set_enabled(slice_num, true);
+}
+
+void st7789_decrease_brightness(){
+    display_brightness = display_brightness / 2 <= 256 ? 256 : display_brightness / 2;
+    st7789_set_brightness(display_brightness);
+}
+
+void st7789_increase_brightness(){
+    display_brightness = display_brightness * 2 >= MAX_BRIGHTNESS ? MAX_BRIGHTNESS : display_brightness * 2;
+    st7789_set_brightness(display_brightness);
+}
+
+
+
 
 uint16_t play_icon[400] = {
     0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
@@ -296,3 +322,4 @@ uint16_t rew_icon[400] = {
     0,0,0,0,0,0,0,0,0,0xFFFF,0,0,0,0,0,0,0,0,0xFFFF,0,
     0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 };
+
