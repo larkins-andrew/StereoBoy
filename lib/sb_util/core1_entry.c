@@ -188,6 +188,20 @@ void core1_entry()
             char md_album[128]; // album metadata of currently selected track
             char marquee_artist[32]; // buffer for scrolling album marquee
             char marquee_album[32]; // // buffer for scrolling album marquee
+            uint16_t marquee_delay = 1000;
+
+            static uint32_t marquee_delay_start_ms = 0;
+            static int last_song_choice = -1;
+
+            if (song_choice != last_song_choice) {
+                marquee_title_start = 0;
+                marquee_artist_start = 0;
+                marquee_album_start = 0;
+
+                marquee_delay_start_ms = to_ms_since_boot(get_absolute_time());
+
+                last_song_choice = song_choice;
+            }
 
             /* ##### MARQUEE BLOCK - WRITTEN BY ERIC ##### */
 
@@ -199,37 +213,40 @@ void core1_entry()
             // crude counter to update marquee
             // Here, we update the window values for all three marquees every 100 milliseconds.
             if (current_time_ms - last_marquee_update_ms >= 100) {
-                if (strlen(selected_track->artist) > 20) {
-                    // only apply marquee effect if album name is greater than window
-                    marquee_artist_start++; // increment marquee pointer
-                    if (marquee_artist_start > strlen(selected_track->artist) + 8) {  // set limit to virtual length of 28 (window size + number of spaces)
-                        marquee_artist_start = 0; // reset only when marquee pointer goes over virtual length
+                if (current_time_ms - marquee_delay_start_ms < marquee_delay) {
+                    last_marquee_update_ms = current_time_ms;
+                } else { if (strlen(selected_track->artist) > 20) {
+                        // only apply marquee effect if album name is greater than window
+                        marquee_artist_start++; // increment marquee pointer
+                        if (marquee_artist_start > strlen(selected_track->artist) + 8) {  // set limit to virtual length of 28 (window size + number of spaces)
+                            marquee_artist_start = 0; // reset only when marquee pointer goes over virtual length
+                        }
+                    } else {
+                        marquee_artist_start = 0;
                     }
-                } else {
-                    marquee_artist_start = 0;
-                }
 
-                if (strlen(selected_track->album) > 20) {
-                    // only apply marquee effect if album name is greater than window
-                    marquee_album_start++; // increment marquee pointer
-                    if (marquee_album_start > strlen(selected_track->album) + 8) {  // set limit to virtual length of 28 (window size + number of spaces)
-                        marquee_album_start = 0; // reset only when marquee pointer goes over virtual length
+                    if (strlen(selected_track->album) > 20) {
+                        // only apply marquee effect if album name is greater than window
+                        marquee_album_start++; // increment marquee pointer
+                        if (marquee_album_start > strlen(selected_track->album) + 8) {  // set limit to virtual length of 28 (window size + number of spaces)
+                            marquee_album_start = 0; // reset only when marquee pointer goes over virtual length
+                        }
+                    } else {
+                        marquee_album_start = 0;
                     }
-                } else {
-                    marquee_album_start = 0;
-                }
 
-                if (strlen(selected_track->title) > 20) {
-                    // only apply marquee effect if album name is greater than window
-                    marquee_title_start++; // increment marquee pointer
-                    if (marquee_title_start > strlen(selected_track->title) + 6) {  // set limit to virtual length of 28 (window size + number of spaces)
-                        marquee_title_start = 0; // reset only when marquee pointer goes over virtual length
+                    if (strlen(selected_track->title) > 20) {
+                        // only apply marquee effect if album name is greater than window
+                        marquee_title_start++; // increment marquee pointer
+                        if (marquee_title_start > strlen(selected_track->title) + 6) {  // set limit to virtual length of 28 (window size + number of spaces)
+                            marquee_title_start = 0; // reset only when marquee pointer goes over virtual length
+                        }
+                    } else {
+                        marquee_title_start = 0;
                     }
-                } else {
-                    marquee_title_start = 0;
-                }
 
-                last_marquee_update_ms = current_time_ms;
+                    last_marquee_update_ms = current_time_ms;
+                }
             }
 
      
