@@ -10,6 +10,10 @@ char text_buff_temp[120];
 struct Node *head = NULL;
 int visualizer = 5;
 
+uint8_t marquee_title_start = 0;
+uint8_t marquee_artist_start = 0;
+uint8_t marquee_album_start = 0;
+
 void set_visualizer(int num)
 {
     visualizer = num;
@@ -186,20 +190,44 @@ void core1_entry()
                 }
                 track = &tracks[start+i];
                 char buf[256];
+                char marquee[19]; // for scrolling title marquee
                 sprintf(buf, "%d", start+i+1); //Index at 1 for users
                 strcat(buf, " ");
-                strcat(buf, track->title);
                 if (start + i == song_choice){
+                    strncpy(marquee, track->title + marquee_title_start, marquee_title_start + 16);
+                    strcat(buf, marquee);
                     st7789_draw_string(1, 0 + i * font_height, buf, HIGHLIGHT_COLOR_SECONDARY);
                 }
                 else{
+                    strcat(buf, track->title);
                     st7789_draw_string(1, 0 + i * font_height, buf, WHITE);
                 }
             }
+
+            // // 'static' ensures this variable survives between function calls
+            // static uint32_t last_marquee_update_ms = 0;
+            // // Get the current time since the chip started
+            // uint32_t current_time_ms = to_ms_since_boot(get_absolute_time());
+
+            // // crude counter to update marquee
+            // if (current_time_ms - last_marquee_update_ms >= 150) {
+            //     if (strlen(selected_track->artist) > 21) {
+            //         marquee_artist_start = (marquee_artist_start > strlen(selected_track->artist)) ? 0 : marquee_artist_start + 1;
+            //     }
+            //     if (strlen(selected_track->album) > 21) {
+            //         marquee_album_start = (marquee_album_start > strlen(selected_track->artist)) ? 0 : marquee_album_start + 1;
+            //     }
+            //     last_marquee_update_ms = current_time_ms;
+            // }
+
             char md_artist[128];
             char md_album[128];
-            sprintf(md_artist, "%s", selected_track->artist);
-            sprintf(md_album, "%s", selected_track->album);
+            char marquee_artist[21];
+            char marquee_album[21];
+            strncpy(marquee_artist, selected_track->artist + marquee_artist_start, marquee_artist_start + 21);
+            strncpy(marquee_album, selected_track->album + marquee_album_start, marquee_album_start + 21);
+            sprintf(md_artist, "%s", marquee_artist);
+            sprintf(md_album, "%s", marquee_album);
             st7789_draw_string(1, -2 + 10 * font_height, md_artist, HIGHLIGHT_COLOR_PRIMARY);
             st7789_draw_string(1, -2 + 11 * font_height, md_album, HIGHLIGHT_COLOR_PRIMARY);
 

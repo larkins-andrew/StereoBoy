@@ -171,19 +171,18 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
                 return exitType;
             case 'o':
             case 'O':
-                if (progress > 0.1){
+                uint8_t seconds_into_song = (f_tell(&fil) - track->audio_start) / (track->bitrate * 125);
+                if (seconds_into_song >= 5){
                     pos = 0;
                     f_lseek(&fil, pos);
-                    progress = 0;
                     break;
-                }
-                else{
-                exitType = 2;
-                vs1053_set_play_speed(player, 0); // hard pause
-                printf("\r\n Going to next song....\r\n");
-                f_close(&fil);
-                vs1053_stop(player);
-                return exitType;
+                } else {
+                    exitType = 2;
+                    vs1053_set_play_speed(player, 0); // hard pause
+                    printf("\r\n Going to next song....\r\n");
+                    f_close(&fil);
+                    vs1053_stop(player);
+                    return exitType;
                 }
             // not new below
             case 'p':

@@ -23,7 +23,7 @@
 #define MAGENTA 0xF81F
 
 #define HIGHLIGHT_COLOR_PRIMARY 0x049F
-#define HIGHLIGHT_COLOR_SECONDARY 0x9cd3
+#define HIGHLIGHT_COLOR_SECONDARY 0x7bcf
 
 
 // void st7789_init(const st7789_t* config, uint16_t width, uint16_t height);
