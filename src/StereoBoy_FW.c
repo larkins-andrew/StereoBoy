@@ -100,7 +100,6 @@ int main()
             selected = false; 
             set_visualizer(6);
             bool confirmed = 0;
-
             clear_framebuffer();
             printf("\r\nSong %d/%d: ", song_choice+1, count);
             prev_choice = song_choice;

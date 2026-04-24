@@ -183,62 +183,63 @@ void core1_entry()
             start =  (song_choice < 6) ? 0 : song_choice - 5;
             track_info_t *track;
             track_info_t *selected_track;
-            selected_track = &tracks[song_choice];
+            char buf[256]; // buffer for string to write to display
+            char marque_title[19]; // buffer for scrolling title marquee
+            char md_artist[128]; // artist metadata of currently selected track
+            char md_album[128]; // album metadata of currently selected track
+            char marquee_artist[21]; // buffer for scrolling album marquee
+            char marquee_album[21]; // // buffer for scrolling album marquee
             for (int i = 0; i<10; i++){
                 if (start + i >= count){
                     break;
                 }
                 track = &tracks[start+i];
-                char buf[256];
-                char marquee[19]; // for scrolling title marquee
+                selected_track = &tracks[song_choice];
                 sprintf(buf, "%d", start+i+1); //Index at 1 for users
                 strcat(buf, " ");
                 if (start + i == song_choice){
-                    strncpy(marquee, track->title + marquee_title_start, marquee_title_start + 18);
-                    strcat(buf, marquee);
+                    strncpy(marque_title, track->title + marquee_title_start, marquee_title_start + 18);
+                    strcat(buf, marque_title);
                     st7789_draw_string(1, 0 + i * font_height, buf, HIGHLIGHT_COLOR_SECONDARY);
                 }
                 else{
                     strcat(buf, track->title);
                     st7789_draw_string(1, 0 + i * font_height, buf, WHITE);
                 }
+
+                /* ##### MARQUEE BLOCK - WRITTEN BY ERIC ##### */
+
+                // 'static' ensures this variable survives between function calls
+                static uint32_t last_marquee_update_ms = 0;
+                // Get the current time since the chip started
+                uint32_t current_time_ms = to_ms_since_boot(get_absolute_time());
+
+                // crude counter to update marquee
+                if (current_time_ms - last_marquee_update_ms >= 100) {
+                    if (strlen(selected_track->artist) > 20) {
+                        marquee_artist_start = (marquee_artist_start >= strlen(selected_track->artist)) ? 0 : marquee_artist_start + 1;
+                    } else {
+                        marquee_artist_start = 0;
+                    }
+                    if (strlen(selected_track->album) > 20) {
+                        marquee_album_start = (marquee_album_start >= strlen(selected_track->album)) ? 0 : marquee_album_start + 1;
+                    } else {
+                        marquee_album_start = 0;
+                    }
+                    if (strlen(selected_track->title) > 18) {
+                        marquee_title_start = (marquee_title_start >= strlen(selected_track->title)) ? 0 : marquee_title_start + 1;
+                    } else {
+                        marquee_title_start = 0;
+                    }
+                    last_marquee_update_ms = current_time_ms;
+                }
+                strncpy(marquee_artist, selected_track->artist + marquee_artist_start, marquee_artist_start + 20);
+                strncpy(marquee_album, selected_track->album + marquee_album_start, marquee_album_start + 20);
+                sprintf(md_artist, "%s", marquee_artist);
+                sprintf(md_album, "%s", marquee_album);
+                st7789_draw_string(1, -2 + 10 * font_height, md_artist, HIGHLIGHT_COLOR_PRIMARY);
+                st7789_draw_string(1, -2 + 11 * font_height, md_album, HIGHLIGHT_COLOR_PRIMARY);
             }
-
-            // 'static' ensures this variable survives between function calls
-            static uint32_t last_marquee_update_ms = 0;
-            // Get the current time since the chip started
-            uint32_t current_time_ms = to_ms_since_boot(get_absolute_time());
-
-            // crude counter to update marquee
-            if (current_time_ms - last_marquee_update_ms >= 100) {
-                if (strlen(selected_track->artist) > 20) {
-                    marquee_artist_start = (marquee_artist_start >= strlen(selected_track->artist)) ? 0 : marquee_artist_start + 1;
-                } else {
-                    marquee_artist_start = 0;
-                }
-                if (strlen(selected_track->album) > 20) {
-                    marquee_album_start = (marquee_album_start >= strlen(selected_track->album)) ? 0 : marquee_album_start + 1;
-                } else {
-                    marquee_album_start = 0;
-                }
-                if (strlen(selected_track->title) > 18) {
-                    marquee_title_start = (marquee_title_start >= strlen(selected_track->title)) ? 0 : marquee_title_start + 1;
-                } else {
-                    marquee_title_start = 0;
-                }
-                last_marquee_update_ms = current_time_ms;
-            }
-
-            char md_artist[128];
-            char md_album[128];
-            char marquee_artist[21];
-            char marquee_album[21];
-            strncpy(marquee_artist, selected_track->artist + marquee_artist_start, marquee_artist_start + 20);
-            strncpy(marquee_album, selected_track->album + marquee_album_start, marquee_album_start + 20);
-            sprintf(md_artist, "%s", marquee_artist);
-            sprintf(md_album, "%s", marquee_album);
-            st7789_draw_string(1, -2 + 10 * font_height, md_artist, HIGHLIGHT_COLOR_PRIMARY);
-            st7789_draw_string(1, -2 + 11 * font_height, md_album, HIGHLIGHT_COLOR_PRIMARY);
 
             st7789_set_cursor(0, 0);
             st7789_ramwr();
