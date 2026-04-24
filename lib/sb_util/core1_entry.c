@@ -210,7 +210,7 @@ void core1_entry()
             uint32_t current_time_ms = to_ms_since_boot(get_absolute_time());
 
             // crude counter to update marquee
-            if (current_time_ms - last_marquee_update_ms >= 150) {
+            if (current_time_ms - last_marquee_update_ms >= 100) {
                 if (strlen(selected_track->artist) > 20) {
                     marquee_artist_start = (marquee_artist_start >= strlen(selected_track->artist)) ? 0 : marquee_artist_start + 1;
                 } else {
@@ -233,8 +233,8 @@ void core1_entry()
             char md_album[128];
             char marquee_artist[21];
             char marquee_album[21];
-            strncpy(marquee_artist, selected_track->artist + marquee_artist_start, marquee_artist_start + 21);
-            strncpy(marquee_album, selected_track->album + marquee_album_start, marquee_album_start + 21);
+            strncpy(marquee_artist, selected_track->artist + marquee_artist_start, marquee_artist_start + 20);
+            strncpy(marquee_album, selected_track->album + marquee_album_start, marquee_album_start + 20);
             sprintf(md_artist, "%s", marquee_artist);
             sprintf(md_album, "%s", marquee_album);
             st7789_draw_string(1, -2 + 10 * font_height, md_artist, HIGHLIGHT_COLOR_PRIMARY);

@@ -91,6 +91,7 @@ int main()
     dprint("Debug print test %d", 1); //Trigger Core 2 Print
     printf("Debug print test %s\r\n", "2");
     
+    song_choice = 0;
     
     while(1) {
         read_lwbt();
@@ -98,7 +99,6 @@ int main()
         if (exitCode == 0) {
             selected = false; 
             set_visualizer(6);
-            song_choice = 0;
             bool confirmed = 0;
 
             clear_framebuffer();
