@@ -144,16 +144,14 @@ void core1_entry()
             break;
 
         case 5:
-            if (sem_acquire_timeout_ms(&text_sem, 10))
-            {
+            if (sem_acquire_timeout_ms(&text_sem, 10)) {
                 printf(" core1: aquired lock\r\n");
 
                 memmove(&frame_buffer, &frame_buffer[SCREEN_WIDTH * (font_height)], sizeof(uint16_t) * (SCREEN_WIDTH) * (SCREEN_HEIGHT - font_height));
                 memset(&frame_buffer[SCREEN_WIDTH * (SCREEN_HEIGHT - font_height)], 0, sizeof(uint16_t) * (SCREEN_WIDTH) * (font_height));
                 mutex_enter_blocking(&text_buff_mtx);
 
-                if (head == NULL)
-                {
+                if (head == NULL) {
                     printf("Err! Core 1 head is NULL");
                     mutex_exit(&text_buff_mtx);
                     continue;
@@ -179,17 +177,52 @@ void core1_entry()
         case 6:
             clear_framebuffer();
             start = song_choice - (song_choice % 10);
+            track_info_t *track;
+            track_info_t *selected_track;
+            selected_track = &tracks[song_choice];
+            for (int i = 0; i<10; i++){
+                if (start + i >= count){
+                    break;
+                }
+                track = &tracks[start+i];
+                char buf[256];
+                sprintf(buf, "%d", start+i+1); //Index at 1 for users
+                strcat(buf, " ");
+                strcat(buf, track->title);
+                if (start + i == song_choice){
+                    st7789_draw_string(1, 0 + i * font_height, buf, HIGHLIGHT_COLOR);
+                }
+                else{
+                    st7789_draw_string(1, 0 + i * font_height, buf, WHITE);
+                }
+            }
+            char md_artist[128];
+            char md_album[128];
+            sprintf(md_artist, "%s", selected_track->artist);
+            sprintf(md_album, "%s", selected_track->album);
+            st7789_draw_string(1, -2 + 10 * font_height, md_artist, HIGHLIGHT_COLOR);
+            st7789_draw_string(1, -2 + 11 * font_height, md_album, HIGHLIGHT_COLOR);
+
+            st7789_set_cursor(0, 0);
+            st7789_ramwr();
+            spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
+            spi_write16_blocking(spi0, frame_buffer, 240 * 240);
+            break;
+
+        case 7:
+            clear_framebuffer();
+            start = count-10>0 ? count-10 : 0;
             for (int i = 0; i<10; i++){
                 if (start + i >= count){
                     break;
                 }
                 track_info_t *track = &tracks[start+i];
-                char buf[300];
+                char buf[256];
                 sprintf(buf, "%d", start+i+1); //Index at 1 for users
                 strcat(buf, " ");
                 strcat(buf, track->title);
                 if (start + i == song_choice){
-                    st7789_draw_string(1, 5 + i * font_height, buf, GREEN);
+                    st7789_draw_string(1, 5 + i * font_height, buf, HIGHLIGHT_COLOR);
                 }
                 else{
                     st7789_draw_string(1, 5 + i * font_height, buf, WHITE);
@@ -200,31 +233,6 @@ void core1_entry()
             spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
             spi_write16_blocking(spi0, frame_buffer, 240 * 240);
             break;
-
-            case 7:
-                clear_framebuffer();
-                start = count-10>0 ? count-10 : 0;
-                for (int i = 0; i<10; i++){
-                    if (start + i >= count){
-                        break;
-                    }
-                    track_info_t *track = &tracks[start+i];
-                    char buf[300];
-                    sprintf(buf, "%d", start+i+1); //Index at 1 for users
-                    strcat(buf, " ");
-                    strcat(buf, track->title);
-                    if (start + i == song_choice){
-                        st7789_draw_string(1, 5 + i * font_height, buf, GREEN);
-                    }
-                    else{
-                        st7789_draw_string(1, 5 + i * font_height, buf, WHITE);
-                    }
-                }
-                st7789_set_cursor(0, 0);
-                st7789_ramwr();
-                spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
-                spi_write16_blocking(spi0, frame_buffer, 240 * 240);
-                break;
 
         default:
             visualizer = 0;

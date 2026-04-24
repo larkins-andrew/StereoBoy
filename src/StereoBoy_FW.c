@@ -107,13 +107,13 @@ int main()
             while (selected == false) {
                 uint8_t pressed = buttons_get_just_pressed();
                 if (pressed > 0){
-                    if (pressed & BTN_R)      song_choice = (song_choice + 1) % count;
-                    if (pressed & BTN_L)      song_choice = (song_choice - 1 + count) % count; //added roll-over
-                    if (pressed & BTN_U)      song_choice = (song_choice + 10) % count;
-                    if (pressed & BTN_D)      song_choice = (song_choice - 10 + count) % count;
+                    if (pressed & BTN_D)      song_choice = (song_choice + 1) % count;
+                    if (pressed & BTN_U)      song_choice = (song_choice - 1 + count) % count; //added roll-over
+                    if (pressed & BTN_R)      song_choice = (song_choice + 10) % count;
+                    if (pressed & BTN_L)      song_choice = (song_choice - 10 + count) % count;
                     if (pressed & BTN_A){
                         selected = true;   
-                        printf("pressed A");
+                        printf("Poo cum fart shit pee");
                     }       
                 }
                 if (prev_choice != song_choice){
