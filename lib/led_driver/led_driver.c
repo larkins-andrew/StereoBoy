@@ -22,7 +22,9 @@
 #define MODE2_INVRT   0x10  // Invert logic: 1 = High duty cycle is Sink (GND)
 #define MODE2_OUTDRV  0x04  // 0 = Open-Drain, 1 = Totem-Pole
 
-#define MAX_BRIGHTNESS 32 // Standardize on full 12-bit range
+#define MAX_BRIGHTNESS 4095 // Standardize on full 12-bit range
+
+int brightness = 32;
 
 static void write8(pca9685_t *dev, uint8_t reg, uint8_t val) {
     uint8_t buf[2] = {reg, val};
@@ -49,7 +51,7 @@ bool pca9685_init(pca9685_t *dev, i2c_inst_t *i2c, uint8_t addr) {
     write8(dev, MODE2, MODE2_INVRT);
 
     // 3. Set PWM frequency
-    pca9685_set_pwm_freq(dev, 1000);
+    pca9685_set_pwm_freq(dev, brightness);
 
     // 4. Wake up and enable Auto-Increment
     write8(dev, MODE1, MODE1_AI);
@@ -164,22 +166,38 @@ void pca9685_update_vu(pca9685_t *dev, uint16_t adc_left, uint16_t adc_right) {
 
         // Left Bank Logic
         if (peak_l >= threshold) {
-            pca9685_set_pin(dev, pin_l, MAX_BRIGHTNESS);
+            pca9685_set_pin(dev, pin_l, brightness);
         } else if (peak_l > prev_threshold) {
             float fraction = (peak_l - prev_threshold) * 8.0f;
-            pca9685_set_pin(dev, pin_l, (uint16_t)(fraction * MAX_BRIGHTNESS));
+            pca9685_set_pin(dev, pin_l, (uint16_t)(fraction * brightness));
         } else {
             pca9685_set_pin(dev, pin_l, 0);
         }
 
         // Right Bank Logic
         if (peak_r >= threshold) {
-            pca9685_set_pin(dev, pin_r, MAX_BRIGHTNESS);
+            pca9685_set_pin(dev, pin_r, brightness);
         } else if (peak_r > prev_threshold) {
             float fraction = (peak_r - prev_threshold) * 8.0f;
-            pca9685_set_pin(dev, pin_r, (uint16_t)(fraction * MAX_BRIGHTNESS));
+            pca9685_set_pin(dev, pin_r, (uint16_t)(fraction * brightness));
         } else {
             pca9685_set_pin(dev, pin_r, 0);
         }
     }
+}
+
+int pca9685_get_brightness(){
+    return brightness;
+}
+
+void pca9685_set_brightness(int new_brightness){
+    brightness = new_brightness;
+}
+
+void pca9685_increase_brightness(){
+    brightness = brightness * 2 > MAX_BRIGHTNESS ? brightness : brightness * 2;
+}
+
+void pca9685_decrease_brightness(){
+    brightness = brightness / 2 <= 1 ? brightness : brightness / 2;
 }

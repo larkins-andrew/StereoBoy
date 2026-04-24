@@ -115,6 +115,7 @@ char buttons_map_menu_navigation(void) {
     if (edge & BTN_L)     return 'l';
     if (edge & BTN_R)     return 'r';
     if (edge & BTN_A)     return 's';
+    if (edge & BTN_B)     return 'm';
     return 0;
 }
 

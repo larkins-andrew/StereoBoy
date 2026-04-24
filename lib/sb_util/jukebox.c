@@ -139,29 +139,25 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
             absolute_time_t now = get_absolute_time();
 
             // EQ START
-            //  Select the band (keys 0-5)
-            if (c == 'e')
-            {
-                selected_band = (selected_band + 1) % 6;
-                printf("\nSelected Band: %d Hz\n", dac_eq_get_freq(selected_band));
-            }
-
-            // Adjust the band (+ or -)
-            if (c == '+' || c == '=')
-            {
-                dac_eq_adjust(selected_band, 0.5f, sampleSpeed); // Boost
-                printf("Band %d Gain: %.1f dB\n", selected_band, dac_eq_get_gain(selected_band));
-            }
-            if (c == '-')
-            {
-                dac_eq_adjust(selected_band, -0.5f, sampleSpeed); // Cut
-                printf("Band %d Gain: %.1f dB\n", selected_band, dac_eq_get_gain(selected_band));
-            }
-            // EQ END
+            
 
             switch (c)
             {
-            // new **
+            //  Select the band (keys 0-5)
+            case 'e':
+                selected_band = (selected_band + 1) % 6;
+                printf("\nSelected Band: %d Hz\n", dac_eq_get_freq(selected_band));
+                break;
+            // Adjust the band (+ or -)
+            case '+':
+                dac_eq_adjust(selected_band, 0.5f, sampleSpeed); // Boost
+                printf("Band %d Gain: %.1f dB\n", selected_band, dac_eq_get_gain(selected_band));
+                break;
+
+            case '-':
+                dac_eq_adjust(selected_band, -0.5f, sampleSpeed); // Cut
+                printf("Band %d Gain: %.1f dB\n", selected_band, dac_eq_get_gain(selected_band));
+                break;
             case 'n':
             case 'N':
                 exitType = 1;
@@ -185,7 +181,6 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
                     vs1053_stop(player);
                     return exitType;
                 }
-            // not new below
             case 'p':
             case 'P':
                 paused = !paused;                      // set paused flag
@@ -230,13 +225,13 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
                 break;
             case 'u':
             case 'U':
-                dac_increase_volume(3);
-                printf("\r\nVolume up!\r\n");
+                pca9685_increase_brightness();
+                printf("\r\n Brightness up!\r\n");
                 break;
             case 'd':
             case 'D':
-                dac_decrease_volume(3);
-                printf("\r\nVolume down!\r\n");
+                pca9685_decrease_brightness();
+                printf("\r\n Brightness down!\r\n");
                 break;
             case 'l':
             case 'L':
