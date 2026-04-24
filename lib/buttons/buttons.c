@@ -72,7 +72,7 @@ uint8_t buttons_get_just_pressed(void) {
 
 //CHAT MADE THESE FUNCTIONS BELOW!!!
 //maps buttons to characters for use in jukebox, allows for multibutton presses
-char buttons_map_to_char_jukebox(int currentEq) {
+char buttons_map_to_char_jukebox() {
     uint8_t edge = ~buttons_get_raw_state();       // Is a button HELD
     // uint8_t edge = buttons_get_just_pressed();   // Was a button CLICKED
 
@@ -96,7 +96,7 @@ char buttons_map_to_char_jukebox(int currentEq) {
         if (edge & BTN_L) return 'r'; // Select + Left = Rewind
         if (edge & BTN_U) return '+';
         if (edge & BTN_D) return '-';
-        if (edge & BTN_A) return (char) (((currentEq + 1) % 6) + '0'); //need to check this
+        if (edge & BTN_A) return 'e'; 
         if (edge & BTN_START) return 'm';
         if (edge & BTN_B) return 'l'; // turn off VU meter
     }
@@ -132,32 +132,39 @@ void buttons_sync_state(void) {
 char prev_char;
 absolute_time_t timeout;
     //REPEAT_TIME is in milliseconds (10^-3)
-char get_button_jukebox(int currentEq){
+char get_button_jukebox(){
     
     char c;
-    absolute_time_t t;
+    absolute_time_t t = get_absolute_time();
     // Pair * p = malloc(sizeof(Pair));
+    c = buttons_map_to_char_jukebox();
 
-    c = buttons_map_to_char_jukebox(currentEq);
     if (prev_char != c){
         prev_char = c;
         timeout = make_timeout_time_ms(TIME_TO_REPEAT);
+        printf("insde case 1");
         return c;
     }
     else{
         //if nothing pressed stop
         if (c == 0) {
+            printf("insde case 2");
             return 0;
         }
         //special keys to not repeat
-        if ((c >= '0' && c <= '5') || c == 'p' || c == 's' || c == 'v') {
+        if (c == 'p' || c == 's' || c == 'v' || c == 'e') {
+            printf("insde case 3");
             return 0; 
         }
         if (absolute_time_min(t, timeout) == timeout){
             timeout = make_timeout_time_ms(REPEAT_TIME);
+            printf("insde case 4");
             return c;
         }
         else{
+            printf("insde case 5");
+            printf("absolute t: %d \n", t);
+            printf("timeout: %d \n", timeout);
             return 0;
         }
     }

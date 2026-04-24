@@ -114,7 +114,7 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
         // get value from buttons
         if (c == PICO_ERROR_TIMEOUT)
         {
-            char btn_char = get_button_jukebox(selected_band);
+            char btn_char = get_button_jukebox();
             if (btn_char != 0)
                 c = (int)btn_char; // Inject the button character into the logic
         }
@@ -139,9 +139,9 @@ int jukebox(vs1053_t *player, track_info_t *track, st7789_t *display)
 
             // EQ START
             //  Select the band (keys 0-5)
-            if (c >= '0' && c <= '5')
+            if (c == 'e')
             {
-                selected_band = c - '0';
+                selected_band = (selected_band + 1) % 6;
                 printf("\nSelected Band: %d Hz\n", dac_eq_get_freq(selected_band));
             }
 
