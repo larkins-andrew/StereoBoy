@@ -9,8 +9,8 @@ https://stmn.itch.io/font2bitmap
 
 font_file = 'a_cpmono.png'
 
-# characters = ' !"#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~'
-characters = 'A'
+characters = ' !"#$%&\'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~'
+# characters = 'A'
 characters = [c for c in characters]
 
 chars_per_row = 19
