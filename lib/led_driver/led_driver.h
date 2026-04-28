@@ -33,8 +33,8 @@ void pca9685_update_vu(pca9685_t *dev, uint16_t adc_left, uint16_t adc_right);
 
 int pca9685_get_brightness();
 void pca9685_set_brightness(int new_brightness);
-void pca9685_increase_brightness();
-void pca9685_decrease_brightness();
-
+void pca9685_increase_brightness(float x);
+void pca9685_decrease_brightness(float x);
+void pca9685_update_brightness(float x);
 
 #endif

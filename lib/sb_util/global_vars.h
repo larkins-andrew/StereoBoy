@@ -55,6 +55,7 @@ extern struct st7789_t st7789_cfg;
 extern uint16_t st7789_width;
 extern uint16_t st7789_height;
 extern bool st7789_data_mode;
+extern float x_brightness;
 
 typedef struct st7789_t {
     spi_inst_t* spi;

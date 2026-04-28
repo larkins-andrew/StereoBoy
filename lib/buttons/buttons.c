@@ -135,36 +135,27 @@ absolute_time_t timeout;
     //REPEAT_TIME is in milliseconds (10^-3)
 char get_button_repeat(char input_char){
 
-    printf("\ninput char: %c\n", input_char);
-
     absolute_time_t t = get_absolute_time();
 
     if (prev_char != input_char){
         prev_char = input_char;
         timeout = make_timeout_time_ms(TIME_TO_REPEAT);
-        printf("insde case 1");
         return input_char;
     }
     else{
         //if nothing pressed stop
         if (input_char == 0) {
-            printf("insde case 2");
             return 0;
         }
         //special keys to not repeat
         if (input_char == 'p' || input_char == 's' || input_char == 'v') {
-            printf("insde case 3");
             return 0; 
         }
         if (absolute_time_min(t, timeout) == timeout){
             timeout = make_timeout_time_ms(REPEAT_TIME);
-            printf("insde case 4");
             return input_char;
         }
         else{
-            printf("insde case 5");
-            printf("absolute t: %d \n", t);
-            printf("timeout: %d \n", timeout);
             return 0;
         }
     }

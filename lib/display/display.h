@@ -47,7 +47,9 @@ void st7789_raset(uint16_t ys, uint16_t ye);
 
 void st7789_cmd(uint8_t cmd, const uint8_t* data, size_t len);
 void st7789_set_brightness(uint16_t brightness);
-void st7789_decrease_brightness();
-void st7789_increase_brightness();
+void st7789_decrease_brightness(float x);
+void st7789_increase_brightness(float x);
+void st7789_update_brightness(float x);
+
 
 #endif

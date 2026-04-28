@@ -216,15 +216,25 @@ void st7789_set_brightness(uint16_t brightness) {
     pwm_set_enabled(slice_num, true);
 }
 
-void st7789_decrease_brightness(){
-    display_brightness = display_brightness / 2 <= 256 ? 256 : display_brightness / 2;
+void st7789_update_brightness(float x){
+    if (x == 0) display_brightness = 0;
+    else if (display_brightness > MAX_BRIGHTNESS) display_brightness = MAX_BRIGHTNESS;
+    else display_brightness * (x * x);
     st7789_set_brightness(display_brightness);
 }
 
-void st7789_increase_brightness(){
-    display_brightness = display_brightness * 2 >= MAX_BRIGHTNESS ? MAX_BRIGHTNESS : display_brightness * 2;
-    st7789_set_brightness(display_brightness);
-}
+
+// void st7789_decrease_brightness(float x){
+//     if (x == 0) display_brightness = 0;
+//     else display_brightness = display_brightness * (x * x);
+//     st7789_set_brightness(display_brightness);
+// }
+
+// void st7789_increase_brightness(float x){
+//     if (display_brightness * (x * x) >= MAX_BRIGHTNESS) display_brightness = MAX_BRIGHTNESS;
+//     else display_brightness = display_brightness * (x * x);
+//     st7789_set_brightness(display_brightness);
+// }
 
 
 

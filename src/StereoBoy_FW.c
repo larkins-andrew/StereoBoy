@@ -47,6 +47,8 @@ struct st7789_t display = {
 track_info_t tracks[MAX_TRACKS];
 int song_choice = 0;
 int count;
+float x_brightness = 0.5;
+
 int main()
 {
     set_visualizer(7);

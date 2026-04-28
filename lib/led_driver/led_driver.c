@@ -22,9 +22,9 @@
 #define MODE2_INVRT   0x10  // Invert logic: 1 = High duty cycle is Sink (GND)
 #define MODE2_OUTDRV  0x04  // 0 = Open-Drain, 1 = Totem-Pole
 
-#define MAX_BRIGHTNESS 4095 // Standardize on full 12-bit range
+#define MAX_BRIGHTNESS 2048 // Standardize on full 12-bit range
 
-int brightness = 32;
+int brightness = 64;
 
 static void write8(pca9685_t *dev, uint8_t reg, uint8_t val) {
     uint8_t buf[2] = {reg, val};
@@ -194,10 +194,17 @@ void pca9685_set_brightness(int new_brightness){
     brightness = new_brightness;
 }
 
-void pca9685_increase_brightness(){
-    brightness = brightness * 2 > MAX_BRIGHTNESS ? MAX_BRIGHTNESS : brightness * 2;
+void pca9685_decrease_brightness(float x){
+    if (x == 0) brightness = 0;
+    else brightness = brightness * (x * x);
 }
 
-void pca9685_decrease_brightness(){
-    brightness = brightness / 2 <= 1 ? 1 : brightness / 2;
+void pca9685_increase_brightness(float x){
+    if (brightness * (x * x) >= MAX_BRIGHTNESS) brightness = MAX_BRIGHTNESS;
+    else brightness = brightness * (x * x);
+}
+void pca9685_update_brightness(float x){
+    if (x == 0) brightness = 0;
+    else if (brightness > MAX_BRIGHTNESS) brightness = MAX_BRIGHTNESS;
+    else brightness * (x * x);
 }
