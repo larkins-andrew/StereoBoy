@@ -1,5 +1,6 @@
 #include "si4705.h"
 #include "pico/stdlib.h"
+#include "lib/dac/dac.h"
 
 // Wait for the Si4705 to set the Clear-To-Send (CTS) bit (Bit 7)
 static void wait_for_cts(void) {

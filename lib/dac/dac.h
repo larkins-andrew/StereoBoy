@@ -40,6 +40,9 @@
 #define PIN_I2C0_SCL 21
 #define PIN_I2C0_SDA 20
 
+#define DAC_VOL_MIN   0x00
+#define DAC_VOL_MAX   0x60
+
 
 uint8_t dac_read(uint8_t page, uint8_t reg);
 void dac_write(uint8_t page, uint8_t reg, uint8_t val);

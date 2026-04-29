@@ -1,5 +1,6 @@
 #include "radiomag_util.h"
 
+
 // Global state variables for the demo
 uint8_t current_volume = 45;
 uint8_t current_antenna = ANTENNA_FMI; // Start with Headphone Antenna
@@ -126,25 +127,25 @@ int radioLoop(vs1053_t* player) {
 
                 // EQ up
                 case (BTN_R): 
-                    if (is_digital_audio){
-                        dac_eq_adjust(eq_band, 0.5f, SAMPLE_SPEED); // Boost
-                        dprint("Band %d Gain: %.1f dB\n", eq_band, dac_eq_get_gain(eq_band));
-                    }
+                    // if (is_digital_audio){
+                    //     dac_eq_adjust(eq_band, 0.5f, SAMPLE_SPEED); // Boost
+                    //     dprint("Band %d Gain: %.1f dB\n", eq_band, dac_eq_get_gain(eq_band));
+                    // }
                     break;
 
                 //Eq down
                 case (BTN_L):
-                    if (is_digital_audio){
-                        dac_eq_adjust(eq_band, -0.5f, SAMPLE_SPEED); // Boost
-                        dprint("Band %d Gain: %.1f dB\n", eq_band, dac_eq_get_gain(eq_band));
-                    }
+                    // if (is_digital_audio){
+                    //     dac_eq_adjust(eq_band, -0.5f, SAMPLE_SPEED); // Boost
+                    //     dprint("Band %d Gain: %.1f dB\n", eq_band, dac_eq_get_gain(eq_band));
+                    // }
                     break;
 
                 case (BTN_B):
-                    if (is_digital_audio){
-                        eq_band = (eq_band + 1) % 5;
-                        dprint("Selected EQ Band: %d", eq_band);
-                    }
+                    // if (is_digital_audio){
+                    //     eq_band = (eq_band + 1) % 5;
+                    //     dprint("Selected EQ Band: %d", eq_band);
+                    // }
                     break;
 
                 // Change: digital <-> analog
