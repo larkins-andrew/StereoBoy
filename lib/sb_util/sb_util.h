@@ -11,6 +11,8 @@
 #include "lib/buttons/buttons.h"
 #include "lib/pot/pot.h"
 #include "lib/codec/vs1053.h"
+// #include "lib/radiomag/radiomag_util.h"
+// #include "lib/radiomag/si4705.h"
 
 /* ======== Filehelper =======*/
 uint32_t syncsafe_to_uint(const uint8_t *b);
@@ -41,7 +43,7 @@ void dprint(char * str, ...);
 void core1_entry();
 
 void update_scope_core1();
-static void process_audio_batch();
+// static void process_audio_batch();
 void addIcons(uint16_t* frame_buffer, bool enabled);
 
 /* ========= Display ========= */

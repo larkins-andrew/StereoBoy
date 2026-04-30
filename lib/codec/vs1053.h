@@ -27,3 +27,4 @@ void vs1053_set_samplerate(vs1053_t *player, uint16_t samplerate);
 void vs1053_load_patch(vs1053_t *v, const unsigned short* plugin, unsigned short plugin_size);
 void vs1053_tape_stop(vs1053_t *v);
 void adjustRate(vs1053_t *v, long ppm2);
+void vs1053_claim_i2s_bus(vs1053_t *v);

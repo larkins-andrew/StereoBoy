@@ -38,11 +38,27 @@ extern pca9685_t vu_meter;
 extern bool paused;
 extern bool warping;
 
+#define DAC_VOL_MIN   0x00
+#define DAC_VOL_MAX   0x60
+#define DAC_VOL_STEP  3      // 1.5 dB step
+
 //DISPLAY
 #define HISTORY_SIZE 256
 
 #define SCREEN_WIDTH 240
 #define SCREEN_HEIGHT 240
+
+#define ALBUM_ART_VIS 0
+#define OSCOPE_VIS 1
+#define FFT_VIS 2
+#define LISSAJOUS_VIS 3
+#define LISSAJOUS_CONN_VIS 4
+#define TEXT_VIS 5
+#define MAIN_MENU_VIS 6
+#define FM_VIS 7
+
+
+
 
 extern uint16_t play_icon[400];
 extern uint16_t pause_icon[400];
@@ -139,5 +155,11 @@ extern int selected_band;
 extern volatile uint16_t potVal;
 
 
+/*  Radiomag */
+extern uint16_t current_freq;
+extern uint8_t current_antenna;
+extern uint8_t fm_vol;
+#define ANTENNA_FMI 0  // Pin 8 (Headphone Antenna)
+#define ANTENNA_LPI 1  // Pin 11 (PCB Trace Antenna)
 
 #endif

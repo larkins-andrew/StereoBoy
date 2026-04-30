@@ -6,6 +6,9 @@
 
 #include "pico/stdlib.h"
 #include "hardware/vreg.h"
+#include "lib/radiomag/radiomag_util.h"
+
+#define RADIOMAG true
 
 // SPI1 configuration for codec & sd card
 #define PIN_SCK  30
@@ -51,7 +54,8 @@ float x_brightness = 0.5;
 
 int main()
 {
-    set_visualizer(7);
+    sleep_ms(5000);
+    set_visualizer(MAIN_MENU_VIS);
     // Lower RP2350 core voltage to 1V
     // P = V^2 * f, so 0.1V drop results in quadratic change
     // Before: 1.1 ^ 2 * 150 = 181.5
@@ -100,9 +104,8 @@ int main()
         //Return to main menu with list selection:
         if (exitCode == 0) {
             selected = false; 
-            set_visualizer(6);
+            set_visualizer(MAIN_MENU_VIS);
             bool confirmed = 0;
-            clear_framebuffer();
             printf("\r\nSong %d/%d: ", song_choice+1, count);
             prev_choice = song_choice;
             while (selected == false) {
@@ -113,7 +116,12 @@ int main()
                     if (btn == 'r')      song_choice = (song_choice + 10) % count;
                     if (btn == 'l')      song_choice = (song_choice - 10 + count) % count;
                     if (btn == 'p')      selected = true;
-                    if (btn == 'm')      song_choice = (rand() % count);   
+                    if (btn == 'm')      song_choice = (rand() % count);  
+                    if (btn == 'c') {
+                        radioLoop(&player);
+                        set_visualizer(MAIN_MENU_VIS);
+                    }
+
                 if (prev_choice != song_choice){
                     printf("\r\nSong %d/%d: ", song_choice+1, count);
                     prev_choice = song_choice;
@@ -124,18 +132,18 @@ int main()
         }
         track_info_t *track = &tracks[song_choice];
 
-        printf("\r\n\rNOW PLAYING:\r\n");
-        printf("  Title : %s\r\n", track->title);
-        printf("  Artist: %s\r\n", track->artist);
-        printf("  Album : %s\r\n", track->album);
-        printf("  Bitrate : %d Kbps\r\n", track->bitrate);
-        printf("  Sample rate : %d Hz\r\n", track->samplespeed);
-        printf("  Channels : %s\r\n", track->channels == 1 ? "Mono" : "Stereo");
-        printf("  Header: %X\r\n", track->header);
-        printf("  Start: %X\r\n", track->audio_start);
-        printf("  Start: %X\r\n", track->audio_end);
+        // printf("\r\n\rNOW PLAYING:\r\n");
+        // printf("  Title : %s\r\n", track->title);
+        // printf("  Artist: %s\r\n", track->artist);
+        // printf("  Album : %s\r\n", track->album);
+        // printf("  Bitrate : %d Kbps\r\n", track->bitrate);
+        // printf("  Sample rate : %d Hz\r\n", track->samplespeed);
+        // printf("  Channels : %s\r\n", track->channels == 1 ? "Mono" : "Stereo");
+        // printf("  Header: %X\r\n", track->header);
+        // printf("  Start: %X\r\n", track->audio_start);
+        // printf("  Start: %X\r\n", track->audio_end);
 
-        set_visualizer(1);
+        set_visualizer(OSCOPE_VIS);
         exitCode = jukebox(&player, track, &display);
 
         if (exitCode == 1){

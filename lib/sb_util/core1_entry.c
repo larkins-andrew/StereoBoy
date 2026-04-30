@@ -1,6 +1,8 @@
 #include "lib/sb_util/global_vars.h"
 #include "lib/sb_util/sb_util.h"
 
+
+#define DEBUG
 /* Text Display Stuff */
 mutex_t text_buff_mtx;
 semaphore_t text_sem;
@@ -8,7 +10,7 @@ semaphore_t text_sem;
 
 char text_buff_temp[120];
 struct Node *head = NULL;
-int visualizer = 5;
+int visualizer = MAIN_MENU_VIS;
 
 uint8_t marquee_title_start = 0;
 uint8_t marquee_artist_start = 0;
@@ -74,6 +76,7 @@ void dprint(char *fmt, ...)
     app_node(text_buff_temp);
 #ifdef DEBUG
     printf("dprint: \'%s\' | strlen:%d sem_avail:%d\r\n", text_buff_temp, strlen(text_buff_temp), sem_available(&text_sem));
+    // printf("dprint: '%s'\r\n", text_buff_temp);
 #endif
     return;
 }
@@ -81,13 +84,15 @@ void dprint(char *fmt, ...)
 // This is the main loop for Core 1
 
 int start;
+uint16_t prev_freq;
+char buf[256];
 void core1_entry()
 {
     while (1)
     {
         switch (visualizer)
         {
-        case 0: // Album Art
+        case 0: { // Album Art
             if (album_art_ready)
             {
                 // Draw art once
@@ -117,12 +122,14 @@ void core1_entry()
                 }
             }
             break;
+        }
 
-        case 1: // Oscilloscope
+        case 1: { // Oscilloscope
             update_scope_core1();
             break;
+        }
 
-        case 2: // FFT
+        case 2: { // FFT
             process_audio_batch();
 
             memset(frame_buffer, 0, sizeof(frame_buffer));
@@ -135,20 +142,23 @@ void core1_entry()
             spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
             spi_write16_blocking(spi0, frame_buffer, 240 * 240);
             break;
+        }
 
-        case 3: // Lissajous
+        case 3: { // Lissajous
             process_audio_batch();
             draw_lissajous();
             break;
+        }
 
-        case 4: // Lissajous connected
+        case 4: { // LISSAJOUS_VIS
             process_audio_batch();
             draw_lissajous_connected();
             break;
+        }
 
-        case 5:
+        case 5: { // TEXT_VIS
             if (sem_acquire_timeout_ms(&text_sem, 10)) {
-                printf(" core1: aquired lock\r\n");
+                // printf(" core1: aquired lock\r\n");
 
                 memmove(&frame_buffer, &frame_buffer[SCREEN_WIDTH * (font_height)], sizeof(uint16_t) * (SCREEN_WIDTH) * (SCREEN_HEIGHT - font_height));
                 memset(&frame_buffer[SCREEN_WIDTH * (SCREEN_HEIGHT - font_height)], 0, sizeof(uint16_t) * (SCREEN_WIDTH) * (font_height));
@@ -159,7 +169,7 @@ void core1_entry()
                     mutex_exit(&text_buff_mtx);
                     continue;
                 }
-                printf("core 1: %s | %d\r\n", head->str, strlen(text_buff_temp));
+                // printf("core 1: %s | %d\r\n", head->str, strlen(text_buff_temp));
                 st7789_draw_string(1, SCREEN_HEIGHT - font_height - 5, head->str, WHITE);
                 struct Node *n = head;
                 head = head->next;
@@ -173,16 +183,18 @@ void core1_entry()
                 spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
                 spi_write16_blocking(spi0, frame_buffer, 240 * 240);
                 // sleep_ms(1000);
-                printf(" core 1 finished print\r\n");
+                // printf(" core 1 finished print\r\n");
             }
             break;
+        }
         
-        case 6:
+        case 6: { // MAIN MENU VIS
             clear_framebuffer();
             start =  (song_choice < 6) ? 0 : song_choice - 5;
             track_info_t *track;
             track_info_t *selected_track;
-            char buf[256]; // buffer for string to write to display
+            // char buf[256]; // buffer for string to write to display
+                // Moved to global var
             char marquee_title[32]; // buffer for scrolling title marquee
             char md_artist[128]; // artist metadata of currently selected track
             char md_album[128]; // album metadata of currently selected track
@@ -414,31 +426,31 @@ void core1_entry()
             spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
             spi_write16_blocking(spi0, frame_buffer, 240 * 240);
             break;
+        }
 
-        case 7:
+        case 7: {
             clear_framebuffer();
-            start = count-10>0 ? count-10 : 0;
-            for (int i = 0; i<10; i++){
-                if (start + i >= count){
-                    break;
-                }
-                track_info_t *track = &tracks[start+i];
-                char buf[256];
-                sprintf(buf, "%d", start+i+1); //Index at 1 for users
-                strcat(buf, " ");
-                strcat(buf, track->title);
-                if (start + i == song_choice){
-                    st7789_draw_string(1, 5 + i * font_height, buf, HIGHLIGHT_COLOR_PRIMARY);
-                }
-                else{
-                    st7789_draw_string(1, 5 + i * font_height, buf, WHITE);
-                }
+            sprintf(buf, "Station: %d.%d", current_freq/100, current_freq%100);
+            st7789_draw_string(1, 0, buf, WHITE);
+
+            if (current_antenna == ANTENNA_FMI){
+                sprintf(buf, "Antenna: PCB");
             }
+            else{
+                sprintf(buf, "Antenna: Headphones");
+            }
+            st7789_draw_string(1, font_height, buf, WHITE);
+
+            sprintf(buf, "Volume: %d", fm_vol);
+            st7789_draw_string(1, font_height*2, buf, WHITE);
+            
             st7789_set_cursor(0, 0);
             st7789_ramwr();
             spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
-            spi_write16_blocking(spi0, frame_buffer, 240 * 240);
+            spi_write16_blocking(spi0, frame_buffer, 240 * 240);            
+
             break;
+        }
 
         default:
             visualizer = 0;

@@ -83,8 +83,8 @@ char buttons_map_to_char_jukebox(void) {
 
     if (!select_held) {
         // --- Standard actions (just button) ---
-        if (edge & BTN_A)     return 'p'; // B = pause
-        if (edge & BTN_B)     return 's'; // A = stop
+        if (edge & BTN_A)     return 'p'; // A = pause
+        if (edge & BTN_B)     return 's'; // B = stop
         if (edge & BTN_U)     return 'u'; // Up = Volume Up
         if (edge & BTN_D)     return 'd'; // Down = Volume Down
         if (edge & BTN_R)     return 'n'; // Right = next song
@@ -116,6 +116,8 @@ char buttons_map_menu_navigation(void) {
     if (edge & BTN_R)     return 'r';
     if (edge & BTN_A)     return 'p';
     if (edge & BTN_B)     return 'm';
+    if (edge & BTN_SELECT)return 'c'; // 'c' for cartridge ig
+    if (edge & BTN_START) return 's'; // 's' for start ig
     return 0;
 }
 

@@ -136,6 +136,7 @@ int sb_scan_tracks(track_info_t *tracks, int max_tracks)
             continue;
 
         char *ext = strrchr(fno.fname, '.');
+        printf("scanning: %s\r\n", ext);
         if (ext && !strcasecmp(ext, ".mp3") && count < MAX_TRACKS)
         {
             get_mp3_metadata(fno.fname, &tracks[count]);

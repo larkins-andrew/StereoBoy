@@ -15,11 +15,6 @@
 #define TLV_RESET_PIN 1
 #define DAC_I2C_ADDR 0x18
 
-
-#define DAC_VOL_MIN   0x00
-#define DAC_VOL_MAX   0x60
-#define DAC_VOL_STEP  3      // 1.5 dB step
-
 #define DAC_INT_GPIO 3   // Pico pin connected to TLV320 GPIO1/INT1
 
 #define SCALE_FACTOR_16 32768.0

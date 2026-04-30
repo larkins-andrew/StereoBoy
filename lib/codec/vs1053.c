@@ -192,3 +192,8 @@ void vs1053_tape_stop(vs1053_t *v) {
     sci_write(v, SCI_AUDATA, 0xAC45); 
     vs1053_set_volume(v, 0x00, 0x00); // Unmute
 }
+
+void vs1053_claim_i2s_bus(vs1053_t *v) {
+    vs1053_enable_i2s(v);
+}
+
