@@ -362,7 +362,7 @@ void dac_init() {
     // --- PASTE THIS BLOCK AT THE VERY END OF dac_init() ---
     
     // Give the amp a tiny moment to attempt power-up before checking faults
-    sleep_ms(10); 
+    sleep_ms(5000); 
     
     printf("--- Checking DAC Faults ---\r\n");
     uint8_t tlv_addr = 0x18; 

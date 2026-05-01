@@ -147,6 +147,7 @@ add_executable(StereoBoy_FW
     lib/led_driver/led_driver.c
     lib/buttons/buttons.c
     lib/pot/pot.c
+    lib/adv/adv.c
     # lib/codec/codec.c
     )
 
