@@ -297,6 +297,26 @@ int sb_scan_tracks(track_info_t *tracks, int max_tracks) {
     return count;
 }
 
+/**
+ * @brief Reads a specific track's metadata directly from the .tracklib file by index.
+ * @param index The zero-based index of the song to fetch.
+ * @param out_track Pointer to a track_info_t struct where data will be loaded.
+ * @return true if successful, false if file error or index out of bounds.
+ */
+// Helper function to pull a single track's data dynamically from SD card
+bool get_track_by_index(uint32_t index, track_info_t *out_track) {
+    FIL db_fil;
+    UINT br;
+    if (f_open(&db_fil, "0:/.tracklib", FA_READ) != FR_OK) {
+        return false;
+    }
+    // Calculate byte offset based entirely on the selected index
+    f_lseek(&db_fil, index * sizeof(track_info_t));
+    FRESULT res = f_read(&db_fil, out_track, sizeof(track_info_t), &br);
+    f_close(&db_fil);
+    return (res == FR_OK && br == sizeof(track_info_t));
+}
+
 void sb_hw_init(vs1053_t *player, st7789_t *display)
 {
 

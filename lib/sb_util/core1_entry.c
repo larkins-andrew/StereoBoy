@@ -200,8 +200,10 @@ void core1_entry()
                 if (start + i >= count) {
                     break;
                 }
-                track = &tracks[start+i];
-                selected_track = &tracks[song_choice];
+                get_track_by_index(start + i, track);
+                // track = &tracks[start+i];
+                get_track_by_index(song_choice, selected_track);
+                // selected_track = &tracks[song_choice];
                 sprintf(buf, "%d", start+i+1); //Index at 1 for users
                 strcat(buf, " ");
                 if (start + i == song_choice) {
@@ -412,7 +414,8 @@ void core1_entry()
                 if (start + i >= count){
                     break;
                 }
-                track_info_t *track = &tracks[start+i];
+                // track_info_t *track = tracks[start+i];
+                get_track_by_index(start + i, track);
                 char buf[256];
                 sprintf(buf, "%d", start+i+1); //Index at 1 for users
                 strcat(buf, " ");

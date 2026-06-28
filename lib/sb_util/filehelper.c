@@ -225,13 +225,8 @@ void get_mp3_header(FIL *fil, track_info_t *track)
     track->channels = (channel_bits >> 1) & 1; // 0 = stereo, 1 = mono
 }
 
-/**
- * Extracts metadata (Title, Artist, Album, Album Art) from an MP3 file.
- * This implementation supports ID3v2 tags at the start and ID3v1 at the end.
- */
 void get_mp3_metadata(const char *filename, track_info_t *track)
 {
-    // Initialize track structure with default values to avoid garbage data
     strcpy(track->filename, filename);
     strcpy(track->title, "(unknown)");
     strcpy(track->artist, "(unknown)");
@@ -242,85 +237,82 @@ void get_mp3_metadata(const char *filename, track_info_t *track)
     uint8_t header[10];
     uint8_t frame_header[10];
 
-    // Attempt to open the file using FatFs
     if (f_open(&fil, filename, FA_READ) != FR_OK)
         return;
 
-    // Read the first 10 bytes to check for the ID3v2 header
+    uint32_t file_size = f_size(&fil);
+
     if (f_read(&fil, header, 10, &br) != FR_OK || br != 10)
         goto out;
 
-    // Verify 'ID3' identifier; if not found, it's not a standard ID3v2 file
     if (memcmp(header, "ID3", 3) != 0)
         goto out;
 
-    // Convert the 4-byte syncsafe integer to a standard uint32
-    // Syncsafe integers ignore the 7th bit of every byte (0xxxxxxx)
+    uint8_t id3_version = header[3]; // v2.3 or v2.4
     uint32_t tag_size = syncsafe_to_uint(&header[6]);
     uint32_t bytes_read = 0;
 
-    // Iterate through frames until we've parsed the entire ID3 header block
+    // Sanity check tag size against total file size
+    if (tag_size > file_size) {
+        tag_size = file_size - 10;
+    }
+
     while (bytes_read < tag_size)
     {
-        // Read the 10-byte frame header (ID, Size, Flags)
         if (f_read(&fil, frame_header, 10, &br) != FR_OK || br != 10)
             break;
 
         bytes_read += 10;
         
-        // ID3 padding: if the first byte of a frame ID is 0, we've hit the end of the tags
         if (frame_header[0] == 0)
             break;
 
-        // Extract the 4-character Frame ID (e.g., "TIT2", "APIC")
         char id[5];
         memcpy(id, frame_header, 4);
         id[4] = 0;
 
-        // Calculate frame size (Note: ID3v2.3 uses normal bytes, v2.4 uses syncsafe here)
-        uint32_t size =
-            (frame_header[4] << 24) |
-            (frame_header[5] << 16) |
-            (frame_header[6] << 8) |
-            frame_header[7];
+        uint32_t size;
+        if (id3_version == 4) {
+            // ID3v2.4 frames use syncsafe integers for frame sizes!
+            size = syncsafe_to_uint(&frame_header[4]);
+        } else {
+            // ID3v2.3 uses regular big-endian integers
+            size = (frame_header[4] << 24) |
+                   (frame_header[5] << 16) |
+                   (frame_header[6] << 8)  |
+                   frame_header[7];
+        }
 
-        // Route specific frames to their respective handlers
-        if (!strcmp(id, "TIT2")) // Title
+        // Essential Sanity Check: If frame size is impossible, abort immediately!
+        if (size == 0 || (f_tell(&fil) + size) > file_size) {
+            printf("[Metadata Warning] Corrupt frame size %lu in %s\n", size, id);
+            break; 
+        }
+
+        if (!strcmp(id, "TIT2")) 
         {
             read_text_frame(&fil, size, track->title, sizeof(track->title));
         }
-        else if (!strcmp(id, "TPE1")) // Artist
+        else if (!strcmp(id, "TPE1")) 
         {
             read_text_frame(&fil, size, track->artist, sizeof(track->artist));
         }
-        else if (!strcmp(id, "TALB")) // Album
+        else if (!strcmp(id, "TALB")) 
         {
             read_text_frame(&fil, size, track->album, sizeof(track->album));
         }
-        else if (!strcmp(id, "APIC")) // Attached Picture
+        else 
         {
-            // Note the position exactly after the frame header
-            FSIZE_t frame_start_pos = f_tell(&fil);
-
-            // 7. Seek to the absolute end of the frame to keep the loop aligned
-            f_lseek(&fil, frame_start_pos + size);
-        }
-        else
-        {
-            // Skip unknown/unsupported frames
+            // Safely skip unknown frames or APIC images without out-of-bounds skipping
             f_lseek(&fil, f_tell(&fil) + size);
         }
 
         bytes_read += size;
     }
 
-    // Attempt to extract bitrate/duration from the MPEG header
     get_mp3_header(&fil, track);
-    
-    uint32_t file_size = f_size(&fil);
     track->audio_end = file_size;
 
-    // ID3v1 Check: Look for the 128-byte "TAG" block at the very end of the file
     if (file_size > 128)
     {
         uint8_t tag_buf[3];
@@ -329,14 +321,13 @@ void get_mp3_metadata(const char *filename, track_info_t *track)
         {
             if (memcmp(tag_buf, "TAG", 3) == 0)
             {
-                // If ID3v1 exists, the actual audio data ends 128 bytes before EOF
                 track->audio_end = file_size - 128;
             }
         }
     }
 
 out:
-    f_close(&fil); // Ensure file is closed even if an error occurs (via goto)
+    f_close(&fil); 
 }
 
 // Only fetch title, artist, album

@@ -26,6 +26,7 @@ int compare_folders(const void *a, const void *b);
 
 /* ======== Init ==============*/
 void sb_hw_init(vs1053_t *player, st7789_t *display);
+bool get_track_by_index(uint32_t index, track_info_t *out_track);
 
 /* ========= Audio ========= */
 void sb_audio_init(vs1053_t *player);

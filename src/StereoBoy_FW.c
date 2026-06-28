@@ -102,24 +102,19 @@ int main() {
     
     printf("--- Found %d MP3 Files ---\n", count);
 
+    // --- Stream metadata for printing without loading an entire array ---
     FIL db_fil;
     UINT br;
+    track_info_t temp_track; // Single local scratchpad
 
     if (f_open(&db_fil, "0:/.tracklib", FA_READ) == FR_OK)
     {
-        for (int i = 0; i < count && i < MAX_TRACKS; i++) 
+        for (int i = 0; i < count; i++) 
         {
-            // CHANGE THIS: Read directly into your global menu array!
-            if (f_read(&db_fil, &tracks[i], sizeof(track_info_t), &br) != FR_OK || br != sizeof(track_info_t))
-            {
-                printf("[%02d] Error reading track data from cache.\n", i);
-                break; 
-            }
-
-            // Print using the tracks array element
-            printf("[%02d] Title:  %s\n", i, tracks[i].title);
-            printf("     Artist:   %s\n", tracks[i].artist);
-            printf("     Album:   %s\n", tracks[i].album);
+            get_track_by_index(i, &temp_track);
+            printf("[%02d] Title:  %s\n", i, temp_track.title);
+            printf("     Artist: %s\n", temp_track.artist);
+            printf("     Album:  %s\n", temp_track.album);
             printf("----------------------------------------\n");
         }
         f_close(&db_fil);
@@ -172,22 +167,40 @@ int main() {
             }
         }
 
-        track_info_t *track = &tracks[song_choice];
+        // 1. Allocate actual memory container for the struct on the stack
+        track_info_t current_track;
+
+        // 2. Pass its memory address using the '&' operato`r
+        if (!get_track_by_index(song_choice, &current_track)) {
+            printf("[Cache Error] Could not read index %d from .tracklib!\n", song_choice);
+            exitCode = 1; // Skip playback execution if file lookup fails
+            continue;
+        }
+
+        // 3. (Optional but Recommended) Extract fresh stream metrics on the fly 
+        FIL temp_fil;
+        if (f_open(&temp_fil, current_track.filename, FA_READ) == FR_OK) {
+            get_mp3_header(&temp_fil, &current_track);
+            get_mp3_metadata(current_track.filename, &current_track);
+            current_track.audio_end = f_size(&temp_fil);
+            f_close(&temp_fil);
+        }
 
         printf("\r\n\rNOW PLAYING:\r\n");
-        printf("  Title : %s\r\n", track->title);
-        printf("  Artist: %s\r\n", track->artist);
-        printf("  Album : %s\r\n", track->album);
-        printf("  Bitrate : %d Kbps\r\n", track->bitrate);
-        printf("  Sample rate : %d Hz\r\n", track->samplespeed);
-        printf("  Channels : %s\r\n", track->channels == 1 ? "Mono" : "Stereo");
-        printf("  Header: %X\r\n", track->header);
-        printf("  Start: %X\r\n", track->audio_start);
-        printf("  Start: %X\r\n", track->audio_end);
+        printf("  Title : %s\r\n", current_track.title);
+        printf("  Artist: %s\r\n", current_track.artist);
+        printf("  Album : %s\r\n", current_track.album);
+        printf("  Bitrate : %d Kbps\r\n", current_track.bitrate);
+        printf("  Sample rate : %d Hz\r\n", current_track.samplespeed);
+        printf("  Channels : %s\r\n", current_track.channels == 1 ? "Mono" : "Stereo");
+        printf("  Header: %X\r\n", current_track.header);
+        printf("  Start: %X\r\n", current_track.audio_start);
+        printf("  End: %X\r\n", current_track.audio_end);
 
         set_visualizer(temp_visualizer);
-        // get_mp3_metadata(track->filename, track); // fetch rest of the metadata before playing file
-        exitCode = jukebox(&player, track, &display);
+        
+        // 4. Pass the address of your clean, populated local structure to jukebox
+        exitCode = jukebox(&player, &current_track, &display);
 
         // play next song
         if (exitCode == 1){
